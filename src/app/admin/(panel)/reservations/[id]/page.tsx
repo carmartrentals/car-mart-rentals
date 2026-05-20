@@ -10,12 +10,13 @@ import { Card, CardHeader, CardTitle, CardBody } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { ReservationStatusActions } from "@/components/admin/reservation-status-actions";
+import { PaymentManager } from "@/components/admin/payment-manager";
 import {
   RESERVATION_STATUS, PAYMENT_STATUS, RESERVATION_SOURCES,
 } from "@/lib/constants";
 import { formatCurrency, formatDateTime, titleCase } from "@/lib/utils";
 import type {
-  ReservationWithRelations, ReservationCharge, Payment,
+  ReservationWithRelations, ReservationCharge, Payment, Deposit,
 } from "@/lib/types/database";
 
 export default async function ReservationDetailPage({
@@ -28,10 +29,11 @@ export default async function ReservationDetailPage({
   let reservation: ReservationWithRelations | null = null;
   let charges: ReservationCharge[] = [];
   let payments: Payment[] = [];
+  let deposit: Deposit | null = null;
 
   try {
     const admin = createAdminClient();
-    const [r, ch, pay] = await Promise.all([
+    const [r, ch, pay, dep] = await Promise.all([
       admin
         .from("reservations")
         .select("*, customer:customers(*), vehicle:vehicles(*)")
@@ -47,10 +49,18 @@ export default async function ReservationDetailPage({
         .select("*")
         .eq("reservation_id", id)
         .order("created_at", { ascending: false }),
+      admin
+        .from("deposits")
+        .select("*")
+        .eq("reservation_id", id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
     ]);
     reservation = r.data as ReservationWithRelations | null;
     charges = (ch.data as ReservationCharge[]) ?? [];
     payments = (pay.data as Payment[]) ?? [];
+    deposit = (dep.data as Deposit | null) ?? null;
   } catch {
     notFound();
   }
@@ -198,52 +208,14 @@ export default async function ReservationDetailPage({
             )}
           </Card>
 
-          {/* PAYMENTS */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Payments</CardTitle>
-              <Link
-                href={`/admin/payments?reservation=${r.id}`}
-                className="text-xs font-medium text-gold-700"
-              >
-                Manage payments
-              </Link>
-            </CardHeader>
-            {payments.length === 0 ? (
-              <CardBody>
-                <p className="text-sm text-slate-400">No payments recorded yet.</p>
-              </CardBody>
-            ) : (
-              <Table>
-                <THead>
-                  <TR>
-                    <TH>Date</TH>
-                    <TH>Type</TH>
-                    <TH>Method</TH>
-                    <TH>Status</TH>
-                    <TH className="text-right">Amount</TH>
-                  </TR>
-                </THead>
-                <TBody>
-                  {payments.map((p) => (
-                    <TR key={p.id}>
-                      <TD className="text-slate-500">{formatDateTime(p.created_at)}</TD>
-                      <TD>{titleCase(p.payment_type)}</TD>
-                      <TD className="text-slate-500">{titleCase(p.method)}</TD>
-                      <TD>
-                        <Badge tone={p.status === "succeeded" ? "green" : "amber"}>
-                          {titleCase(p.status)}
-                        </Badge>
-                      </TD>
-                      <TD className="text-right font-medium">
-                        {formatCurrency(p.amount)}
-                      </TD>
-                    </TR>
-                  ))}
-                </TBody>
-              </Table>
-            )}
-          </Card>
+          {/* PAYMENTS & DEPOSIT */}
+          <PaymentManager
+            reservationId={r.id}
+            balanceDue={r.balance_due}
+            depositAmount={r.deposit_amount}
+            payments={payments}
+            deposit={deposit}
+          />
 
           {(r.notes || r.internal_notes) && (
             <Card>
@@ -300,20 +272,24 @@ export default async function ReservationDetailPage({
           </Card>
 
           <Card className="mt-6">
-            <CardHeader><CardTitle>Documents</CardTitle></CardHeader>
+            <CardHeader><CardTitle>Documents (PDF)</CardTitle></CardHeader>
             <CardBody className="space-y-2">
-              <Link
-                href={`/admin/reservations/${r.id}/agreement`}
+              <a
+                href={`/api/admin/documents/agreement/${r.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-700 hover:border-gold-400"
               >
                 <FileText className="h-4 w-4 text-gold-600" /> Rental Agreement
-              </Link>
-              <Link
-                href={`/admin/invoices?reservation=${r.id}`}
+              </a>
+              <a
+                href={`/api/admin/documents/invoice/${r.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-700 hover:border-gold-400"
               >
-                <CreditCard className="h-4 w-4 text-gold-600" /> Invoices
-              </Link>
+                <CreditCard className="h-4 w-4 text-gold-600" /> Invoice
+              </a>
             </CardBody>
           </Card>
         </div>
