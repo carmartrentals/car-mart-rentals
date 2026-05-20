@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   DollarSign, AlertCircle, ClipboardList, CheckCircle2, Download,
+  TrendingUp, TrendingDown,
 } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/admin/page-header";
@@ -11,7 +12,7 @@ import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/misc";
 import { RESERVATION_SOURCES } from "@/lib/constants";
-import { formatCurrency, formatDate, cn } from "@/lib/utils";
+import { formatCurrency, cn } from "@/lib/utils";
 
 type Period = "month" | "quarter" | "year" | "all";
 
@@ -34,6 +35,12 @@ function periodStart(period: Period): Date {
   return new Date(now.getFullYear(), now.getMonth(), 1);
 }
 
+interface VehicleRef {
+  id: string;
+  year: number;
+  make: string;
+  model: string;
+}
 interface ResRow {
   reservation_number: string;
   status: string;
@@ -41,8 +48,18 @@ interface ResRow {
   total: number;
   balance_due: number;
   amount_paid: number;
-  vehicle: { year: number; make: string; model: string } | null;
+  vehicle: VehicleRef | null;
   customer: { first_name: string; last_name: string } | null;
+}
+
+/** Per-vehicle profit & loss line. */
+interface VehiclePnL {
+  id: string;
+  name: string;
+  revenue: number;
+  rentals: number;
+  maintenance: number;
+  expenses: number;
 }
 
 type SearchParams = Promise<Record<string, string | undefined>>;
@@ -54,20 +71,35 @@ export default async function ReportsPage({
 }) {
   const sp = await searchParams;
   const period = (PERIODS.find((p) => p.key === sp.period)?.key ?? "month") as Period;
-  const startIso = periodStart(period).toISOString();
+  const start = periodStart(period);
+  const startIso = start.toISOString();
+  const startDate = startIso.slice(0, 10); // YYYY-MM-DD for date columns
 
   let reservations: ResRow[] = [];
   let collected = 0;
-  let maintenanceByVehicle: { name: string; cost: number }[] = [];
   let configError = false;
+
+  // Per-vehicle profit & loss, keyed by vehicle id ("—" for unassigned).
+  const pnl = new Map<string, VehiclePnL>();
+  function row(id: string | null, name: string): VehiclePnL {
+    const key = id ?? "—";
+    let r = pnl.get(key);
+    if (!r) {
+      r = { id: key, name, revenue: 0, rentals: 0, maintenance: 0, expenses: 0 };
+      pnl.set(key, r);
+    }
+    return r;
+  }
+  const vName = (v: VehicleRef | null) =>
+    v ? `${v.year} ${v.make} ${v.model}` : "Unassigned";
 
   try {
     const admin = createAdminClient();
-    const [resRes, payRes, mntRes] = await Promise.all([
+    const [resRes, payRes, mntRes, expRes] = await Promise.all([
       admin
         .from("reservations")
         .select(
-          "reservation_number,status,source,total,balance_due,amount_paid,vehicle:vehicles(year,make,model),customer:customers(first_name,last_name)",
+          "reservation_number,status,source,total,balance_due,amount_paid,vehicle:vehicles(id,year,make,model),customer:customers(first_name,last_name)",
         )
         .gte("pickup_at", startIso)
         .limit(1000),
@@ -77,8 +109,12 @@ export default async function ReportsPage({
         .gte("created_at", startIso),
       admin
         .from("maintenance_records")
-        .select("cost,vehicle:vehicles(year,make,model)")
+        .select("cost,vehicle:vehicles(id,year,make,model)")
         .gte("created_at", startIso),
+      admin
+        .from("expenses")
+        .select("amount,vehicle:vehicles(id,year,make,model)")
+        .gte("expense_date", startDate),
     ]);
 
     reservations = (resRes.data as unknown as ResRow[]) ?? [];
@@ -89,19 +125,29 @@ export default async function ReportsPage({
       else if (p.payment_type === "refund") collected -= Number(p.amount);
     }
 
-    const mMap = new Map<string, number>();
+    // Revenue side of the P&L.
+    for (const r of reservations) {
+      if (r.status === "cancelled") continue;
+      const v = row(r.vehicle?.id ?? null, vName(r.vehicle));
+      v.revenue += Number(r.total);
+      v.rentals += 1;
+    }
+
+    // Maintenance costs.
     for (const m of (mntRes.data ?? []) as unknown as {
       cost: number;
-      vehicle: { year: number; make: string; model: string } | null;
+      vehicle: VehicleRef | null;
     }[]) {
-      const name = m.vehicle
-        ? `${m.vehicle.year} ${m.vehicle.make} ${m.vehicle.model}`
-        : "Unassigned";
-      mMap.set(name, (mMap.get(name) ?? 0) + Number(m.cost));
+      row(m.vehicle?.id ?? null, vName(m.vehicle)).maintenance += Number(m.cost);
     }
-    maintenanceByVehicle = [...mMap.entries()]
-      .map(([name, cost]) => ({ name, cost }))
-      .sort((a, b) => b.cost - a.cost);
+
+    // Operating expenses.
+    for (const e of (expRes.data ?? []) as unknown as {
+      amount: number;
+      vehicle: VehicleRef | null;
+    }[]) {
+      row(e.vehicle?.id ?? null, vName(e.vehicle)).expenses += Number(e.amount);
+    }
   } catch {
     configError = true;
   }
@@ -112,18 +158,22 @@ export default async function ReportsPage({
   const outstanding = activeRes.reduce((s, r) => s + Number(r.balance_due), 0);
   const completed = reservations.filter((r) => r.status === "completed").length;
 
-  const revByVehicleMap = new Map<string, { revenue: number; count: number }>();
-  for (const r of activeRes) {
-    const name = r.vehicle
-      ? `${r.vehicle.make} ${r.vehicle.model}`
-      : "Unassigned";
-    const cur = revByVehicleMap.get(name) ?? { revenue: 0, count: 0 };
-    cur.revenue += Number(r.total);
-    cur.count += 1;
-    revByVehicleMap.set(name, cur);
-  }
-  const revByVehicle = [...revByVehicleMap.entries()]
-    .map(([name, v]) => ({ name, ...v }))
+  // Profit & loss.
+  const pnlRows = [...pnl.values()].sort(
+    (a, b) =>
+      b.revenue - b.maintenance - b.expenses -
+      (a.revenue - a.maintenance - a.expenses),
+  );
+  const totalMaintenance = pnlRows.reduce((s, v) => s + v.maintenance, 0);
+  const totalExpenses = pnlRows.reduce((s, v) => s + v.expenses, 0);
+  const totalCosts = totalMaintenance + totalExpenses;
+  const netProfit = bookedRevenue - totalCosts;
+  const margin =
+    bookedRevenue > 0 ? Math.round((netProfit / bookedRevenue) * 100) : 0;
+
+  const revByVehicle = pnlRows
+    .filter((v) => v.revenue > 0)
+    .map((v) => ({ name: v.name, revenue: v.revenue, count: v.rentals }))
     .sort((a, b) => b.revenue - a.revenue);
 
   const bySourceMap = new Map<string, number>();
@@ -141,7 +191,7 @@ export default async function ReportsPage({
     <>
       <PageHeader
         title="Reports"
-        subtitle="Revenue, utilization and financial analytics."
+        subtitle="Revenue, profit, utilization and financial analytics."
         actions={
           <a href={`/api/admin/reports/export?period=${period}`}>
             <Button variant="outline">
@@ -208,6 +258,95 @@ export default async function ReportsPage({
           hint={`${reservations.length} reservations total`}
         />
       </div>
+
+      {/* Profitability */}
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+        Profitability
+      </h2>
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          label="Booked Revenue"
+          value={formatCurrency(bookedRevenue)}
+          icon={DollarSign}
+          tone="blue"
+        />
+        <StatCard
+          label="Maintenance Cost"
+          value={formatCurrency(totalMaintenance)}
+          icon={TrendingDown}
+          tone="amber"
+        />
+        <StatCard
+          label="Operating Expenses"
+          value={formatCurrency(totalExpenses)}
+          icon={TrendingDown}
+          tone="amber"
+        />
+        <StatCard
+          label="Net Profit"
+          value={formatCurrency(netProfit)}
+          icon={netProfit >= 0 ? TrendingUp : TrendingDown}
+          tone={netProfit >= 0 ? "green" : "red"}
+          hint={`${margin}% profit margin`}
+        />
+      </div>
+
+      {/* Profit by vehicle */}
+      <Card className="mb-6">
+        <CardHeader><CardTitle>Profit by Vehicle</CardTitle></CardHeader>
+        {pnlRows.length === 0 ? (
+          <CardBody>
+            <p className="text-sm text-slate-400">No data in this period.</p>
+          </CardBody>
+        ) : (
+          <Table>
+            <THead>
+              <TR>
+                <TH>Vehicle</TH>
+                <TH className="text-right">Rentals</TH>
+                <TH className="text-right">Revenue</TH>
+                <TH className="text-right">Maintenance</TH>
+                <TH className="text-right">Expenses</TH>
+                <TH className="text-right">Net Profit</TH>
+                <TH className="text-right">Margin</TH>
+              </TR>
+            </THead>
+            <TBody>
+              {pnlRows.map((v) => {
+                const profit = v.revenue - v.maintenance - v.expenses;
+                const m =
+                  v.revenue > 0
+                    ? Math.round((profit / v.revenue) * 100)
+                    : null;
+                return (
+                  <TR key={v.id}>
+                    <TD className="font-medium text-slate-800">{v.name}</TD>
+                    <TD className="text-right text-slate-500">{v.rentals}</TD>
+                    <TD className="text-right">{formatCurrency(v.revenue)}</TD>
+                    <TD className="text-right text-slate-500">
+                      {formatCurrency(v.maintenance)}
+                    </TD>
+                    <TD className="text-right text-slate-500">
+                      {formatCurrency(v.expenses)}
+                    </TD>
+                    <TD
+                      className={cn(
+                        "text-right font-semibold",
+                        profit >= 0 ? "text-emerald-600" : "text-rose-600",
+                      )}
+                    >
+                      {formatCurrency(profit)}
+                    </TD>
+                    <TD className="text-right text-slate-500">
+                      {m === null ? "—" : `${m}%`}
+                    </TD>
+                  </TR>
+                );
+              })}
+            </TBody>
+          </Table>
+        )}
+      </Card>
 
       {/* Revenue by vehicle */}
       <Card className="mb-6">
@@ -292,7 +431,7 @@ export default async function ReportsPage({
           <CardHeader><CardTitle>Top Outstanding Balances</CardTitle></CardHeader>
           {topOutstanding.length === 0 ? (
             <CardBody>
-              <p className="text-sm text-slate-400">No outstanding balances. 🎉</p>
+              <p className="text-sm text-slate-400">No outstanding balances.</p>
             </CardBody>
           ) : (
             <Table>
@@ -327,7 +466,7 @@ export default async function ReportsPage({
         {/* Maintenance cost by vehicle */}
         <Card>
           <CardHeader><CardTitle>Maintenance Cost by Vehicle</CardTitle></CardHeader>
-          {maintenanceByVehicle.length === 0 ? (
+          {pnlRows.filter((v) => v.maintenance > 0).length === 0 ? (
             <CardBody>
               <p className="text-sm text-slate-400">No maintenance costs in this period.</p>
             </CardBody>
@@ -340,14 +479,17 @@ export default async function ReportsPage({
                 </TR>
               </THead>
               <TBody>
-                {maintenanceByVehicle.map((m) => (
-                  <TR key={m.name}>
-                    <TD className="font-medium text-slate-800">{m.name}</TD>
-                    <TD className="text-right font-medium">
-                      {formatCurrency(m.cost)}
-                    </TD>
-                  </TR>
-                ))}
+                {pnlRows
+                  .filter((v) => v.maintenance > 0)
+                  .sort((a, b) => b.maintenance - a.maintenance)
+                  .map((v) => (
+                    <TR key={v.id}>
+                      <TD className="font-medium text-slate-800">{v.name}</TD>
+                      <TD className="text-right font-medium">
+                        {formatCurrency(v.maintenance)}
+                      </TD>
+                    </TR>
+                  ))}
               </TBody>
             </Table>
           )}

@@ -529,3 +529,51 @@ export interface PromoCode {
   created_at: string;
   updated_at: string;
 }
+
+// --- Operations expansion (migration 0008) ----------------------------------
+export type BlockType =
+  | "maintenance" | "personal" | "turo" | "hold" | "reserved_offline" | "other";
+export type ClaimStatus =
+  | "open" | "authorized" | "in_progress" | "billed" | "paid" | "closed" | "denied";
+
+export interface VehicleBlock {
+  id: string;
+  vehicle_id: string;
+  start_at: string;
+  end_at: string;
+  block_type: BlockType;
+  reason: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface Review {
+  id: string;
+  customer_id: string | null;
+  reservation_id: string | null;
+  vehicle_id: string | null;
+  reviewer_name: string;
+  rating: number;
+  title: string | null;
+  comment: string | null;
+  is_published: boolean;
+  created_at: string;
+}
+
+export interface InsuranceClaim {
+  id: string;
+  claim_number: string;
+  customer_id: string | null;
+  reservation_id: string | null;
+  insurance_company: string | null;
+  adjuster_name: string | null;
+  adjuster_email: string | null;
+  adjuster_phone: string | null;
+  status: ClaimStatus;
+  authorized_amount: number;
+  deductible: number;
+  claim_date: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}

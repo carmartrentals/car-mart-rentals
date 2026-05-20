@@ -14,18 +14,30 @@ const STATUS_BG: Record<string, string> = {
   cancelled: "bg-slate-300",
 };
 
+export interface TimelineBlock {
+  id: string;
+  vehicle_id: string;
+  start_at: string;
+  end_at: string;
+  block_type: string;
+  reason: string | null;
+}
+
 /**
  * Fleet timeline (Gantt-style). Each row is a vehicle; reservations are
- * placed across day columns via CSS grid column spans.
+ * placed across day columns via CSS grid column spans. Manual vehicle
+ * blocks are drawn as striped grey bars.
  */
 export function CalendarTimeline({
   vehicles,
   reservations,
+  blocks = [],
   year,
   month,
 }: {
   vehicles: Vehicle[];
   reservations: ReservationWithRelations[];
+  blocks?: TimelineBlock[];
   year: number;
   month: number; // 0-indexed
 }) {
@@ -45,9 +57,16 @@ export function CalendarTimeline({
     byVehicle.set(r.vehicle_id, list);
   }
 
-  function span(r: ReservationWithRelations) {
-    const s = new Date(r.pickup_at);
-    const e = new Date(r.return_at);
+  const blocksByVehicle = new Map<string, TimelineBlock[]>();
+  for (const b of blocks) {
+    const list = blocksByVehicle.get(b.vehicle_id) ?? [];
+    list.push(b);
+    blocksByVehicle.set(b.vehicle_id, list);
+  }
+
+  function span(startAt: string, endAt: string) {
+    const s = new Date(startAt);
+    const e = new Date(endAt);
     const startDay = s < monthStart ? 1 : s.getDate();
     const endDay = e > monthEnd ? daysInMonth : e.getDate();
     return { startDay, endDay: Math.max(startDay, endDay) };
@@ -93,6 +112,7 @@ export function CalendarTimeline({
         ) : (
           vehicles.map((v) => {
             const items = byVehicle.get(v.id) ?? [];
+            const vBlocks = blocksByVehicle.get(v.id) ?? [];
             return (
               <div
                 key={v.id}
@@ -129,9 +149,28 @@ export function CalendarTimeline({
                       />
                     );
                   })}
+                  {/* vehicle blocks (drawn under reservations) */}
+                  {vBlocks.map((b) => {
+                    const { startDay, endDay } = span(b.start_at, b.end_at);
+                    return (
+                      <div
+                        key={b.id}
+                        title={`Blocked · ${b.block_type.replace(/_/g, " ")}${
+                          b.reason ? ` · ${b.reason}` : ""
+                        }`}
+                        className="z-0 my-2 flex items-center overflow-hidden rounded border border-slate-300 bg-slate-200 bg-[repeating-linear-gradient(45deg,transparent,transparent_4px,rgba(100,116,139,0.18)_4px,rgba(100,116,139,0.18)_8px)] px-2 text-[11px] font-medium text-slate-600"
+                        style={{
+                          gridColumn: `${startDay} / ${endDay + 1}`,
+                          gridRow: 1,
+                        }}
+                      >
+                        <span className="truncate">Blocked</span>
+                      </div>
+                    );
+                  })}
                   {/* reservation bars */}
                   {items.map((r) => {
-                    const { startDay, endDay } = span(r);
+                    const { startDay, endDay } = span(r.pickup_at, r.return_at);
                     return (
                       <Link
                         key={r.id}

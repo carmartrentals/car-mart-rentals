@@ -6,7 +6,7 @@ import {
   LayoutDashboard, CalendarDays, ClipboardList, Car, Wrench,
   AlertTriangle, Users, FileText, CreditCard, BarChart3, Settings,
   ClipboardCheck, Wallet, Tag, UserPlus, Siren, Satellite,
-  MapPin, Mail, UserCog, Globe, X,
+  MapPin, Mail, UserCog, Globe, Star, ShieldAlert, History, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BrandLogo } from "@/components/brand-logo";
@@ -35,6 +35,7 @@ const NAV: { section: string; items: NavItem[] }[] = [
       { href: "/admin/damages", label: "Damages", icon: AlertTriangle },
       { href: "/admin/violations", label: "Tolls & Violations", icon: Siren },
       { href: "/admin/tracking", label: "Tracking", icon: Satellite },
+      { href: "/admin/claims", label: "Insurance Claims", icon: ShieldAlert },
     ],
   },
   {
@@ -42,6 +43,7 @@ const NAV: { section: string; items: NavItem[] }[] = [
     items: [
       { href: "/admin/customers", label: "Customers", icon: Users },
       { href: "/admin/leads", label: "Leads", icon: UserPlus },
+      { href: "/admin/reviews", label: "Reviews", icon: Star },
     ],
   },
   {
@@ -61,6 +63,7 @@ const NAV: { section: string; items: NavItem[] }[] = [
       { href: "/admin/email-templates", label: "Email Templates", icon: Mail },
       { href: "/admin/website", label: "Website Content", icon: Globe },
       { href: "/admin/users", label: "Staff Users", icon: UserCog },
+      { href: "/admin/audit", label: "Audit Log", icon: History },
       { href: "/admin/settings", label: "Settings", icon: Settings },
     ],
   },

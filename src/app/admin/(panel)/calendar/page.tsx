@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/admin/page-header";
 import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/misc";
 import { CalendarTimeline } from "@/components/admin/calendar-timeline";
+import { BlockManager, type BlockRow } from "@/components/admin/block-manager";
 import { RESERVATION_STATUS } from "@/lib/constants";
 import { cn, rangesOverlap } from "@/lib/utils";
 import type { Vehicle, ReservationWithRelations } from "@/lib/types/database";
@@ -39,11 +40,13 @@ export default async function CalendarPage({
 
   let vehicles: Vehicle[] = [];
   let reservations: ReservationWithRelations[] = [];
+  let monthBlocks: BlockRow[] = [];
+  let upcomingBlocks: BlockRow[] = [];
   let configError = false;
 
   try {
     const admin = createAdminClient();
-    const [v, r] = await Promise.all([
+    const [v, r, mb, ub] = await Promise.all([
       admin
         .from("vehicles")
         .select("*")
@@ -55,12 +58,30 @@ export default async function CalendarPage({
         .neq("status", "cancelled")
         .lte("pickup_at", monthEnd.toISOString())
         .gte("return_at", monthStart.toISOString()),
+      admin
+        .from("vehicle_blocks")
+        .select("*, vehicle:vehicles(year,make,model)")
+        .lte("start_at", monthEnd.toISOString())
+        .gte("end_at", monthStart.toISOString()),
+      admin
+        .from("vehicle_blocks")
+        .select("*, vehicle:vehicles(year,make,model)")
+        .gte("end_at", new Date().toISOString())
+        .order("start_at")
+        .limit(100),
     ]);
     vehicles = (v.data as Vehicle[]) ?? [];
     reservations = (r.data as ReservationWithRelations[]) ?? [];
+    monthBlocks = (mb.data as unknown as BlockRow[]) ?? [];
+    upcomingBlocks = (ub.data as unknown as BlockRow[]) ?? [];
   } catch {
     configError = true;
   }
+
+  const vehicleOptions = vehicles.map((v) => ({
+    id: v.id,
+    label: `${v.year} ${v.make} ${v.model}`,
+  }));
 
   return (
     <>
@@ -68,27 +89,30 @@ export default async function CalendarPage({
         title="Availability Calendar"
         subtitle="Fleet schedule, pickups, returns and bookings."
         actions={
-          <div className="flex rounded-lg border border-slate-200 bg-white p-0.5">
-            <Link
-              href={`/admin/calendar?month=${fmtMonth(monthStart)}&view=timeline`}
-              className={cn(
-                "rounded-md px-3 py-1.5 text-sm font-medium",
-                view === "timeline"
-                  ? "bg-brand-950 text-white"
-                  : "text-slate-600",
-              )}
-            >
-              Timeline
-            </Link>
-            <Link
-              href={`/admin/calendar?month=${fmtMonth(monthStart)}&view=month`}
-              className={cn(
-                "rounded-md px-3 py-1.5 text-sm font-medium",
-                view === "month" ? "bg-brand-950 text-white" : "text-slate-600",
-              )}
-            >
-              Month
-            </Link>
+          <div className="flex items-center gap-2">
+            <BlockManager vehicles={vehicleOptions} blocks={upcomingBlocks} />
+            <div className="flex rounded-lg border border-slate-200 bg-white p-0.5">
+              <Link
+                href={`/admin/calendar?month=${fmtMonth(monthStart)}&view=timeline`}
+                className={cn(
+                  "rounded-md px-3 py-1.5 text-sm font-medium",
+                  view === "timeline"
+                    ? "bg-brand-950 text-white"
+                    : "text-slate-600",
+                )}
+              >
+                Timeline
+              </Link>
+              <Link
+                href={`/admin/calendar?month=${fmtMonth(monthStart)}&view=month`}
+                className={cn(
+                  "rounded-md px-3 py-1.5 text-sm font-medium",
+                  view === "month" ? "bg-brand-950 text-white" : "text-slate-600",
+                )}
+              >
+                Month
+              </Link>
+            </div>
           </div>
         }
       />
@@ -146,6 +170,10 @@ export default async function CalendarPage({
               </span>
             ),
           )}
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full border border-slate-300 bg-slate-200" />
+            Blocked
+          </span>
         </div>
       </div>
 
@@ -153,6 +181,7 @@ export default async function CalendarPage({
         <CalendarTimeline
           vehicles={vehicles}
           reservations={reservations}
+          blocks={monthBlocks}
           year={year}
           month={month}
         />
