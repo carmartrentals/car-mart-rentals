@@ -13,10 +13,13 @@ import {
 import { getFeaturedVehicles } from "@/lib/data/vehicles";
 import { VehicleCard } from "@/components/site/vehicle-card";
 import { BookingSearch } from "@/components/site/booking-search";
-import { COMPANY } from "@/lib/constants";
+import { getCompanyProfile } from "@/lib/data/settings";
 
 export default async function HomePage() {
-  const featured = await getFeaturedVehicles(6);
+  const [featured, company] = await Promise.all([
+    getFeaturedVehicles(6),
+    getCompanyProfile(),
+  ]);
 
   return (
     <>
@@ -32,7 +35,7 @@ export default async function HomePage() {
         <div className="hero-overlay absolute inset-0" />
         <div className="container-px relative flex min-h-[640px] flex-col justify-center py-20">
           <p className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.25em] text-gold-400">
-            <Sparkles className="h-4 w-4" /> {COMPANY.tagline}
+            <Sparkles className="h-4 w-4" /> {company.tagline}
           </p>
           <h1 className="heading-display max-w-3xl text-4xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl">
             Drive Something <span className="text-chrome">Extraordinary</span>
@@ -51,7 +54,7 @@ export default async function HomePage() {
               Reserve Now <ArrowRight className="h-4 w-4" />
             </Link>
             <a
-              href={COMPANY.phoneHref}
+              href={company.phoneHref}
               className="inline-flex items-center gap-2 rounded-lg border border-white/30 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10"
             >
               <Phone className="h-4 w-4" /> Call Now
@@ -238,10 +241,10 @@ export default async function HomePage() {
               Reserve Now <ArrowRight className="h-4 w-4" />
             </Link>
             <a
-              href={COMPANY.phoneHref}
+              href={company.phoneHref}
               className="inline-flex items-center gap-2 rounded-lg border border-white/30 px-6 py-3 text-sm font-semibold text-white hover:bg-white/10"
             >
-              <Phone className="h-4 w-4" /> {COMPANY.phone}
+              <Phone className="h-4 w-4" /> {company.phone}
             </a>
           </div>
         </div>

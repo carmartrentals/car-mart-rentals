@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Menu, X, Phone } from "lucide-react";
-import { COMPANY } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { BrandLogo } from "@/components/brand-logo";
 
@@ -15,7 +14,13 @@ const LINKS = [
   { href: "/contact", label: "Contact" },
 ];
 
-export function Navbar() {
+export function Navbar({
+  phone,
+  phoneHref,
+}: {
+  phone: string;
+  phoneHref: string;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -45,11 +50,11 @@ export function Navbar() {
             My Account
           </Link>
           <a
-            href={COMPANY.phoneHref}
+            href={phoneHref}
             className="flex items-center gap-1.5 text-sm font-medium text-slate-200 hover:text-gold-400"
           >
             <Phone className="h-4 w-4" />
-            {COMPANY.phone}
+            {phone}
           </a>
           <Link
             href="/vehicles"
@@ -89,10 +94,10 @@ export function Navbar() {
           ))}
           <div className="mt-2 flex flex-col gap-2">
             <a
-              href={COMPANY.phoneHref}
+              href={phoneHref}
               className="flex items-center gap-2 rounded-md px-2 py-2.5 text-sm font-medium text-slate-200"
             >
-              <Phone className="h-4 w-4" /> {COMPANY.phone}
+              <Phone className="h-4 w-4" /> {phone}
             </a>
             <Link
               href="/vehicles"

@@ -2,8 +2,15 @@
 import {
   Document, Page, View, Text, Image, StyleSheet,
 } from "@react-pdf/renderer";
-import { COMPANY } from "@/lib/constants";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
+
+/** Company details rendered on documents (sourced from Settings). */
+export interface PdfCompany {
+  name: string;
+  address: string;
+  phone: string;
+  email: string;
+}
 
 // ---------------------------------------------------------------------------
 // Shared types
@@ -131,15 +138,23 @@ const s = StyleSheet.create({
 // ---------------------------------------------------------------------------
 // Shared header / footer / blocks
 // ---------------------------------------------------------------------------
-function Header({ title, meta }: { title: string; meta: string[] }) {
+function Header({
+  title,
+  meta,
+  company,
+}: {
+  title: string;
+  meta: string[];
+  company: PdfCompany;
+}) {
   return (
     <View style={s.header}>
       <View>
-        <Text style={s.brand}>CAR MART RENTALS</Text>
+        <Text style={s.brand}>{company.name.toUpperCase()}</Text>
         <Text style={s.brandSub}>LUXURY &amp; INSURANCE REPLACEMENT RENTALS</Text>
-        <Text style={s.companyLine}>{COMPANY.address}</Text>
+        <Text style={s.companyLine}>{company.address}</Text>
         <Text style={s.companyLine}>
-          {COMPANY.phone} · {COMPANY.email}
+          {company.phone} · {company.email}
         </Text>
       </View>
       <View>
@@ -233,10 +248,10 @@ function ChargesTable({ items }: { items: PdfLineItem[] }) {
   );
 }
 
-function Footer({ note }: { note: string }) {
+function Footer({ note, company }: { note: string; company: PdfCompany }) {
   return (
     <View style={s.footer} fixed>
-      <Text>{COMPANY.name}</Text>
+      <Text>{company.name}</Text>
       <Text>{note}</Text>
     </View>
   );
@@ -246,6 +261,7 @@ function Footer({ note }: { note: string }) {
 // RENTAL AGREEMENT
 // ===========================================================================
 export interface AgreementDocProps {
+  company: PdfCompany;
   reservationNumber: string;
   customer: PdfParty;
   vehicle: PdfVehicle;
@@ -269,11 +285,12 @@ export function AgreementDocument(props: AgreementDocProps) {
   return (
     <Document
       title={`Rental Agreement ${props.reservationNumber}`}
-      author={COMPANY.name}
+      author={props.company.name}
     >
       <Page size="LETTER" style={s.page}>
         <Header
           title="RENTAL AGREEMENT"
+          company={props.company}
           meta={[
             `Agreement: ${props.reservationNumber}`,
             `Issued: ${formatDate(props.generatedAt)}`,
@@ -350,11 +367,16 @@ export function AgreementDocument(props: AgreementDocProps) {
             ) : (
               <View style={s.sigLine} />
             )}
-            <Text style={s.sigLabel}>Authorized Agent — {COMPANY.name}</Text>
+            <Text style={s.sigLabel}>
+              Authorized Agent — {props.company.name}
+            </Text>
           </View>
         </View>
 
-        <Footer note={`Agreement ${props.reservationNumber}`} />
+        <Footer
+          note={`Agreement ${props.reservationNumber}`}
+          company={props.company}
+        />
       </Page>
     </Document>
   );
@@ -364,6 +386,7 @@ export function AgreementDocument(props: AgreementDocProps) {
 // INVOICE
 // ===========================================================================
 export interface InvoiceDocProps {
+  company: PdfCompany;
   invoiceNumber: string;
   generatedAt: string;
   dueDate?: string | null;
@@ -384,9 +407,10 @@ export interface InvoiceDocProps {
 
 export function InvoiceDocument(props: InvoiceDocProps) {
   return (
-    <Document title={`Invoice ${props.invoiceNumber}`} author={COMPANY.name}>
+    <Document title={`Invoice ${props.invoiceNumber}`} author={props.company.name}>
       <Page size="LETTER" style={s.page}>
         <Header
+          company={props.company}
           title="INVOICE"
           meta={[
             `Invoice: ${props.invoiceNumber}`,
@@ -448,11 +472,14 @@ export function InvoiceDocument(props: InvoiceDocProps) {
         )}
 
         <Text style={{ marginTop: 20, fontSize: 8.5, color: COLORS.gray }}>
-          Thank you for choosing {COMPANY.name}. Please remit any balance due by
-          the date above. Questions? Contact {COMPANY.phone}.
+          Thank you for choosing {props.company.name}. Please remit any balance
+          due by the date above. Questions? Contact {props.company.phone}.
         </Text>
 
-        <Footer note={`Invoice ${props.invoiceNumber}`} />
+        <Footer
+          note={`Invoice ${props.invoiceNumber}`}
+          company={props.company}
+        />
       </Page>
     </Document>
   );

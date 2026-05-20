@@ -3,6 +3,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { getCurrentUser } from "@/lib/auth";
 import { customerOwnsReservation } from "@/lib/account";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getCompanyProfile } from "@/lib/data/settings";
 import { InvoiceDocument, type PdfLineItem } from "@/lib/pdf/documents";
 import { titleCase } from "@/lib/utils";
 import type {
@@ -69,8 +70,16 @@ export async function GET(
     amount: Number(ch.amount),
   }));
 
+  const company = await getCompanyProfile();
+
   const buffer = await renderToBuffer(
     <InvoiceDocument
+      company={{
+        name: company.name,
+        address: company.address,
+        phone: company.phone,
+        email: company.email,
+      }}
       invoiceNumber={invoice?.invoice_number ?? `DRAFT-${reservation.reservation_number}`}
       generatedAt={invoice?.issued_date ?? new Date().toISOString()}
       dueDate={invoice?.due_date ?? null}

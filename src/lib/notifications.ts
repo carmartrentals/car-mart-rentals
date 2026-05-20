@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
-import { COMPANY } from "@/lib/constants";
+import { getCompanyProfile } from "@/lib/data/settings";
 import type { EmailTemplate } from "@/lib/types/database";
 
 /** Replace {{variable}} placeholders in a template string. */
@@ -9,12 +9,12 @@ function render(template: string, vars: Record<string, string>): string {
 }
 
 /** Minimal branded HTML wrapper for emails that have no rich template. */
-function fallbackHtml(body: string): string {
+function fallbackHtml(body: string, name: string, phone: string): string {
   return `<div style="font-family:Arial,sans-serif;color:#1f2029;line-height:1.6">
-    <h2 style="color:#a67c2a">${COMPANY.name}</h2>
+    <h2 style="color:#8b8f97">${name}</h2>
     <p>${body}</p>
     <hr style="border:none;border-top:1px solid #e2e8f0"/>
-    <p style="font-size:12px;color:#64748b">${COMPANY.name} · ${COMPANY.phone}</p>
+    <p style="font-size:12px;color:#64748b">${name} · ${phone}</p>
   </div>`;
 }
 
@@ -32,6 +32,7 @@ export async function sendNotification(params: {
 }): Promise<void> {
   try {
     const admin = createAdminClient();
+    const company = await getCompanyProfile();
 
     const { data: tplRow } = await admin
       .from("email_templates")
@@ -43,10 +44,14 @@ export async function sendNotification(params: {
 
     const subject = tpl
       ? render(tpl.subject, params.variables)
-      : `${COMPANY.name} — ${params.type.replace(/_/g, " ")}`;
+      : `${company.name} — ${params.type.replace(/_/g, " ")}`;
     const html = tpl
       ? render(tpl.body_html, params.variables)
-      : fallbackHtml(`This is a ${params.type.replace(/_/g, " ")} notification.`);
+      : fallbackHtml(
+          `This is a ${params.type.replace(/_/g, " ")} notification.`,
+          company.name,
+          company.phone,
+        );
 
     const result = await sendEmail({ to: params.to, subject, html });
 

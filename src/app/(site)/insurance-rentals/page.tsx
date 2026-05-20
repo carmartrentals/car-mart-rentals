@@ -4,7 +4,7 @@ import { FileCheck2, PhoneCall, CarFront, Receipt, ArrowRight } from "lucide-rea
 import { PageHero } from "@/components/site/page-hero";
 import { VehicleCard } from "@/components/site/vehicle-card";
 import { getPublicVehicles } from "@/lib/data/vehicles";
-import { COMPANY } from "@/lib/constants";
+import { getCompanyProfile } from "@/lib/data/settings";
 
 export const metadata: Metadata = {
   title: "Insurance Replacement Rentals",
@@ -14,6 +14,7 @@ export const metadata: Metadata = {
 
 export default async function InsuranceRentalsPage() {
   const all = await getPublicVehicles({ sort: "price_asc" });
+  const company = await getCompanyProfile();
   const fleet = all
     .filter((v) => ["sedan", "suv", "economy", "electric"].includes(v.category))
     .slice(0, 3);
@@ -64,10 +65,10 @@ export default async function InsuranceRentalsPage() {
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <a
-                href={COMPANY.phoneHref}
+                href={company.phoneHref}
                 className="inline-flex items-center gap-2 rounded-lg bg-gold-500 px-6 py-3 text-sm font-semibold text-brand-950 hover:bg-gold-400"
               >
-                <PhoneCall className="h-4 w-4" /> Call {COMPANY.phone}
+                <PhoneCall className="h-4 w-4" /> Call {company.phone}
               </a>
               <Link
                 href="/contact"

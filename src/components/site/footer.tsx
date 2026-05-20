@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { Phone, Mail, MapPin } from "lucide-react";
-import { COMPANY } from "@/lib/constants";
+import { getCompanyProfile } from "@/lib/data/settings";
 import { BrandLogo } from "@/components/brand-logo";
 
-export function Footer() {
+export async function Footer() {
+  const company = await getCompanyProfile();
   return (
     <footer className="bg-brand-950 text-slate-300">
       <div className="container-px grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-4">
@@ -46,19 +47,19 @@ export function Footer() {
           <ul className="mt-4 space-y-3 text-sm">
             <li className="flex items-start gap-2.5">
               <Phone className="mt-0.5 h-4 w-4 text-gold-400" />
-              <a href={COMPANY.phoneHref} className="hover:text-gold-400">
-                {COMPANY.phone}
+              <a href={company.phoneHref} className="hover:text-gold-400">
+                {company.phone}
               </a>
             </li>
             <li className="flex items-start gap-2.5">
               <Mail className="mt-0.5 h-4 w-4 text-gold-400" />
-              <a href={`mailto:${COMPANY.email}`} className="hover:text-gold-400">
-                {COMPANY.email}
+              <a href={`mailto:${company.email}`} className="hover:text-gold-400">
+                {company.email}
               </a>
             </li>
             <li className="flex items-start gap-2.5">
               <MapPin className="mt-0.5 h-4 w-4 text-gold-400" />
-              <span>{COMPANY.address}</span>
+              <span>{company.address}</span>
             </li>
           </ul>
         </div>
@@ -66,7 +67,7 @@ export function Footer() {
 
       <div className="border-t border-white/10">
         <div className="container-px flex flex-col items-center justify-between gap-2 py-5 text-xs text-slate-500 sm:flex-row">
-          <p>© {new Date().getFullYear()} {COMPANY.name}. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} {company.name}. All rights reserved.</p>
           <p className="flex gap-4">
             <Link href="/account" className="hover:text-gold-400">
               My Account

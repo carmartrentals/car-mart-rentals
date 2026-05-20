@@ -1,16 +1,17 @@
 import type { Metadata } from "next";
 import { Phone, Mail, MapPin, Clock } from "lucide-react";
 import { PageHero } from "@/components/site/page-hero";
-import { COMPANY } from "@/lib/constants";
+import { getCompanyProfile } from "@/lib/data/settings";
 
 export const metadata: Metadata = { title: "Contact Us" };
 
-export default function ContactPage() {
+export default async function ContactPage() {
+  const company = await getCompanyProfile();
   return (
     <>
       <PageHero
         eyebrow="Get in Touch"
-        title="Contact Car Mart Rentals"
+        title={`Contact ${company.name}`}
         description="Questions about a rental, a quote or an insurance claim? We're here to help."
       />
       <section className="bg-white py-14">
@@ -21,9 +22,9 @@ export default function ContactPage() {
             </h2>
             <ul className="mt-5 space-y-4">
               {[
-                { icon: Phone, label: "Phone", value: COMPANY.phone, href: COMPANY.phoneHref },
-                { icon: Mail, label: "Email", value: COMPANY.email, href: `mailto:${COMPANY.email}` },
-                { icon: MapPin, label: "Location", value: COMPANY.address },
+                { icon: Phone, label: "Phone", value: company.phone, href: company.phoneHref },
+                { icon: Mail, label: "Email", value: company.email, href: `mailto:${company.email}` },
+                { icon: MapPin, label: "Location", value: company.address },
                 { icon: Clock, label: "Hours", value: "Mon–Fri 8AM–7PM · Sat 9AM–5PM · Sun Closed" },
               ].map((c) => (
                 <li key={c.label} className="flex items-start gap-3">

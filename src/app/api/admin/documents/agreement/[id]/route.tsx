@@ -3,6 +3,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { getCurrentUser } from "@/lib/auth";
 import { customerOwnsReservation } from "@/lib/account";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getCompanyProfile } from "@/lib/data/settings";
 import { AgreementDocument, type PdfLineItem } from "@/lib/pdf/documents";
 import type {
   ReservationWithRelations, ReservationCharge, Agreement,
@@ -88,8 +89,16 @@ export async function GET(
     amount: Number(ch.amount),
   }));
 
+  const company = await getCompanyProfile();
+
   const buffer = await renderToBuffer(
     <AgreementDocument
+      company={{
+        name: company.name,
+        address: company.address,
+        phone: company.phone,
+        email: company.email,
+      }}
       reservationNumber={reservation.reservation_number}
       customer={{
         name: c ? `${c.first_name} ${c.last_name}` : "—",
