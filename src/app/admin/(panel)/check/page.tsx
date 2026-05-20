@@ -3,8 +3,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/admin/page-header";
 import { Card, CardHeader, CardTitle, CardBody } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ModulePlaceholder } from "@/components/admin/module-placeholder";
-import { RESERVATION_STATUS } from "@/lib/constants";
 import { formatDateTime } from "@/lib/utils";
 import type { ReservationWithRelations } from "@/lib/types/database";
 
@@ -54,7 +52,7 @@ export default async function CheckPage() {
                 {pickups.map((r) => (
                   <li key={r.id}>
                     <Link
-                      href={`/admin/reservations/${r.id}`}
+                      href={`/admin/check/${r.id}`}
                       className="flex items-center justify-between px-5 py-3 hover:bg-slate-50"
                     >
                       <div>
@@ -70,9 +68,7 @@ export default async function CheckPage() {
                           · {formatDateTime(r.pickup_at)}
                         </p>
                       </div>
-                      <Badge tone={RESERVATION_STATUS[r.status].tone}>
-                        {RESERVATION_STATUS[r.status].label}
-                      </Badge>
+                      <Badge tone="green">Start Check-out</Badge>
                     </Link>
                   </li>
                 ))}
@@ -93,7 +89,7 @@ export default async function CheckPage() {
                 {returns.map((r) => (
                   <li key={r.id}>
                     <Link
-                      href={`/admin/reservations/${r.id}`}
+                      href={`/admin/check/${r.id}`}
                       className="flex items-center justify-between px-5 py-3 hover:bg-slate-50"
                     >
                       <div>
@@ -109,8 +105,8 @@ export default async function CheckPage() {
                           · due {formatDateTime(r.return_at)}
                         </p>
                       </div>
-                      <Badge tone={RESERVATION_STATUS[r.status].tone}>
-                        {RESERVATION_STATUS[r.status].label}
+                      <Badge tone={r.status === "overdue" ? "red" : "amber"}>
+                        {r.status === "overdue" ? "Overdue — Check-in" : "Start Check-in"}
                       </Badge>
                     </Link>
                   </li>
@@ -121,18 +117,15 @@ export default async function CheckPage() {
         </Card>
       </div>
 
-      <ModulePlaceholder
-        phase="Phase 2"
-        features={[
-          "Guided check-out: license & insurance verification",
-          "Capture odometer and fuel / battery level",
-          "Exterior & interior inspection photo upload",
-          "Existing damage marking and notes",
-          "Customer & staff e-signature capture",
-          "Auto-generated rental agreement PDF",
-          "Check-in: mileage, fuel, damage comparison and final invoice",
-        ]}
-      />
+      <Card>
+        <CardBody className="text-sm text-slate-500">
+          Select a reservation above to start its guided inspection. Check-out
+          captures the driver license, odometer, fuel level, photos, damage and
+          signatures, then generates the rental agreement. Check-in records the
+          return condition, calculates excess mileage and fees, and produces the
+          final invoice.
+        </CardBody>
+      </Card>
     </>
   );
 }
