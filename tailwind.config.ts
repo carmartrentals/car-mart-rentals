@@ -22,17 +22,19 @@ const config: Config = {
           900: "#14151c",
           950: "#0b0c11",
         },
+        // Accent palette — metallic chrome / platinum silver (matches the
+        // CMR logo). Key name kept as `gold` so existing classes need no edit.
         gold: {
-          50: "#fbf7ed",
-          100: "#f4e9cb",
-          200: "#e9d293",
-          300: "#dcb75c",
-          400: "#d2a23a",
-          500: "#c8a45c",
-          600: "#a67c2a",
-          700: "#825d24",
-          800: "#6c4b25",
-          900: "#5c4023",
+          50: "#f7f8f9",
+          100: "#eceef0",
+          200: "#dde0e4",
+          300: "#c4c8ce",
+          400: "#a9aeb7", // silver — accent text on dark backgrounds
+          500: "#cbced4", // light chrome — primary button surface
+          600: "#71757e", // graphite — accent text/links on light backgrounds
+          700: "#565a62", // dark graphite — links & headings on white
+          800: "#3a3d43",
+          900: "#26282d",
         },
       },
       fontFamily: {

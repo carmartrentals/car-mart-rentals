@@ -35,7 +35,7 @@ export default async function HomePage() {
             <Sparkles className="h-4 w-4" /> {COMPANY.tagline}
           </p>
           <h1 className="heading-display max-w-3xl text-4xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl">
-            Drive Something <span className="text-gold-400">Extraordinary</span>
+            Drive Something <span className="text-chrome">Extraordinary</span>
           </h1>
           <p className="mt-5 max-w-xl text-lg text-slate-200">
             Premium luxury rentals and insurance replacement vehicles. From the

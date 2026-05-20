@@ -48,8 +48,38 @@
 .hero-overlay {
   background: linear-gradient(
     180deg,
-    rgba(11, 12, 17, 0.55) 0%,
-    rgba(11, 12, 17, 0.35) 45%,
-    rgba(11, 12, 17, 0.92) 100%
+    rgba(11, 12, 17, 0.6) 0%,
+    rgba(11, 12, 17, 0.4) 45%,
+    rgba(11, 12, 17, 0.94) 100%
+  );
+}
+
+/* Metallic chrome text — for headline accents */
+.text-chrome {
+  background: linear-gradient(
+    180deg,
+    #ffffff 0%,
+    #d4d7dd 42%,
+    #8b8f97 58%,
+    #eef0f2 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Brushed-metal surface — subtle chrome sheen */
+.surface-chrome {
+  background: linear-gradient(135deg, #2a2c31 0%, #1a1b20 45%, #303237 100%);
+}
+
+/* Chrome divider line */
+.rule-chrome {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(203, 206, 212, 0.5),
+    transparent
   );
 }
