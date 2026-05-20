@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Menu, X, Phone } from "lucide-react";
+import { Menu, X, Phone, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BrandLogo } from "@/components/brand-logo";
 
@@ -78,7 +78,7 @@ export function Navbar({
       <div
         className={cn(
           "overflow-hidden border-t border-white/10 bg-brand-950 lg:hidden",
-          open ? "max-h-96" : "max-h-0",
+          open ? "max-h-[36rem]" : "max-h-0",
           "transition-[max-height] duration-300",
         )}
       >
@@ -93,7 +93,14 @@ export function Navbar({
               {l.label}
             </Link>
           ))}
-          <div className="mt-2 flex flex-col gap-2">
+          <Link
+            href="/account"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2 rounded-md px-2 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/5 hover:text-gold-400"
+          >
+            <User className="h-4 w-4" /> My Account
+          </Link>
+          <div className="mt-2 flex flex-col gap-2 border-t border-white/10 pt-3">
             <a
               href={phoneHref}
               className="flex items-center gap-2 rounded-md px-2 py-2.5 text-sm font-medium text-slate-200"
