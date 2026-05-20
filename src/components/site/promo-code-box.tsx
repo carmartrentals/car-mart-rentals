@@ -1,0 +1,42 @@
+"use client";
+
+import { useState } from "react";
+import { Copy, Check } from "lucide-react";
+
+/** Displays a promo code with a one-click copy button. */
+export function PromoCodeBox({ code }: { code: string }) {
+  const [copied, setCopied] = useState(false);
+
+  function copy() {
+    navigator.clipboard?.writeText(code).then(
+      () => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      },
+      () => {},
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      className="flex w-full items-center justify-between gap-3 rounded-lg border border-dashed border-gold-400 bg-gold-50 px-4 py-2.5 transition-colors hover:bg-gold-100"
+    >
+      <span className="font-mono text-sm font-bold tracking-wider text-brand-950">
+        {code}
+      </span>
+      <span className="flex items-center gap-1 text-xs font-semibold text-gold-700">
+        {copied ? (
+          <>
+            <Check className="h-3.5 w-3.5" /> Copied
+          </>
+        ) : (
+          <>
+            <Copy className="h-3.5 w-3.5" /> Copy
+          </>
+        )}
+      </span>
+    </button>
+  );
+}

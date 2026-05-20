@@ -8,17 +8,22 @@ import {
   Phone,
   FileCheck2,
   Car,
+  KeyRound,
   ArrowRight,
 } from "lucide-react";
 import { getFeaturedVehicles } from "@/lib/data/vehicles";
 import { VehicleCard } from "@/components/site/vehicle-card";
 import { BookingSearch } from "@/components/site/booking-search";
+import { ReviewCard } from "@/components/site/review-card";
+import { StarRating } from "@/components/site/star-rating";
 import { getCompanyProfile } from "@/lib/data/settings";
+import { getReviewSummary } from "@/lib/data/reviews";
 
 export default async function HomePage() {
-  const [featured, company] = await Promise.all([
+  const [featured, company, reviewSummary] = await Promise.all([
     getFeaturedVehicles(6),
     getCompanyProfile(),
+    getReviewSummary(6),
   ]);
 
   return (
@@ -116,8 +121,64 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ------------------------------------------------------ FEATURED FLEET */}
+      {/* --------------------------------------------------------- HOW IT WORKS */}
       <section className="bg-slate-50 py-16">
+        <div className="container-px">
+          <div className="text-center">
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-gold-600">
+              Simple &amp; Fast
+            </p>
+            <h2 className="heading-display mt-1 text-3xl font-bold text-slate-900 sm:text-4xl">
+              How It Works
+            </h2>
+            <p className="mx-auto mt-3 max-w-xl text-slate-600">
+              From browsing to driving away in three easy steps.
+            </p>
+          </div>
+
+          <div className="mt-10 grid gap-6 sm:grid-cols-3">
+            {[
+              {
+                icon: Car,
+                step: "1",
+                title: "Choose Your Vehicle",
+                text: "Browse our fleet and pick the perfect car for your trip, occasion or insurance claim.",
+              },
+              {
+                icon: FileCheck2,
+                step: "2",
+                title: "Book & Get Verified",
+                text: "Reserve online in minutes and upload your driver license and insurance for quick approval.",
+              },
+              {
+                icon: KeyRound,
+                step: "3",
+                title: "Pick Up & Drive",
+                text: "Collect your vehicle — or have it delivered — and enjoy the road. It's that simple.",
+              },
+            ].map((s) => (
+              <div
+                key={s.step}
+                className="relative rounded-xl border border-slate-200 bg-white p-6 text-center shadow-card"
+              >
+                <span className="absolute right-4 top-4 text-4xl font-bold text-slate-100">
+                  {s.step}
+                </span>
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-gold-50">
+                  <s.icon className="h-6 w-6 text-gold-600" />
+                </div>
+                <h3 className="mt-4 text-base font-semibold text-slate-900">
+                  {s.title}
+                </h3>
+                <p className="mt-1.5 text-sm text-slate-600">{s.text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ------------------------------------------------------ FEATURED FLEET */}
+      <section className="bg-white py-16">
         <div className="container-px">
           <div className="flex items-end justify-between">
             <div>
@@ -155,7 +216,7 @@ export default async function HomePage() {
       </section>
 
       {/* ------------------------------------------------- INSURANCE / LUXURY */}
-      <section className="bg-white py-16">
+      <section className="bg-slate-50 py-16">
         <div className="container-px grid gap-8 lg:grid-cols-2">
           <div className="relative overflow-hidden rounded-2xl bg-brand-950 p-8 text-white sm:p-10">
             <ShieldCheck className="absolute -right-6 -top-6 h-40 w-40 text-white/5" />
@@ -222,6 +283,44 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* ------------------------------------------------------------- REVIEWS */}
+      {reviewSummary.count > 0 && (
+        <section className="bg-white py-16">
+          <div className="container-px">
+            <div className="flex flex-col items-center text-center">
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-gold-600">
+                Trusted by Drivers
+              </p>
+              <h2 className="heading-display mt-1 text-3xl font-bold text-slate-900 sm:text-4xl">
+                What Our Customers Say
+              </h2>
+              <div className="mt-3 flex items-center gap-2">
+                <StarRating rating={reviewSummary.average} size="md" />
+                <span className="text-sm text-slate-600">
+                  {reviewSummary.average.toFixed(1)} · {reviewSummary.count}{" "}
+                  review{reviewSummary.count === 1 ? "" : "s"}
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-9 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {reviewSummary.reviews.map((r) => (
+                <ReviewCard key={r.id} review={r} />
+              ))}
+            </div>
+
+            <div className="mt-8 text-center">
+              <Link
+                href="/reviews"
+                className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-700 hover:text-gold-600"
+              >
+                Read All Reviews <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ----------------------------------------------------------------- CTA */}
       <section className="bg-brand-950 py-16">

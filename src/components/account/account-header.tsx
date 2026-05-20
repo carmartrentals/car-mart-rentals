@@ -40,6 +40,12 @@ export function AccountHeader({ customerName }: { customerName: string }) {
             My Documents
           </Link>
           <Link
+            href="/account/profile"
+            className="hidden text-sm font-medium text-slate-600 hover:text-gold-600 sm:block"
+          >
+            Profile
+          </Link>
+          <Link
             href="/vehicles"
             className="hidden text-sm font-medium text-slate-600 hover:text-gold-600 sm:block"
           >

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
-  ArrowLeft, FileText, ReceiptText, CheckCircle2, Car, CalendarRange,
+  ArrowLeft, FileText, ReceiptText, CheckCircle2, Car, CalendarRange, Repeat,
 } from "lucide-react";
 import { getCurrentCustomer } from "@/lib/account";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Alert } from "@/components/ui/misc";
 import { ReservationActions } from "@/components/account/reservation-actions";
+import { LeaveReview } from "@/components/account/leave-review";
 import { RESERVATION_STATUS, PAYMENT_STATUS, DEPOSIT_STATUS } from "@/lib/constants";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import type {
@@ -40,18 +41,32 @@ export default async function AccountReservationPage({
   const reservation = resRow as ReservationWithRelations | null;
   if (!reservation) notFound();
 
-  const [{ data: chargeRows }, { data: depositRow }] = await Promise.all([
-    admin.from("reservation_charges").select("*").eq("reservation_id", id).order("created_at"),
-    admin
-      .from("deposits")
-      .select("*")
-      .eq("reservation_id", id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-  ]);
+  const [{ data: chargeRows }, { data: depositRow }, { data: reviewRow }] =
+    await Promise.all([
+      admin.from("reservation_charges").select("*").eq("reservation_id", id).order("created_at"),
+      admin
+        .from("deposits")
+        .select("*")
+        .eq("reservation_id", id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      admin
+        .from("reviews")
+        .select("rating,title,comment,is_published")
+        .eq("reservation_id", id)
+        .limit(1)
+        .maybeSingle(),
+    ]);
   const charges = (chargeRows as ReservationCharge[]) ?? [];
   const deposit = (depositRow as Deposit | null) ?? null;
+  const review =
+    (reviewRow as {
+      rating: number;
+      title: string | null;
+      comment: string | null;
+      is_published: boolean;
+    } | null) ?? null;
 
   const r = reservation;
   const v = r.vehicle;
@@ -190,13 +205,30 @@ export default async function AccountReservationPage({
 
           <Card>
             <CardHeader><CardTitle>Actions</CardTitle></CardHeader>
-            <CardBody>
+            <CardBody className="space-y-3">
               <ReservationActions
                 reservationId={r.id}
                 balanceDue={r.balance_due}
               />
+              {v?.slug && (
+                <Link
+                  href={`/vehicles/${v.slug}`}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-gold-500 px-4 py-2.5 text-sm font-semibold text-brand-950 transition-colors hover:bg-gold-400"
+                >
+                  <Repeat className="h-4 w-4" /> Book This Vehicle Again
+                </Link>
+              )}
             </CardBody>
           </Card>
+
+          {r.status === "completed" && (
+            <Card>
+              <CardHeader><CardTitle>Your Feedback</CardTitle></CardHeader>
+              <CardBody>
+                <LeaveReview reservationId={r.id} existingReview={review} />
+              </CardBody>
+            </Card>
+          )}
         </div>
       </div>
     </>
