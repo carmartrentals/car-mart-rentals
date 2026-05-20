@@ -30,6 +30,7 @@ export function AccountAuth({ mode }: { mode: "login" | "register" }) {
           password,
           options: {
             data: { full_name: fullName, account_type: "customer" },
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
           },
         });
         if (err) {
