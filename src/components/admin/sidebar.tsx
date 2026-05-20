@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, CalendarDays, ClipboardList, Car, Wrench,
   AlertTriangle, Users, FileText, CreditCard, BarChart3, Settings,
-  ClipboardCheck, Wallet, Tag, UserPlus, Siren, X,
+  ClipboardCheck, Wallet, Tag, UserPlus, Siren, Satellite, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BrandLogo } from "@/components/brand-logo";
@@ -33,6 +33,7 @@ const NAV: { section: string; items: NavItem[] }[] = [
       { href: "/admin/maintenance", label: "Maintenance", icon: Wrench },
       { href: "/admin/damages", label: "Damages", icon: AlertTriangle },
       { href: "/admin/violations", label: "Tolls & Violations", icon: Siren },
+      { href: "/admin/tracking", label: "Tracking", icon: Satellite },
     ],
   },
   {

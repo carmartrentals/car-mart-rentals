@@ -149,6 +149,15 @@ export interface Vehicle {
   registration_expiration: string | null;
   insurance_expiration: string | null;
   gps_device_id: string | null;
+  gps_provider: string | null;
+  gps_latitude: number | null;
+  gps_longitude: number | null;
+  gps_last_ping_at: string | null;
+  gps_speed: number | null;
+  gps_heading: number | null;
+  gps_ignition: boolean | null;
+  gps_address: string | null;
+  gps_battery: number | null;
   is_featured: boolean;
   created_at: string;
   updated_at: string;
