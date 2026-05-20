@@ -156,3 +156,68 @@ export async function deleteCustomer(customerId: string): Promise<void> {
   revalidatePath("/admin/customers");
   redirect("/admin/customers");
 }
+
+// --- Documents --------------------------------------------------------------
+const DOC_COLUMNS = {
+  dl_front: "dl_front_url",
+  dl_back: "dl_back_url",
+  insurance: "insurance_doc_url",
+} as const;
+
+/** Save an uploaded document URL onto a customer record. */
+export async function setCustomerDocument(
+  customerId: string,
+  kind: keyof typeof DOC_COLUMNS,
+  url: string,
+): Promise<ActionState> {
+  const user = await getCurrentUser();
+  if (!user || !canWrite(user.role, "customers")) {
+    return { ok: false, error: "You do not have permission to update documents." };
+  }
+  const column = DOC_COLUMNS[kind];
+  if (!column) return { ok: false, error: "Invalid document type." };
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("customers")
+    .update({ [column]: url })
+    .eq("id", customerId);
+  if (error) return { ok: false, error: error.message };
+
+  await logActivity({
+    userId: user.id,
+    action: "customer.document_uploaded",
+    entityType: "customer",
+    entityId: customerId,
+    description: `Uploaded ${kind.replace("_", " ")}`,
+  });
+  revalidatePath(`/admin/customers/${customerId}`);
+  return { ok: true };
+}
+
+/** Mark a customer's documents as verified (or back to pending). */
+export async function verifyCustomerDocuments(
+  customerId: string,
+  verified: boolean,
+): Promise<ActionState> {
+  const user = await getCurrentUser();
+  if (!user || !canWrite(user.role, "customers")) {
+    return { ok: false, error: "You do not have permission to verify documents." };
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("customers")
+    .update({ documents_verified: verified })
+    .eq("id", customerId);
+  if (error) return { ok: false, error: error.message };
+
+  await logActivity({
+    userId: user.id,
+    action: verified ? "customer.documents_verified" : "customer.documents_unverified",
+    entityType: "customer",
+    entityId: customerId,
+  });
+  revalidatePath(`/admin/customers/${customerId}`);
+  return { ok: true };
+}

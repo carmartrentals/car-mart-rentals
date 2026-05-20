@@ -1,10 +1,54 @@
 "use server";
 
 import { headers } from "next/headers";
+import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentCustomer } from "@/lib/account";
 import { getStripe, stripeConfigured, toCents } from "@/lib/stripe";
+import { uploadFile, storagePath } from "@/lib/storage";
 import type { ActionState } from "@/lib/form";
+
+/** Customer uploads one of their own documents (license / insurance). */
+export async function uploadMyDocument(formData: FormData): Promise<ActionState> {
+  const customer = await getCurrentCustomer();
+  if (!customer) return { ok: false, error: "Please sign in to continue." };
+
+  const kind = String(formData.get("kind"));
+  const file = formData.get("file");
+  const columns: Record<string, string> = {
+    dl_front: "dl_front_url",
+    dl_back: "dl_back_url",
+    insurance: "insurance_doc_url",
+  };
+  const column = columns[kind];
+  if (!column) return { ok: false, error: "Invalid document type." };
+  if (!(file instanceof File)) return { ok: false, error: "No file provided." };
+  if (file.size > 15 * 1024 * 1024) {
+    return { ok: false, error: "File too large. Maximum size is 15 MB." };
+  }
+
+  try {
+    const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+    const path = storagePath(`customer-${customer.id}`, ext);
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const result = await uploadFile(
+      "documents",
+      path,
+      buffer,
+      file.type || "image/jpeg",
+    );
+    const admin = createAdminClient();
+    // A new upload resets verification — staff must re-review.
+    await admin
+      .from("customers")
+      .update({ [column]: result.url, documents_verified: false })
+      .eq("id", customer.id);
+    revalidatePath("/account/documents");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Upload failed." };
+  }
+}
 
 async function baseUrl(): Promise<string> {
   const h = await headers();

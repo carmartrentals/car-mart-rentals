@@ -11,6 +11,7 @@ import { Card, CardHeader, CardTitle, CardBody } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { DeleteButton } from "@/components/admin/delete-button";
+import { CustomerDocuments } from "@/components/admin/customer-documents";
 import { RESERVATION_STATUS } from "@/lib/constants";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { deleteCustomer } from "../actions";
@@ -151,6 +152,14 @@ export default async function CustomerDetailPage({
 
         {/* Activity */}
         <div className="space-y-6 lg:col-span-2">
+          <CustomerDocuments
+            customerId={id}
+            dlFront={c.dl_front_url}
+            dlBack={c.dl_back_url}
+            insurance={c.insurance_doc_url}
+            verified={c.documents_verified}
+          />
+
           <div className="grid gap-4 sm:grid-cols-3">
             <MiniStat icon={ClipboardList} label="Total Rentals" value={String(reservations.length)} />
             <MiniStat icon={CreditCard} label="Total Paid" value={formatCurrency(totalSpent)} />

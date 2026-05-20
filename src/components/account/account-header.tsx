@@ -34,6 +34,12 @@ export function AccountHeader({ customerName }: { customerName: string }) {
             My Reservations
           </Link>
           <Link
+            href="/account/documents"
+            className="hidden text-sm font-medium text-slate-600 hover:text-gold-600 sm:block"
+          >
+            My Documents
+          </Link>
+          <Link
             href="/vehicles"
             className="hidden text-sm font-medium text-slate-600 hover:text-gold-600 sm:block"
           >
