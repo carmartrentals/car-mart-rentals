@@ -1,79 +1,90 @@
 import { PageHeader } from "@/components/admin/page-header";
-import { Card, CardHeader, CardTitle, CardBody } from "@/components/ui/card";
-import { ModulePlaceholder } from "@/components/admin/module-placeholder";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getSetting } from "@/lib/data/settings";
 import { COMPANY } from "@/lib/constants";
+import { SettingsForm } from "@/components/admin/settings-form";
+import { CatalogManager } from "@/components/admin/catalog-manager";
+import { AgreementEditor } from "@/components/admin/agreement-editor";
+import { Alert } from "@/components/ui/misc";
+import type { AddOn, Fee, AgreementTemplate } from "@/lib/types/database";
 
 export default async function SettingsPage() {
-  const company = await getSetting("company_profile", {
-    name: COMPANY.name,
-    email: COMPANY.email,
-    phone: COMPANY.phone,
-    address: COMPANY.address,
-  });
-  const tax = await getSetting<{ rate: number; label: string; enabled: boolean }>(
-    "tax",
-    { rate: 0, label: "Sales Tax", enabled: false },
-  );
-  const rules = await getSetting<Record<string, number>>("booking_rules", {});
+  const company = await getSetting<Record<string, unknown>>("company_profile", {});
+  const tax = await getSetting<Record<string, unknown>>("tax", {});
+  const rules = await getSetting<Record<string, unknown>>("booking_rules", {});
+
+  const companyValue = {
+    name: String(company.name ?? COMPANY.name),
+    legal_name: String(company.legal_name ?? ""),
+    email: String(company.email ?? COMPANY.email),
+    phone: String(company.phone ?? COMPANY.phone),
+    website: String(company.website ?? ""),
+    address: String(company.address ?? COMPANY.address),
+    logo_url: String(company.logo_url ?? ""),
+  };
+  const taxValue = {
+    rate: Number(tax.rate ?? 0),
+    label: String(tax.label ?? "Sales Tax"),
+    enabled: Boolean(tax.enabled ?? false),
+  };
+  const bookingValue = {
+    min_rental_days: Number(rules.min_rental_days ?? 1),
+    max_rental_days: Number(rules.max_rental_days ?? 90),
+    min_driver_age: Number(rules.min_driver_age ?? 21),
+    buffer_hours: Number(rules.buffer_hours ?? 2),
+  };
+
+  let addOns: AddOn[] = [];
+  let fees: Fee[] = [];
+  let template: AgreementTemplate | null = null;
+  let configError = false;
+
+  try {
+    const admin = createAdminClient();
+    const [aRes, fRes, tRes] = await Promise.all([
+      admin.from("add_ons").select("*").order("sort_order"),
+      admin.from("fees").select("*").order("name"),
+      admin
+        .from("agreement_templates")
+        .select("*")
+        .eq("is_default", true)
+        .maybeSingle(),
+    ]);
+    addOns = (aRes.data as AddOn[]) ?? [];
+    fees = (fRes.data as Fee[]) ?? [];
+    template = (tRes.data as AgreementTemplate | null) ?? null;
+  } catch {
+    configError = true;
+  }
 
   return (
     <>
       <PageHeader
         title="Settings"
-        subtitle="Company profile, taxes, booking rules and user management."
+        subtitle="Company profile, taxes, catalog and rental agreement."
       />
 
-      <div className="mb-6 grid gap-6 lg:grid-cols-3">
-        <Card>
-          <CardHeader><CardTitle>Company Profile</CardTitle></CardHeader>
-          <CardBody className="space-y-2 text-sm">
-            <Row label="Name" value={String(company.name ?? "—")} />
-            <Row label="Email" value={String(company.email ?? "—")} />
-            <Row label="Phone" value={String(company.phone ?? "—")} />
-            <Row label="Address" value={String(company.address ?? "—")} />
-          </CardBody>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle>Tax</CardTitle></CardHeader>
-          <CardBody className="space-y-2 text-sm">
-            <Row label="Label" value={tax.label} />
-            <Row label="Rate" value={`${tax.rate}%`} />
-            <Row label="Enabled" value={tax.enabled ? "Yes" : "No"} />
-          </CardBody>
-        </Card>
-        <Card>
-          <CardHeader><CardTitle>Booking Rules</CardTitle></CardHeader>
-          <CardBody className="space-y-2 text-sm">
-            <Row label="Min rental days" value={String(rules.min_rental_days ?? "—")} />
-            <Row label="Max rental days" value={String(rules.max_rental_days ?? "—")} />
-            <Row label="Min driver age" value={String(rules.min_driver_age ?? "—")} />
-            <Row label="Buffer hours" value={String(rules.buffer_hours ?? "—")} />
-          </CardBody>
-        </Card>
+      {configError && (
+        <div className="mb-4">
+          <Alert tone="warning">
+            Could not load all settings. Check Supabase configuration.
+          </Alert>
+        </div>
+      )}
+
+      <div className="space-y-6">
+        <SettingsForm
+          company={companyValue}
+          tax={taxValue}
+          bookingRules={bookingValue}
+        />
+        <CatalogManager addOns={addOns} fees={fees} />
+        <AgreementEditor
+          templateId={template?.id ?? null}
+          templateName={template?.name ?? "Standard Rental Agreement"}
+          initialSections={template?.sections ?? []}
+        />
       </div>
-
-      <ModulePlaceholder
-        phase="Phase 3"
-        features={[
-          "Editable company profile and branding",
-          "Tax, fees and add-on configuration",
-          "Business hours and locations",
-          "Booking rules, age and deposit policies",
-          "Cancellation policy",
-          "User management and role permissions",
-          "Editable rental agreement and email templates",
-        ]}
-      />
     </>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between gap-3">
-      <span className="text-slate-500">{label}</span>
-      <span className="text-right font-medium text-slate-800">{value}</span>
-    </div>
   );
 }
