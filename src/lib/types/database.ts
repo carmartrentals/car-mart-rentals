@@ -440,3 +440,83 @@ export type CustomerWithStats = Customer & {
   reservation_count?: number;
   total_spent?: number;
 };
+
+// --- Business expansion (migration 0006) ------------------------------------
+export type ExpenseCategory =
+  | "fuel" | "maintenance" | "repairs" | "insurance" | "registration"
+  | "cleaning" | "marketing" | "supplies" | "payroll" | "rent"
+  | "utilities" | "software" | "other";
+export type ViolationType =
+  | "toll" | "parking" | "speeding" | "red_light" | "citation"
+  | "impound" | "other";
+export type ViolationStatus =
+  | "unpaid" | "paid" | "charged_to_customer" | "disputed" | "waived";
+export type LeadStatus = "new" | "contacted" | "quoted" | "converted" | "lost";
+export type LeadSource =
+  | "website" | "phone" | "referral" | "walk_in" | "social" | "other";
+export type DiscountType = "percentage" | "fixed";
+
+export interface Expense {
+  id: string;
+  category: ExpenseCategory;
+  description: string;
+  amount: number;
+  expense_date: string;
+  vehicle_id: string | null;
+  odometer: number | null;
+  vendor: string | null;
+  payment_method: PaymentMethod;
+  receipt_url: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TollViolation {
+  id: string;
+  vehicle_id: string | null;
+  reservation_id: string | null;
+  violation_type: ViolationType;
+  description: string | null;
+  location: string | null;
+  amount: number;
+  incurred_date: string;
+  status: ViolationStatus;
+  charged_to_customer: boolean;
+  reference_number: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Lead {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  message: string | null;
+  source: LeadSource;
+  status: LeadStatus;
+  interested_vehicle_id: string | null;
+  assigned_to: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PromoCode {
+  id: string;
+  code: string;
+  description: string | null;
+  discount_type: DiscountType;
+  discount_value: number;
+  min_rental_days: number;
+  max_uses: number | null;
+  times_used: number;
+  valid_from: string | null;
+  valid_until: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
