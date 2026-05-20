@@ -3,6 +3,8 @@ import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { computeReservationTotals } from "@/lib/pricing";
 import { getTaxRate } from "@/lib/data/settings";
+import { sendNotification } from "@/lib/notifications";
+import { formatCurrency, formatDateTime } from "@/lib/utils";
 import type { AddOn, Vehicle } from "@/lib/types/database";
 
 const bookingSchema = z.object({
@@ -206,6 +208,23 @@ export async function POST(request: Request) {
     entity_type: "reservation",
     entity_id: reservation.id,
     description: `Website booking ${reservation.reservation_number}`,
+  });
+
+  // Booking confirmation email (best-effort)
+  await sendNotification({
+    type: "booking_confirmation",
+    templateKey: "booking_confirmation",
+    to: email,
+    variables: {
+      customer_name: `${input.customer.first_name} ${input.customer.last_name}`,
+      reservation_number: reservation.reservation_number,
+      vehicle_name: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
+      pickup_at: formatDateTime(input.pickup_at),
+      return_at: formatDateTime(input.return_at),
+      total: formatCurrency(pricing.total),
+    },
+    reservationId: reservation.id,
+    customerId,
   });
 
   return NextResponse.json({

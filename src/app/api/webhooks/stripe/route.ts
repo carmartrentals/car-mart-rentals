@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { getStripe, fromCents } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendNotification } from "@/lib/notifications";
+import { formatCurrency } from "@/lib/utils";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -100,6 +102,32 @@ export async function POST(request: Request) {
             entity_id: reservationId,
             description: `Online payment of ${amount} received`,
           });
+
+          // Payment receipt email (best-effort)
+          const { data: info } = await admin
+            .from("reservations")
+            .select(
+              "reservation_number, customer:customers(first_name,last_name,email)",
+            )
+            .eq("id", reservationId)
+            .maybeSingle();
+          const detail = info as unknown as {
+            reservation_number: string;
+            customer: { first_name: string; last_name: string; email: string } | null;
+          } | null;
+          if (detail?.customer?.email) {
+            await sendNotification({
+              type: "payment_receipt",
+              templateKey: "payment_receipt",
+              to: detail.customer.email,
+              variables: {
+                customer_name: `${detail.customer.first_name} ${detail.customer.last_name}`,
+                amount: formatCurrency(amount),
+                reservation_number: detail.reservation_number,
+              },
+              reservationId,
+            });
+          }
         }
       } else if (reservationId && paymentIntentId && kind === "deposit") {
         const { data: dep } = await admin

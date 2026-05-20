@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { getCurrentUser } from "@/lib/auth";
+import { customerOwnsReservation } from "@/lib/account";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { InvoiceDocument, type PdfLineItem } from "@/lib/pdf/documents";
 import { titleCase } from "@/lib/utils";
@@ -20,10 +21,12 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const user = await getCurrentUser();
-  if (!user) return new NextResponse("Unauthorized", { status: 401 });
-
   const { id } = await params;
+  const user = await getCurrentUser();
+  if (!user && !(await customerOwnsReservation(id))) {
+    return new NextResponse("Unauthorized", { status: 401 });
+  }
+
   const admin = createAdminClient();
 
   const { data: resRow } = await admin

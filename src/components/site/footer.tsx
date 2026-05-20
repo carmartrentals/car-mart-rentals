@@ -73,7 +73,10 @@ export function Footer() {
       <div className="border-t border-white/10">
         <div className="container-px flex flex-col items-center justify-between gap-2 py-5 text-xs text-slate-500 sm:flex-row">
           <p>© {new Date().getFullYear()} {COMPANY.name}. All rights reserved.</p>
-          <p>
+          <p className="flex gap-4">
+            <Link href="/account" className="hover:text-gold-400">
+              My Account
+            </Link>
             <Link href="/admin" className="hover:text-gold-400">
               Staff Login
             </Link>

@@ -46,7 +46,13 @@ export function Navbar() {
           ))}
         </div>
 
-        <div className="hidden items-center gap-3 lg:flex">
+        <div className="hidden items-center gap-4 lg:flex">
+          <Link
+            href="/account"
+            className="text-sm font-medium text-slate-200 transition-colors hover:text-gold-400"
+          >
+            My Account
+          </Link>
           <a
             href={COMPANY.phoneHref}
             className="flex items-center gap-1.5 text-sm font-medium text-slate-200 hover:text-gold-400"
