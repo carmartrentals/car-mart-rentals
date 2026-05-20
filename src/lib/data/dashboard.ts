@@ -1,0 +1,187 @@
+import { createAdminClient } from "@/lib/supabase/admin";
+import type { ActivityLog, ReservationWithRelations } from "@/lib/types/database";
+
+export interface DashboardStats {
+  todayPickups: number;
+  todayReturns: number;
+  activeRentals: number;
+  overdueRentals: number;
+  availableVehicles: number;
+  maintenanceVehicles: number;
+  fleetSize: number;
+  revenueThisMonth: number;
+  pendingPaymentsCount: number;
+  pendingPaymentsAmount: number;
+  pendingDeposits: number;
+  pendingDocVerification: number;
+}
+
+export interface DashboardData {
+  stats: DashboardStats;
+  todayPickupList: ReservationWithRelations[];
+  todayReturnList: ReservationWithRelations[];
+  recentActivity: ActivityLog[];
+  configured: boolean;
+}
+
+const EMPTY_STATS: DashboardStats = {
+  todayPickups: 0,
+  todayReturns: 0,
+  activeRentals: 0,
+  overdueRentals: 0,
+  availableVehicles: 0,
+  maintenanceVehicles: 0,
+  fleetSize: 0,
+  revenueThisMonth: 0,
+  pendingPaymentsCount: 0,
+  pendingPaymentsAmount: 0,
+  pendingDeposits: 0,
+  pendingDocVerification: 0,
+};
+
+function dayBounds(d = new Date()) {
+  const start = new Date(d);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(d);
+  end.setHours(23, 59, 59, 999);
+  return { start: start.toISOString(), end: end.toISOString() };
+}
+
+function monthStart(d = new Date()) {
+  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString();
+}
+
+export async function getDashboardData(): Promise<DashboardData> {
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch {
+    return {
+      stats: EMPTY_STATS,
+      todayPickupList: [],
+      todayReturnList: [],
+      recentActivity: [],
+      configured: false,
+    };
+  }
+
+  const today = dayBounds();
+  const nowIso = new Date().toISOString();
+  const resSelect =
+    "*, customer:customers(*), vehicle:vehicles(*)";
+
+  const count = (q: { count: number | null }) => q.count ?? 0;
+
+  try {
+    const [
+      pickups,
+      returns,
+      active,
+      overdue,
+      available,
+      maintenance,
+      fleet,
+      payments,
+      pendingPay,
+      deposits,
+      docs,
+      activity,
+    ] = await Promise.all([
+      admin
+        .from("reservations")
+        .select(resSelect)
+        .gte("pickup_at", today.start)
+        .lte("pickup_at", today.end)
+        .in("status", ["confirmed", "pending"])
+        .order("pickup_at"),
+      admin
+        .from("reservations")
+        .select(resSelect)
+        .gte("return_at", today.start)
+        .lte("return_at", today.end)
+        .in("status", ["active", "confirmed", "overdue"])
+        .order("return_at"),
+      admin
+        .from("reservations")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "active"),
+      admin
+        .from("reservations")
+        .select("id", { count: "exact", head: true })
+        .or(`status.eq.overdue,and(status.eq.active,return_at.lt.${nowIso})`),
+      admin
+        .from("vehicles")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "available"),
+      admin
+        .from("vehicles")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "maintenance"),
+      admin.from("vehicles").select("id", { count: "exact", head: true }),
+      admin
+        .from("payments")
+        .select("amount")
+        .eq("payment_type", "payment")
+        .eq("status", "succeeded")
+        .gte("created_at", monthStart()),
+      admin
+        .from("reservations")
+        .select("balance_due")
+        .gt("balance_due", 0)
+        .in("status", ["confirmed", "active", "overdue", "completed"]),
+      admin
+        .from("deposits")
+        .select("id", { count: "exact", head: true })
+        .in("status", ["pending", "authorized"]),
+      admin
+        .from("customers")
+        .select("id", { count: "exact", head: true })
+        .eq("documents_verified", false),
+      admin
+        .from("activity_logs")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(8),
+    ]);
+
+    const revenueThisMonth = (payments.data ?? []).reduce(
+      (sum, p) => sum + Number(p.amount ?? 0),
+      0,
+    );
+    const pendingRows = pendingPay.data ?? [];
+    const pendingPaymentsAmount = pendingRows.reduce(
+      (sum, r) => sum + Number(r.balance_due ?? 0),
+      0,
+    );
+
+    return {
+      configured: true,
+      stats: {
+        todayPickups: (pickups.data ?? []).length,
+        todayReturns: (returns.data ?? []).length,
+        activeRentals: count(active),
+        overdueRentals: count(overdue),
+        availableVehicles: count(available),
+        maintenanceVehicles: count(maintenance),
+        fleetSize: count(fleet),
+        revenueThisMonth,
+        pendingPaymentsCount: pendingRows.length,
+        pendingPaymentsAmount,
+        pendingDeposits: count(deposits),
+        pendingDocVerification: count(docs),
+      },
+      todayPickupList: (pickups.data ?? []) as ReservationWithRelations[],
+      todayReturnList: (returns.data ?? []) as ReservationWithRelations[],
+      recentActivity: (activity.data ?? []) as ActivityLog[],
+    };
+  } catch (err) {
+    console.error("getDashboardData:", err);
+    return {
+      stats: EMPTY_STATS,
+      todayPickupList: [],
+      todayReturnList: [],
+      recentActivity: [],
+      configured: true,
+    };
+  }
+}

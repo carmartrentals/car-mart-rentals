@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-inter: "Inter", system-ui, sans-serif;
+    --font-display: "Playfair Display", Georgia, serif;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-white text-slate-900 antialiased;
+    font-family: var(--font-inter);
+  }
+
+  ::selection {
+    @apply bg-gold-200 text-brand-950;
+  }
+}
+
+@layer components {
+  .container-px {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+
+  .heading-display {
+    font-family: var(--font-display);
+  }
+
+  /* Scrollbar — admin panels */
+  .scroll-thin::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .scroll-thin::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-slate-300;
+  }
+  .scroll-thin::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+}
+
+/* Hero gradient overlay */
+.hero-overlay {
+  background: linear-gradient(
+    180deg,
+    rgba(11, 12, 17, 0.55) 0%,
+    rgba(11, 12, 17, 0.35) 45%,
+    rgba(11, 12, 17, 0.92) 100%
+  );
+}
