@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
 import { ShieldCheck, Award, Users, HeartHandshake } from "lucide-react";
 import { PageHero } from "@/components/site/page-hero";
+import { getPageContent } from "@/lib/website-content";
 
 export const metadata: Metadata = { title: "About Us" };
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  const content = await getPageContent("about");
+
   return (
     <>
       <PageHero
@@ -15,24 +18,16 @@ export default function AboutPage() {
       <section className="bg-white py-14">
         <div className="container-px grid gap-10 lg:grid-cols-2">
           <div className="space-y-4 text-slate-600">
-            <p>
-              Car Mart Rentals is a full-service vehicle rental company serving
-              public customers, insurance and body shop replacement clients, and
-              Turo guests. Whether you need a head-turning luxury vehicle for a
-              special occasion or a reliable replacement after an accident, our
-              team makes the process effortless.
-            </p>
-            <p>
-              Our carefully curated fleet ranges from the efficient Toyota Prius
-              to the commanding Mercedes-AMG GLE 53 Coupe and the elegant
-              Mercedes-Benz S500. Every vehicle is meticulously maintained,
-              detailed and inspected before each rental.
-            </p>
-            <p>
-              We work directly with insurance adjusters and repair shops to
-              streamline claim-based rentals — handling direct billing and
-              paperwork so you can focus on getting back on the road.
-            </p>
+            {content.sections.map((s, i) => (
+              <div key={i}>
+                {s.title && (
+                  <h2 className="mb-1 text-lg font-semibold text-slate-900">
+                    {s.title}
+                  </h2>
+                )}
+                <p className="whitespace-pre-line leading-relaxed">{s.body}</p>
+              </div>
+            ))}
           </div>
           <div className="grid grid-cols-2 gap-4">
             {[
