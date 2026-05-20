@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { Car } from "lucide-react";
 import { LoginForm } from "@/components/admin/login-form";
+import { BrandLogo } from "@/components/brand-logo";
 
 export const metadata: Metadata = {
   title: "Staff Login",
@@ -13,13 +13,8 @@ export default function AdminLoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-brand-950 px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center text-center">
-          <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-gold-500">
-            <Car className="h-6 w-6 text-brand-950" />
-          </span>
-          <h1 className="heading-display mt-4 text-2xl font-bold text-white">
-            Car Mart Rentals
-          </h1>
-          <p className="mt-1 text-sm text-slate-400">
+          <BrandLogo className="h-16 w-auto" priority />
+          <p className="mt-4 text-sm text-slate-400">
             Management System — Staff Sign In
           </p>
         </div>

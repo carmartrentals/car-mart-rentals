@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Car, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { BrandLogo } from "@/components/brand-logo";
 
 export function AccountHeader({ customerName }: { customerName: string }) {
   const router = useRouter();
@@ -19,16 +20,9 @@ export function AccountHeader({ customerName }: { customerName: string }) {
     <header className="border-b border-slate-200 bg-white">
       <div className="container-px flex h-16 items-center justify-between">
         <Link href="/account" className="flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gold-500">
-            <Car className="h-5 w-5 text-brand-950" />
-          </span>
-          <span className="flex flex-col leading-none">
-            <span className="heading-display text-base font-bold text-slate-900">
-              Car Mart Rentals
-            </span>
-            <span className="text-[10px] uppercase tracking-[0.18em] text-gold-600">
-              My Account
-            </span>
+          <BrandLogo className="h-10 w-auto" />
+          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-gold-700">
+            My Account
           </span>
         </Link>
 

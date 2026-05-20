@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Menu, X, Phone, Car } from "lucide-react";
+import { Menu, X, Phone } from "lucide-react";
 import { COMPANY } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import { BrandLogo } from "@/components/brand-logo";
 
 const LINKS = [
   { href: "/vehicles", label: "Our Fleet" },
@@ -20,18 +21,8 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-40 border-b border-white/10 bg-brand-950/95 backdrop-blur">
       <nav className="container-px flex h-20 items-center justify-between py-3">
-        <Link href="/" className="flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gold-500">
-            <Car className="h-5 w-5 text-brand-950" />
-          </span>
-          <span className="flex flex-col leading-none">
-            <span className="heading-display text-lg font-bold text-white">
-              Car Mart
-            </span>
-            <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-gold-400">
-              Rentals
-            </span>
-          </span>
+        <Link href="/" className="flex items-center">
+          <BrandLogo className="h-12 w-auto sm:h-14" priority />
         </Link>
 
         <div className="hidden items-center gap-7 lg:flex">

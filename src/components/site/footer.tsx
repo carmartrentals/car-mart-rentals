@@ -1,20 +1,14 @@
 import Link from "next/link";
-import { Car, Phone, Mail, MapPin } from "lucide-react";
+import { Phone, Mail, MapPin } from "lucide-react";
 import { COMPANY } from "@/lib/constants";
+import { BrandLogo } from "@/components/brand-logo";
 
 export function Footer() {
   return (
     <footer className="bg-brand-950 text-slate-300">
       <div className="container-px grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gold-500">
-              <Car className="h-5 w-5 text-brand-950" />
-            </span>
-            <span className="heading-display text-lg font-bold text-white">
-              Car Mart Rentals
-            </span>
-          </div>
+          <BrandLogo className="h-14 w-auto" />
           <p className="mt-4 text-sm leading-relaxed text-slate-400">
             Premium luxury car rentals and insurance replacement vehicles.
             Serving public, body shop and insurance customers.

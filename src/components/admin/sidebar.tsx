@@ -8,6 +8,7 @@ import {
   ClipboardCheck, Wallet, Tag, UserPlus, Siren, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BrandLogo } from "@/components/brand-logo";
 
 interface NavItem {
   href: string;
@@ -86,15 +87,10 @@ export function Sidebar({
         )}
       >
         <div className="flex h-16 items-center justify-between border-b border-white/10 px-5">
-          <Link href="/admin" className="flex items-center gap-2.5">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gold-500">
-              <Car className="h-4 w-4 text-brand-950" />
-            </span>
-            <span className="flex flex-col leading-none">
-              <span className="text-sm font-bold text-white">Car Mart</span>
-              <span className="text-[10px] uppercase tracking-[0.18em] text-gold-400">
-                Admin
-              </span>
+          <Link href="/admin" className="flex items-center gap-2">
+            <BrandLogo className="h-9 w-auto" />
+            <span className="rounded bg-white/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-gold-400">
+              Admin
             </span>
           </Link>
           <button
