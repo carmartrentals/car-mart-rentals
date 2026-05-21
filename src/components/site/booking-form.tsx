@@ -14,25 +14,36 @@ const INPUT_CLASS =
   "placeholder:text-slate-500 focus:border-gold-400 focus:outline-none " +
   "focus:ring-2 focus:ring-gold-400/25";
 
+interface Prefill {
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  dl_number: string;
+  dl_state: string;
+}
+
 export function BookingForm({
   vehicle,
   addOns,
   pickup,
   ret,
+  prefill,
 }: {
   vehicle: Vehicle;
   addOns: AddOn[];
   pickup: string;
   ret: string;
+  prefill?: Prefill | null;
 }) {
   const [selectedAddOns, setSelectedAddOns] = useState<string[]>([]);
   const [form, setForm] = useState({
-    first_name: "",
-    last_name: "",
-    email: "",
-    phone: "",
-    dl_number: "",
-    dl_state: "",
+    first_name: prefill?.first_name ?? "",
+    last_name: prefill?.last_name ?? "",
+    email: prefill?.email ?? "",
+    phone: prefill?.phone ?? "",
+    dl_number: prefill?.dl_number ?? "",
+    dl_state: prefill?.dl_state ?? "",
     notes: "",
   });
   const [agree, setAgree] = useState(false);
@@ -137,6 +148,12 @@ export function BookingForm({
           <h2 className="text-base font-semibold text-white">
             Driver Information
           </h2>
+          {prefill && (
+            <p className="mt-1 text-xs text-gold-300">
+              Pre-filled from your account — just check everything is still
+              correct.
+            </p>
+          )}
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <Input label="First Name" required value={form.first_name}
               onChange={(v) => setField("first_name", v)} />

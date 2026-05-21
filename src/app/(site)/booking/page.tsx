@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getVehicleBySlug } from "@/lib/data/vehicles";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentCustomer } from "@/lib/account";
 import { BookingForm } from "@/components/site/booking-form";
 import type { AddOn } from "@/lib/types/database";
 
@@ -37,6 +38,19 @@ export default async function BookingPage({
     .order("sort_order");
   const addOns = (data as AddOn[]) ?? [];
 
+  // Pre-fill driver details for a signed-in customer.
+  const customer = await getCurrentCustomer();
+  const prefill = customer
+    ? {
+        first_name: customer.first_name ?? "",
+        last_name: customer.last_name ?? "",
+        email: customer.email ?? "",
+        phone: customer.phone ?? "",
+        dl_number: customer.dl_number ?? "",
+        dl_state: customer.dl_state ?? "",
+      }
+    : null;
+
   return (
     <div className="bg-brand-950">
       <section className="relative overflow-hidden border-b border-white/10 bg-brand-950 py-12">
@@ -55,6 +69,7 @@ export default async function BookingPage({
           addOns={addOns}
           pickup={pickup as string}
           ret={ret as string}
+          prefill={prefill}
         />
       </div>
     </div>
