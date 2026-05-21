@@ -51,6 +51,38 @@ function monthStart(d = new Date()) {
   return new Date(d.getFullYear(), d.getMonth(), 1).toISOString();
 }
 
+export interface ExpiringDoc {
+  id: string;
+  name: string;
+  doc_type: string;
+  expiry_date: string;
+  vehicle: { id: string; year: number; make: string; model: string } | null;
+}
+
+/**
+ * Vehicle documents that are already expired or expire within 30 days.
+ * Resilient: returns [] if the vehicle_documents table doesn't exist yet
+ * (database not migrated to 0009).
+ */
+export async function getExpiringVehicleDocuments(): Promise<ExpiringDoc[]> {
+  try {
+    const admin = createAdminClient();
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() + 30);
+    const { data } = await admin
+      .from("vehicle_documents")
+      .select(
+        "id,name,doc_type,expiry_date,vehicle:vehicles(id,year,make,model)",
+      )
+      .not("expiry_date", "is", null)
+      .lte("expiry_date", cutoff.toISOString().slice(0, 10))
+      .order("expiry_date");
+    return (data as unknown as ExpiringDoc[]) ?? [];
+  } catch {
+    return [];
+  }
+}
+
 export async function getDashboardData(): Promise<DashboardData> {
   let admin;
   try {

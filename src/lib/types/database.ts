@@ -577,3 +577,29 @@ export interface InsuranceClaim {
   created_at: string;
   updated_at: string;
 }
+
+// --- Vehicle documents (migration 0009) -------------------------------------
+export type VehicleDocType =
+  | "registration"
+  | "insurance"
+  | "title"
+  | "inspection"
+  | "smog_emissions"
+  | "lease_finance"
+  | "purchase"
+  | "warranty"
+  | "other";
+
+export interface VehicleDocument {
+  id: string;
+  vehicle_id: string;
+  doc_type: VehicleDocType;
+  name: string;
+  file_url: string;
+  file_path: string | null;
+  issue_date: string | null;
+  expiry_date: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+}

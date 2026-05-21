@@ -9,6 +9,7 @@ import { Card, CardHeader, CardTitle, CardBody } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { DeleteButton } from "@/components/admin/delete-button";
+import { VehicleDocuments } from "@/components/admin/vehicle-documents";
 import {
   VEHICLE_STATUS, VEHICLE_CATEGORIES, FUEL_TYPES,
   RESERVATION_STATUS, MAINTENANCE_STATUS,
@@ -17,7 +18,7 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { deleteVehicle } from "../actions";
 import type {
   Vehicle, VehicleImage, MaintenanceRecord, Damage,
-  ReservationWithRelations,
+  ReservationWithRelations, VehicleDocument,
 } from "@/lib/types/database";
 
 export default async function VehicleDetailPage({
@@ -66,6 +67,21 @@ export default async function VehicleDetailPage({
     notFound();
   }
   if (!vehicle) notFound();
+
+  // Vehicle documents — queried separately so a pre-0009 database (table not
+  // yet created) still renders the rest of the page.
+  let documents: VehicleDocument[] = [];
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("vehicle_documents")
+      .select("*")
+      .eq("vehicle_id", id)
+      .order("created_at", { ascending: false });
+    documents = (data as VehicleDocument[]) ?? [];
+  } catch {
+    /* table not migrated yet — ignore */
+  }
 
   const v = vehicle;
   const specs: [string, string][] = [
@@ -274,6 +290,9 @@ export default async function VehicleDetailPage({
           </Table>
         )}
       </Card>
+
+      {/* Vehicle documents */}
+      <VehicleDocuments vehicleId={id} documents={documents} />
 
       {/* Maintenance + Damages */}
       <div className="mt-6 grid gap-6 lg:grid-cols-2">

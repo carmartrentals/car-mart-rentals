@@ -2,8 +2,11 @@ import Link from "next/link";
 import {
   CalendarClock, CalendarCheck, Car, Wrench, AlertTriangle,
   CircleDollarSign, CreditCard, ShieldQuestion, Activity, KeyRound,
+  FileWarning,
 } from "lucide-react";
-import { getDashboardData } from "@/lib/data/dashboard";
+import {
+  getDashboardData, getExpiringVehicleDocuments,
+} from "@/lib/data/dashboard";
 import { getCurrentUser } from "@/lib/auth";
 import { PageHeader } from "@/components/admin/page-header";
 import { StatCard } from "@/components/admin/stat-card";
@@ -11,11 +14,15 @@ import { Card, CardHeader, CardTitle, CardBody } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState, Alert } from "@/components/ui/misc";
 import { RESERVATION_STATUS } from "@/lib/constants";
-import { formatCurrency, formatDateTime } from "@/lib/utils";
+import { formatCurrency, formatDate, formatDateTime, titleCase } from "@/lib/utils";
 import type { ReservationWithRelations } from "@/lib/types/database";
 
 export default async function DashboardPage() {
-  const [data, user] = await Promise.all([getDashboardData(), getCurrentUser()]);
+  const [data, user, expiringDocs] = await Promise.all([
+    getDashboardData(),
+    getCurrentUser(),
+    getExpiringVehicleDocuments(),
+  ]);
   const { stats } = data;
   const firstName = (user?.full_name || "there").split(" ")[0];
 
@@ -76,6 +83,59 @@ export default async function DashboardPage() {
         <StatCard label="Fleet Size" value={stats.fleetSize}
           icon={Car} href="/admin/vehicles" />
       </div>
+
+      {/* ------------------------------------------ DOCUMENT EXPIRY ALERT */}
+      {expiringDocs.length > 0 && (
+        <Card className="mt-6 border-amber-300">
+          <CardHeader>
+            <CardTitle>
+              <span className="inline-flex items-center gap-2">
+                <FileWarning className="h-4 w-4 text-amber-600" />
+                Vehicle Document Renewals
+              </span>
+            </CardTitle>
+            <Badge tone="amber">{expiringDocs.length}</Badge>
+          </CardHeader>
+          <CardBody className="p-0">
+            <ul className="divide-y divide-slate-100">
+              {expiringDocs.map((d) => {
+                const days = Math.ceil(
+                  (new Date(d.expiry_date).getTime() - Date.now()) /
+                    86_400_000,
+                );
+                const expired = days < 0;
+                return (
+                  <li key={d.id}>
+                    <Link
+                      href={
+                        d.vehicle
+                          ? `/admin/vehicles/${d.vehicle.id}`
+                          : "/admin/vehicles"
+                      }
+                      className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-slate-50"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-slate-800">
+                          {d.vehicle
+                            ? `${d.vehicle.year} ${d.vehicle.make} ${d.vehicle.model}`
+                            : "Vehicle"}
+                        </p>
+                        <p className="truncate text-xs text-slate-500">
+                          {titleCase(d.doc_type.replace(/_/g, " "))} · {d.name}{" "}
+                          · Expires {formatDate(d.expiry_date)}
+                        </p>
+                      </div>
+                      <Badge tone={expired ? "red" : "amber"}>
+                        {expired ? "Expired" : `${days} day${days === 1 ? "" : "s"} left`}
+                      </Badge>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </CardBody>
+        </Card>
+      )}
 
       {/* ----------------------------------------------- LISTS + ACTIVITY */}
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
