@@ -23,14 +23,36 @@ export function LoginForm() {
     setLoading(true);
     try {
       const supabase = createClient();
-      const { error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { data: authData, error: authError } =
+        await supabase.auth.signInWithPassword({ email, password });
       if (authError) {
         setError(authError.message);
         return;
       }
+
+      // Confirm this account is a staff member. Customer-portal accounts can
+      // sign in to Supabase but have no staff profile — without this check
+      // they would be silently bounced straight back to the login page.
+      const { data: staff } = await supabase
+        .from("users")
+        .select("id, is_active")
+        .eq("id", authData.user?.id ?? "")
+        .maybeSingle();
+
+      if (!staff) {
+        await supabase.auth.signOut();
+        setError(
+          "This account doesn't have staff access. If you're a customer, " +
+            "use the customer portal sign-in instead.",
+        );
+        return;
+      }
+      if (!staff.is_active) {
+        await supabase.auth.signOut();
+        setError("Your staff account is inactive. Contact an administrator.");
+        return;
+      }
+
       const redirect = params.get("redirect") || "/admin";
       router.push(redirect);
       router.refresh();

@@ -3,6 +3,12 @@ const nextConfig = {
   reactStrictMode: true,
   // Keep the PDF renderer out of the bundler — it ships its own dependencies.
   serverExternalPackages: ["@react-pdf/renderer"],
+  // Allow larger uploads through Server Actions (e.g. document photos).
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "10mb",
+    },
+  },
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "**.supabase.co" },

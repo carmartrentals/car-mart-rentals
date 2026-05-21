@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Upload, CheckCircle2, Loader2, RefreshCw } from "lucide-react";
 import { uploadMyDocument } from "@/app/account/(portal)/actions";
+import { compressImage } from "@/lib/image";
 
 export function DocumentUpload({
   kind,
@@ -24,14 +25,27 @@ export function DocumentUpload({
   function handle(file: File | undefined) {
     if (!file) return;
     setError(null);
-    const fd = new FormData();
-    fd.append("kind", kind);
-    fd.append("file", file);
     startTransition(async () => {
-      const res = await uploadMyDocument(fd);
-      if (res.ok) router.refresh();
-      else setError(res.error ?? "Upload failed.");
-      if (inputRef.current) inputRef.current.value = "";
+      try {
+        // Shrink phone photos so the upload stays small and reliable.
+        const prepared = await compressImage(file);
+        if (prepared.size > 9 * 1024 * 1024) {
+          setError("This file is too large. Please use a smaller photo or PDF.");
+          return;
+        }
+        const fd = new FormData();
+        fd.append("kind", kind);
+        fd.append("file", prepared);
+        const res = await uploadMyDocument(fd);
+        if (res?.ok) router.refresh();
+        else setError(res?.error ?? "Upload failed. Please try again.");
+      } catch {
+        setError(
+          "Upload failed. Please try a smaller file or check your connection.",
+        );
+      } finally {
+        if (inputRef.current) inputRef.current.value = "";
+      }
     });
   }
 

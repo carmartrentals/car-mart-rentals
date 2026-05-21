@@ -44,17 +44,14 @@ export async function updateSession(request: NextRequest) {
   const isAdminArea = path.startsWith("/admin");
   const isLoginPage = path === "/admin/login";
 
+  // Guard the admin area — but never the login page itself. Whether a signed-in
+  // user is actually staff is verified by the admin layout (requireUser) and the
+  // login form, so the middleware must not bounce sessions off /admin/login
+  // (a non-staff session there would otherwise cause a redirect loop).
   if (isAdminArea && !isLoginPage && !user) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/admin/login";
     redirectUrl.searchParams.set("redirect", path);
-    return NextResponse.redirect(redirectUrl);
-  }
-
-  if (isLoginPage && user) {
-    const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = "/admin";
-    redirectUrl.search = "";
     return NextResponse.redirect(redirectUrl);
   }
 
