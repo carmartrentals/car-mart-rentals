@@ -230,7 +230,7 @@ export async function POST(request: Request) {
   // Internal alert to the company (best-effort)
   await notifyCompany({
     type: "new_booking",
-    subject: `New website booking — ${reservation.reservation_number}`,
+    subject: `🚗 New Website Booking — ${reservation.reservation_number}`,
     heading: "New Website Booking",
     intro: `${input.customer.first_name} ${input.customer.last_name} booked a vehicle on your website. It is pending your confirmation.`,
     rows: [

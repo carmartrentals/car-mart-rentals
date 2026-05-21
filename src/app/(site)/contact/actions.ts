@@ -39,7 +39,7 @@ export async function submitContactForm(input: {
 
     await notifyCompany({
       type: "website_enquiry",
-      subject: `New website enquiry - ${name}`,
+      subject: `✉️ New Website Enquiry — ${name}`,
       heading: "New Website Enquiry",
       intro: `${name} sent a message through the website contact form. It has also been added to your Leads page.`,
       rows: [

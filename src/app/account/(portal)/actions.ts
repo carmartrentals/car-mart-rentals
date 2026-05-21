@@ -212,9 +212,11 @@ async function createReservationRequest(
 
   await notifyCompany({
     type: `${type}_request`,
-    subject: `New ${
-      type === "extension" ? "extension" : "early return"
-    } request — ${r.reservation_number}`,
+    subject: `${
+      type === "extension"
+        ? "⏳ New Extension Request"
+        : "↩️ New Early Return Request"
+    } — ${r.reservation_number}`,
     heading:
       type === "extension"
         ? "New Extension Request"
@@ -392,7 +394,7 @@ export async function submitMyReview(input: {
 
   await notifyCompany({
     type: "review_submitted",
-    subject: `New customer review — ${rating}-star`,
+    subject: `⭐ New Customer Review — ${rating}-star`,
     heading: "New Customer Review",
     intro: `${customer.first_name} ${customer.last_name} left a ${rating}-star review for ${r.reservation_number}. Approve it to publish it on your website.`,
     rows: [
