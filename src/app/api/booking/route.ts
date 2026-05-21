@@ -3,7 +3,7 @@ import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { computeReservationTotals } from "@/lib/pricing";
 import { getTaxRate } from "@/lib/data/settings";
-import { sendNotification, notifyCompany } from "@/lib/notifications";
+import { notifyCustomer, notifyCompany } from "@/lib/notifications";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import type { AddOn, Vehicle } from "@/lib/types/database";
 
@@ -210,19 +210,23 @@ export async function POST(request: Request) {
     description: `Website booking ${reservation.reservation_number}`,
   });
 
-  // Booking confirmation email (best-effort)
-  await sendNotification({
+  // Booking confirmation email to the customer (best-effort)
+  await notifyCustomer({
     type: "booking_confirmation",
-    templateKey: "booking_confirmation",
     to: email,
-    variables: {
-      customer_name: `${input.customer.first_name} ${input.customer.last_name}`,
-      reservation_number: reservation.reservation_number,
-      vehicle_name: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
-      pickup_at: formatDateTime(input.pickup_at),
-      return_at: formatDateTime(input.return_at),
-      total: formatCurrency(pricing.total),
-    },
+    subject: `🚗 Booking received — ${reservation.reservation_number}`,
+    heading: "We've Received Your Booking",
+    intro: `Hi ${input.customer.first_name}, thank you for your booking. Your reservation request is in — our team will review it and confirm it shortly.`,
+    rows: [
+      { label: "Reservation", value: reservation.reservation_number },
+      {
+        label: "Vehicle",
+        value: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
+      },
+      { label: "Pickup", value: formatDateTime(input.pickup_at) },
+      { label: "Return", value: formatDateTime(input.return_at) },
+      { label: "Estimated total", value: formatCurrency(pricing.total) },
+    ],
     reservationId: reservation.id,
     customerId,
   });
