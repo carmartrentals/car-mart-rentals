@@ -77,11 +77,11 @@ export default async function VehicleDetailPage({
   ].filter((p) => p.value != null) as { label: string; value: number }[];
 
   return (
-    <div className="bg-slate-50">
+    <div className="bg-brand-950">
       <div className="container-px py-8">
         <Link
           href="/vehicles"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-gold-600"
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-400 transition-colors hover:text-gold-300"
         >
           <ArrowLeft className="h-4 w-4" /> Back to Fleet
         </Link>
@@ -91,18 +91,18 @@ export default async function VehicleDetailPage({
           <div>
             <VehicleGallery images={vehicle.vehicle_images} name={name} />
 
-            <div className="mt-6 rounded-xl border border-slate-200 bg-white p-6">
-              <span className="rounded-full bg-gold-50 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-gold-700">
+            <div className="mt-6 glass rounded-2xl p-6">
+              <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-gold-300">
                 {VEHICLE_CATEGORIES[vehicle.category]}
               </span>
-              <h1 className="heading-display mt-2 text-3xl font-bold text-slate-900">
+              <h1 className="heading-display mt-3 text-3xl font-bold text-white">
                 {name}
               </h1>
               {vehicle.trim && (
-                <p className="text-slate-500">{vehicle.trim} · {vehicle.color}</p>
+                <p className="text-slate-400">{vehicle.trim} · {vehicle.color}</p>
               )}
               {vehicle.description && (
-                <p className="mt-4 leading-relaxed text-slate-600">
+                <p className="mt-4 leading-relaxed text-slate-300">
                   {vehicle.description}
                 </p>
               )}
@@ -111,11 +111,11 @@ export default async function VehicleDetailPage({
                 {specs.map((s) => (
                   <div
                     key={s.label}
-                    className="rounded-lg border border-slate-100 bg-slate-50 p-3"
+                    className="rounded-xl border border-white/10 bg-white/[0.03] p-3"
                   >
-                    <s.icon className="h-4 w-4 text-gold-600" />
-                    <p className="mt-1.5 text-xs text-slate-500">{s.label}</p>
-                    <p className="text-sm font-semibold text-slate-900">
+                    <s.icon className="h-4 w-4 text-gold-300" />
+                    <p className="mt-1.5 text-xs text-slate-400">{s.label}</p>
+                    <p className="text-sm font-semibold text-white">
                       {s.value}
                     </p>
                   </div>
@@ -125,17 +125,17 @@ export default async function VehicleDetailPage({
 
             {/* Features */}
             {vehicle.features.length > 0 && (
-              <div className="mt-6 rounded-xl border border-slate-200 bg-white p-6">
-                <h2 className="text-base font-semibold text-slate-900">
+              <div className="mt-6 glass rounded-2xl p-6">
+                <h2 className="text-base font-semibold text-white">
                   Features & Equipment
                 </h2>
                 <div className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
                   {vehicle.features.map((f) => (
                     <span
                       key={f}
-                      className="flex items-center gap-2 text-sm text-slate-700"
+                      className="flex items-center gap-2 text-sm text-slate-300"
                     >
-                      <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+                      <CheckCircle2 className="h-4 w-4 shrink-0 text-gold-300" />
                       {f}
                     </span>
                   ))}
@@ -145,38 +145,34 @@ export default async function VehicleDetailPage({
 
             {/* Pricing & policies */}
             <div className="mt-6 grid gap-6 sm:grid-cols-2">
-              <div className="rounded-xl border border-slate-200 bg-white p-6">
-                <h2 className="text-base font-semibold text-slate-900">
-                  Rates
-                </h2>
+              <div className="glass rounded-2xl p-6">
+                <h2 className="text-base font-semibold text-white">Rates</h2>
                 <ul className="mt-3 space-y-2">
                   {pricing.map((p) => (
                     <li
                       key={p.label}
-                      className="flex justify-between text-sm text-slate-600"
+                      className="flex justify-between text-sm text-slate-400"
                     >
                       <span>{p.label}</span>
-                      <span className="font-semibold text-slate-900">
+                      <span className="font-semibold text-white">
                         {formatCurrency(p.value)}
                       </span>
                     </li>
                   ))}
-                  <li className="flex justify-between border-t border-slate-100 pt-2 text-sm text-slate-600">
+                  <li className="flex justify-between border-t border-white/10 pt-2 text-sm text-slate-400">
                     <span>Security Deposit</span>
-                    <span className="font-semibold text-slate-900">
+                    <span className="font-semibold text-white">
                       {formatCurrency(vehicle.security_deposit)}
                     </span>
                   </li>
                 </ul>
               </div>
 
-              <div className="rounded-xl border border-slate-200 bg-white p-6">
-                <h2 className="text-base font-semibold text-slate-900">
-                  Policies
-                </h2>
-                <ul className="mt-3 space-y-2.5 text-sm text-slate-600">
+              <div className="glass rounded-2xl p-6">
+                <h2 className="text-base font-semibold text-white">Policies</h2>
+                <ul className="mt-3 space-y-2.5 text-sm text-slate-300">
                   <li className="flex items-start gap-2">
-                    <Gauge className="mt-0.5 h-4 w-4 text-gold-600" />
+                    <Gauge className="mt-0.5 h-4 w-4 text-gold-300" />
                     {vehicle.mileage_limit === 0
                       ? "Unlimited mileage included."
                       : `${vehicle.mileage_limit} mi/day included, then ${formatCurrency(
@@ -184,15 +180,15 @@ export default async function VehicleDetailPage({
                         )}/mi.`}
                   </li>
                   <li className="flex items-start gap-2">
-                    <Fuel className="mt-0.5 h-4 w-4 text-gold-600" />
+                    <Fuel className="mt-0.5 h-4 w-4 text-gold-300" />
                     {vehicle.fuel_policy}
                   </li>
                   <li className="flex items-start gap-2">
-                    <ShieldCheck className="mt-0.5 h-4 w-4 text-gold-600" />
+                    <ShieldCheck className="mt-0.5 h-4 w-4 text-gold-300" />
                     Valid driver license & insurance required at pickup.
                   </li>
                   <li className="flex items-start gap-2">
-                    <Calendar className="mt-0.5 h-4 w-4 text-gold-600" />
+                    <Calendar className="mt-0.5 h-4 w-4 text-gold-300" />
                     Minimum age 21. Drivers 21-24 incur a young-driver surcharge.
                   </li>
                 </ul>
@@ -201,29 +197,29 @@ export default async function VehicleDetailPage({
 
             {/* Add-ons */}
             {addOns.length > 0 && (
-              <div className="mt-6 rounded-xl border border-slate-200 bg-white p-6">
-                <h2 className="text-base font-semibold text-slate-900">
+              <div className="mt-6 glass rounded-2xl p-6">
+                <h2 className="text-base font-semibold text-white">
                   Available Add-ons
                 </h2>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                   {addOns.map((a) => (
                     <div
                       key={a.id}
-                      className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50 px-4 py-3"
+                      className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3"
                     >
                       <div>
-                        <p className="text-sm font-medium text-slate-900">
+                        <p className="text-sm font-medium text-white">
                           {a.name}
                         </p>
                         {a.description && (
-                          <p className="text-xs text-slate-500">
+                          <p className="text-xs text-slate-400">
                             {a.description}
                           </p>
                         )}
                       </div>
-                      <span className="whitespace-nowrap text-sm font-semibold text-slate-900">
+                      <span className="whitespace-nowrap text-sm font-semibold text-white">
                         {formatCurrency(a.price)}
-                        <span className="text-xs font-normal text-slate-500">
+                        <span className="text-xs font-normal text-slate-400">
                           /{a.price_type === "per_day" ? "day" : "rental"}
                         </span>
                       </span>
@@ -242,8 +238,8 @@ export default async function VehicleDetailPage({
 
         {/* Similar vehicles */}
         {similar.length > 0 && (
-          <div className="mt-14">
-            <h2 className="heading-display text-2xl font-bold text-slate-900">
+          <div className="mt-16">
+            <h2 className="heading-display text-2xl font-bold text-white">
               Similar Vehicles
             </h2>
             <div className="mt-5 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">

@@ -26,15 +26,15 @@ export function VehicleFilters() {
   );
 
   return (
-    <aside className="rounded-xl border border-slate-200 bg-white p-5 shadow-card">
+    <aside className="glass rounded-2xl p-5">
       <div className="flex items-center justify-between">
-        <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-          <SlidersHorizontal className="h-4 w-4 text-gold-600" /> Filters
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-white">
+          <SlidersHorizontal className="h-4 w-4 text-gold-300" /> Filters
         </h2>
         {hasFilters && (
           <button
             onClick={() => router.push(pathname)}
-            className="flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-rose-600"
+            className="flex items-center gap-1 text-xs font-medium text-slate-400 hover:text-white"
           >
             <X className="h-3.5 w-3.5" /> Clear
           </button>
@@ -115,14 +115,21 @@ export function VehicleFilters() {
           width: 100%;
           height: 2.5rem;
           border-radius: 0.5rem;
-          border: 1px solid rgb(203 213 225);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          background: rgba(11, 12, 17, 0.6);
           padding: 0 0.75rem;
           font-size: 0.875rem;
+          color: #ffffff;
+          color-scheme: dark;
         }
         :global(.filter-control:focus) {
           outline: none;
-          border-color: #c8a45c;
-          box-shadow: 0 0 0 2px rgba(200, 164, 92, 0.3);
+          border-color: #cbced4;
+          box-shadow: 0 0 0 2px rgba(203, 206, 212, 0.25);
+        }
+        :global(.filter-control option) {
+          background: #14151c;
+          color: #ffffff;
         }
       `}</style>
     </aside>
@@ -132,7 +139,7 @@ export function VehicleFilters() {
 function Group({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-400">
         {label}
       </label>
       {children}

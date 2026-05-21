@@ -24,8 +24,8 @@ export function StarRating({
           className={cn(
             dim,
             n <= Math.round(rating)
-              ? "fill-gold-500 text-gold-500"
-              : "fill-slate-200 text-slate-200",
+              ? "fill-gold-400 text-gold-400"
+              : "fill-white/10 text-white/10",
           )}
         />
       ))}

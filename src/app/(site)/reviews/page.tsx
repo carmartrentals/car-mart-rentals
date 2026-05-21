@@ -20,32 +20,32 @@ export default async function ReviewsPage() {
         description="Real feedback from the people who have rented with Car Mart Rentals."
       />
 
-      <section className="bg-white py-14">
+      <section className="bg-brand-950 py-16">
         <div className="container-px">
           {count === 0 ? (
-            <div className="mx-auto max-w-md rounded-xl border border-dashed border-slate-300 p-12 text-center">
-              <MessageSquareQuote className="mx-auto h-9 w-9 text-slate-300" />
-              <h2 className="mt-3 text-base font-semibold text-slate-800">
+            <div className="mx-auto max-w-md rounded-2xl border border-dashed border-white/15 p-12 text-center">
+              <MessageSquareQuote className="mx-auto h-9 w-9 text-slate-600" />
+              <h2 className="mt-3 text-base font-semibold text-white">
                 No reviews yet
               </h2>
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="mt-1 text-sm text-slate-400">
                 Be the first to experience our service.
               </p>
               <Link
                 href="/vehicles"
-                className="mt-5 inline-flex items-center gap-2 rounded-lg bg-gold-500 px-5 py-2.5 text-sm font-semibold text-brand-950 hover:bg-gold-400"
+                className="mt-5 inline-flex items-center gap-2 rounded-lg bg-gold-500 px-5 py-2.5 text-sm font-semibold text-brand-950 transition-colors hover:bg-white"
               >
                 Browse Our Fleet <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
           ) : (
             <>
-              <div className="mx-auto mb-10 flex max-w-md flex-col items-center text-center">
-                <p className="heading-display text-5xl font-bold text-slate-900">
+              <div className="mx-auto mb-12 flex max-w-md flex-col items-center text-center">
+                <p className="heading-display text-6xl font-bold text-white">
                   {average.toFixed(1)}
                 </p>
                 <StarRating rating={average} size="lg" className="mt-2" />
-                <p className="mt-2 text-sm text-slate-500">
+                <p className="mt-2 text-sm text-slate-400">
                   Based on {count} customer review{count === 1 ? "" : "s"}
                 </p>
               </div>

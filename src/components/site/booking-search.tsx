@@ -34,24 +34,24 @@ export function BookingSearch({ compact = false }: { compact?: boolean }) {
   return (
     <form
       onSubmit={onSearch}
-      className={`grid gap-3 rounded-xl bg-white p-4 shadow-elevated sm:p-5 ${
+      className={`grid gap-3 rounded-2xl border border-white/10 bg-white/[0.06] p-4 backdrop-blur-xl sm:p-5 ${
         compact ? "sm:grid-cols-4" : "lg:grid-cols-[1fr_1fr_1fr_auto]"
       }`}
     >
       <div>
-        <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-400">
           <CalendarDays className="h-3.5 w-3.5" /> Pickup
         </label>
         <input
           type="datetime-local"
           value={pickup}
           onChange={(e) => setPickup(e.target.value)}
-          className="h-11 w-full rounded-lg border border-slate-300 px-3 text-sm focus:border-gold-500 focus:outline-none focus:ring-2 focus:ring-gold-500/30"
+          className="search-input"
           required
         />
       </div>
       <div>
-        <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-400">
           <CalendarDays className="h-3.5 w-3.5" /> Return
         </label>
         <input
@@ -59,18 +59,18 @@ export function BookingSearch({ compact = false }: { compact?: boolean }) {
           value={ret}
           min={pickup}
           onChange={(e) => setRet(e.target.value)}
-          className="h-11 w-full rounded-lg border border-slate-300 px-3 text-sm focus:border-gold-500 focus:outline-none focus:ring-2 focus:ring-gold-500/30"
+          className="search-input"
           required
         />
       </div>
       <div>
-        <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <label className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-400">
           <Car className="h-3.5 w-3.5" /> Vehicle Type
         </label>
         <select
           value={category}
           onChange={(e) => setCategory(e.target.value)}
-          className="h-11 w-full rounded-lg border border-slate-300 px-3 text-sm focus:border-gold-500 focus:outline-none focus:ring-2 focus:ring-gold-500/30"
+          className="search-input"
         >
           <option value="">All Categories</option>
           {Object.entries(VEHICLE_CATEGORIES).map(([value, label]) => (
@@ -83,12 +83,35 @@ export function BookingSearch({ compact = false }: { compact?: boolean }) {
       <div className="flex items-end">
         <button
           type="submit"
-          className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-gold-500 px-6 text-sm font-semibold text-brand-950 transition-colors hover:bg-gold-400"
+          className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-gold-500 px-6 text-sm font-semibold text-brand-950 transition-colors hover:bg-white"
         >
           <Search className="h-4 w-4" />
-          Search Vehicles
+          Search
         </button>
       </div>
+
+      <style>{`
+        .search-input {
+          height: 2.75rem;
+          width: 100%;
+          border-radius: 0.5rem;
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          background: rgba(11, 12, 17, 0.6);
+          padding: 0 0.75rem;
+          font-size: 0.875rem;
+          color: #ffffff;
+          color-scheme: dark;
+        }
+        .search-input:focus {
+          outline: none;
+          border-color: #cbced4;
+          box-shadow: 0 0 0 2px rgba(203, 206, 212, 0.25);
+        }
+        .search-input option {
+          background: #14151c;
+          color: #ffffff;
+        }
+      `}</style>
     </form>
   );
 }

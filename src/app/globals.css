@@ -18,7 +18,7 @@
   }
 
   ::selection {
-    @apply bg-gold-200 text-brand-950;
+    @apply bg-gold-500/30 text-white;
   }
 }
 
@@ -29,6 +29,19 @@
 
   .heading-display {
     font-family: var(--font-display);
+  }
+
+  /* Uppercase tracked accent label — for section eyebrows */
+  .eyebrow {
+    @apply text-xs font-semibold uppercase tracking-[0.28em] text-gold-400;
+  }
+
+  /* Glassy translucent surface for cards on dark backgrounds */
+  .glass {
+    @apply border border-white/10 bg-white/[0.04];
+  }
+  .glass-hover {
+    @apply transition-all duration-300 hover:border-white/20 hover:bg-white/[0.06];
   }
 
   /* Scrollbar — admin panels */
@@ -44,13 +57,32 @@
   }
 }
 
-/* Hero gradient overlay */
+/* Hero gradient overlay — cinematic fade to black */
 .hero-overlay {
   background: linear-gradient(
     180deg,
-    rgba(11, 12, 17, 0.6) 0%,
-    rgba(11, 12, 17, 0.4) 45%,
-    rgba(11, 12, 17, 0.94) 100%
+    rgba(11, 12, 17, 0.55) 0%,
+    rgba(11, 12, 17, 0.35) 38%,
+    rgba(11, 12, 17, 0.82) 78%,
+    rgba(11, 12, 17, 1) 100%
+  );
+}
+
+/* Side vignette for full-bleed hero imagery */
+.hero-vignette {
+  background: radial-gradient(
+    120% 90% at 50% 30%,
+    transparent 40%,
+    rgba(11, 12, 17, 0.75) 100%
+  );
+}
+
+/* Soft chrome spotlight glow — sits behind section content */
+.glow-spot {
+  background: radial-gradient(
+    55% 55% at 50% 0%,
+    rgba(203, 206, 212, 0.1) 0%,
+    transparent 72%
   );
 }
 
@@ -82,4 +114,22 @@
     rgba(203, 206, 212, 0.5),
     transparent
   );
+}
+
+/* Cinematic entrance animations */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-rise {
+  animation: rise-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.animate-rise-slow {
+  animation: rise-in 1s cubic-bezier(0.22, 1, 0.36, 1) both;
 }

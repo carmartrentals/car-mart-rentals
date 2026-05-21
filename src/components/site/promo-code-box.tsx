@@ -21,12 +21,12 @@ export function PromoCodeBox({ code }: { code: string }) {
     <button
       type="button"
       onClick={copy}
-      className="flex w-full items-center justify-between gap-3 rounded-lg border border-dashed border-gold-400 bg-gold-50 px-4 py-2.5 transition-colors hover:bg-gold-100"
+      className="flex w-full items-center justify-between gap-3 rounded-lg border border-dashed border-gold-400/40 bg-white/5 px-4 py-2.5 transition-colors hover:bg-white/10"
     >
-      <span className="font-mono text-sm font-bold tracking-wider text-brand-950">
+      <span className="font-mono text-sm font-bold tracking-wider text-white">
         {code}
       </span>
-      <span className="flex items-center gap-1 text-xs font-semibold text-gold-700">
+      <span className="flex items-center gap-1 text-xs font-semibold text-gold-300">
         {copied ? (
           <>
             <Check className="h-3.5 w-3.5" /> Copied

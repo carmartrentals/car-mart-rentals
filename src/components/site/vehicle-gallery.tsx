@@ -23,7 +23,7 @@ export function VehicleGallery({
 
   return (
     <div>
-      <div className="relative aspect-[16/10] overflow-hidden rounded-xl bg-slate-100">
+      <div className="relative aspect-[16/10] overflow-hidden rounded-2xl border border-white/10 bg-brand-900">
         <Image
           src={urls[active]}
           alt={name}
@@ -40,8 +40,8 @@ export function VehicleGallery({
               key={i}
               onClick={() => setActive(i)}
               className={cn(
-                "relative aspect-[4/3] overflow-hidden rounded-lg bg-slate-100 ring-2 transition",
-                i === active ? "ring-gold-500" : "ring-transparent hover:ring-slate-300",
+                "relative aspect-[4/3] overflow-hidden rounded-lg bg-brand-900 ring-2 transition",
+                i === active ? "ring-gold-400" : "ring-white/10 hover:ring-white/30",
               )}
             >
               <Image

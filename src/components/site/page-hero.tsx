@@ -8,18 +8,17 @@ export function PageHero({
   description?: string;
 }) {
   return (
-    <section className="border-b border-slate-200 bg-brand-950 py-14">
-      <div className="container-px">
-        {eyebrow && (
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-gold-400">
-            {eyebrow}
-          </p>
-        )}
-        <h1 className="heading-display mt-1 text-3xl font-bold text-white sm:text-4xl">
+    <section className="relative overflow-hidden border-b border-white/10 bg-brand-950 py-20 sm:py-24">
+      <div className="glow-spot pointer-events-none absolute inset-x-0 top-0 h-72" />
+      <div className="container-px relative">
+        {eyebrow && <p className="eyebrow animate-rise">{eyebrow}</p>}
+        <h1 className="heading-display mt-3 text-4xl font-bold leading-tight text-white animate-rise sm:text-5xl">
           {title}
         </h1>
         {description && (
-          <p className="mt-3 max-w-2xl text-slate-300">{description}</p>
+          <p className="mt-4 max-w-2xl text-lg leading-relaxed text-slate-400 animate-rise-slow">
+            {description}
+          </p>
         )}
       </div>
     </section>

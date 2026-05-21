@@ -10,16 +10,16 @@ export default async function PrivacyPage() {
   return (
     <>
       <PageHero eyebrow="Legal" title="Privacy Policy" />
-      <section className="bg-white py-14">
+      <section className="bg-brand-950 py-16">
         <div className="container-px max-w-3xl space-y-7">
           {content.sections.map((s, i) => (
             <div key={i}>
               {s.title && (
-                <h2 className="text-base font-semibold text-slate-900">
+                <h2 className="text-base font-semibold text-white">
                   {s.title}
                 </h2>
               )}
-              <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-slate-600">
+              <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-slate-400">
                 {s.body}
               </p>
             </div>

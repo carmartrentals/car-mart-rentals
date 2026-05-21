@@ -36,11 +36,11 @@ export default async function ContactPage() {
         description="Questions about a rental, a quote or an insurance claim? We're here to help."
       />
 
-      <section className="bg-white py-14">
+      <section className="bg-brand-950 py-16">
         <div className="container-px grid gap-10 lg:grid-cols-2">
           {/* ----------------------------------------------------- LEFT COLUMN */}
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">
+            <h2 className="text-lg font-semibold text-white">
               Reach Our Team
             </h2>
             <ul className="mt-5 space-y-4">
@@ -50,19 +50,19 @@ export default async function ContactPage() {
                 { icon: MapPin, label: "Location", value: company.address },
               ].map((c) => (
                 <li key={c.label} className="flex items-start gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gold-50">
-                    <c.icon className="h-5 w-5 text-gold-600" />
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/5">
+                    <c.icon className="h-5 w-5 text-gold-300" />
                   </span>
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-500">
                       {c.label}
                     </p>
                     {c.href ? (
-                      <a href={c.href} className="text-slate-800 hover:text-gold-600">
+                      <a href={c.href} className="text-slate-200 hover:text-gold-300">
                         {c.value}
                       </a>
                     ) : (
-                      <p className="text-slate-800">{c.value}</p>
+                      <p className="text-slate-200">{c.value}</p>
                     )}
                   </div>
                 </li>
@@ -70,18 +70,18 @@ export default async function ContactPage() {
             </ul>
 
             {/* Business hours */}
-            <div className="mt-7 rounded-xl border border-slate-200 p-5">
-              <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-                <Clock className="h-4 w-4 text-gold-600" /> Business Hours
+            <div className="mt-7 glass rounded-2xl p-5">
+              <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
+                <Clock className="h-4 w-4 text-gold-300" /> Business Hours
               </h3>
               <ul className="mt-3 space-y-1.5">
                 {HOURS.map((h) => (
                   <li
                     key={h.day}
-                    className="flex justify-between text-sm text-slate-600"
+                    className="flex justify-between text-sm text-slate-400"
                   >
                     <span>{h.day}</span>
-                    <span className="font-medium text-slate-800">{h.time}</span>
+                    <span className="font-medium text-slate-200">{h.time}</span>
                   </li>
                 ))}
               </ul>
@@ -92,10 +92,10 @@ export default async function ContactPage() {
               {TRUST.map((t) => (
                 <div
                   key={t.label}
-                  className="flex items-center gap-2.5 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-3"
+                  className="flex items-center gap-2.5 rounded-lg border border-white/10 bg-white/[0.03] px-3.5 py-3"
                 >
-                  <t.icon className="h-5 w-5 shrink-0 text-gold-600" />
-                  <span className="text-xs font-semibold text-slate-700">
+                  <t.icon className="h-5 w-5 shrink-0 text-gold-300" />
+                  <span className="text-xs font-semibold text-slate-200">
                     {t.label}
                   </span>
                 </div>
@@ -109,9 +109,9 @@ export default async function ContactPage() {
       </section>
 
       {/* ----------------------------------------------------------------- MAP */}
-      <section className="bg-slate-50 pb-14">
+      <section className="bg-brand-950 pb-16">
         <div className="container-px">
-          <div className="overflow-hidden rounded-xl border border-slate-200 shadow-card">
+          <div className="overflow-hidden rounded-2xl border border-white/10">
             <iframe
               title={`Map to ${company.name}`}
               src={mapSrc}
@@ -119,7 +119,7 @@ export default async function ContactPage() {
               height="380"
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
-              className="block w-full"
+              className="block w-full grayscale"
             />
           </div>
         </div>

@@ -15,18 +15,18 @@ export default async function FaqPage() {
         title="Frequently Asked Questions"
         description="Everything you need to know about renting with Car Mart Rentals."
       />
-      <section className="bg-white py-14">
+      <section className="bg-brand-950 py-16">
         <div className="container-px max-w-3xl space-y-3">
           {content.sections.map((f, i) => (
             <details
               key={i}
-              className="group rounded-xl border border-slate-200 p-5 shadow-card"
+              className="group glass glass-hover rounded-2xl p-5"
             >
-              <summary className="flex cursor-pointer items-center justify-between gap-4 text-sm font-semibold text-slate-900">
+              <summary className="flex cursor-pointer items-center justify-between gap-4 text-sm font-semibold text-white">
                 {f.title}
-                <ChevronDown className="h-4 w-4 shrink-0 text-gold-600 transition-transform group-open:rotate-180" />
+                <ChevronDown className="h-4 w-4 shrink-0 text-gold-300 transition-transform group-open:rotate-180" />
               </summary>
-              <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-slate-600">
+              <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-slate-400">
                 {f.body}
               </p>
             </details>

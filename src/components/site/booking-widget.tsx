@@ -49,31 +49,31 @@ export function BookingWidget({ vehicle }: { vehicle: Vehicle }) {
   }
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-card">
+    <div className="glass rounded-2xl p-5">
       <div className="flex items-baseline justify-between">
-        <p className="text-2xl font-bold text-slate-900">
+        <p className="text-2xl font-bold text-white">
           {formatCurrency(vehicle.daily_rate)}
-          <span className="text-sm font-normal text-slate-500">/day</span>
+          <span className="text-sm font-normal text-slate-400">/day</span>
         </p>
-        <span className="text-xs text-slate-500">
+        <span className="text-xs text-slate-400">
           Deposit {formatCurrency(vehicle.security_deposit)}
         </span>
       </div>
 
       <div className="mt-4 space-y-3">
         <div>
-          <label className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <label className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-400">
             <CalendarDays className="h-3.5 w-3.5" /> Pickup
           </label>
           <input
             type="datetime-local"
             value={pickup}
             onChange={(e) => setPickup(e.target.value)}
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm focus:border-gold-500 focus:outline-none focus:ring-2 focus:ring-gold-500/30"
+            className="widget-input"
           />
         </div>
         <div>
-          <label className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <label className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-400">
             <CalendarDays className="h-3.5 w-3.5" /> Return
           </label>
           <input
@@ -81,13 +81,13 @@ export function BookingWidget({ vehicle }: { vehicle: Vehicle }) {
             value={ret}
             min={pickup}
             onChange={(e) => setRet(e.target.value)}
-            className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm focus:border-gold-500 focus:outline-none focus:ring-2 focus:ring-gold-500/30"
+            className="widget-input"
           />
         </div>
       </div>
 
       {quote ? (
-        <div className="mt-4 space-y-1.5 border-t border-slate-100 pt-4 text-sm">
+        <div className="mt-4 space-y-1.5 border-t border-white/10 pt-4 text-sm">
           <Row
             label={`${formatCurrency(quote.perDay)} × ${quote.days} day${
               quote.days === 1 ? "" : "s"
@@ -95,19 +95,19 @@ export function BookingWidget({ vehicle }: { vehicle: Vehicle }) {
             value={formatCurrency(quote.subtotal)}
           />
           <Row label="Estimated tax (9.5%)" value={formatCurrency(quote.tax)} />
-          <div className="flex justify-between border-t border-slate-100 pt-2 text-base font-bold text-slate-900">
+          <div className="flex justify-between border-t border-white/10 pt-2 text-base font-bold text-white">
             <span>Estimated Total</span>
             <span>{formatCurrency(quote.total)}</span>
           </div>
           {quote.rateType !== "daily" && (
-            <p className="text-xs text-emerald-600">
+            <p className="text-xs text-gold-300">
               {quote.rateType === "weekly" ? "Weekly" : "Monthly"} rate applied —
               you save vs. daily pricing.
             </p>
           )}
         </div>
       ) : (
-        <p className="mt-4 border-t border-slate-100 pt-4 text-sm text-rose-600">
+        <p className="mt-4 border-t border-white/10 pt-4 text-sm text-rose-400">
           Return must be after pickup.
         </p>
       )}
@@ -115,23 +115,42 @@ export function BookingWidget({ vehicle }: { vehicle: Vehicle }) {
       <button
         onClick={reserve}
         disabled={!quote}
-        className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-gold-500 px-5 py-3 text-sm font-semibold text-brand-950 transition-colors hover:bg-gold-400 disabled:opacity-50"
+        className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-gold-500 px-5 py-3 text-sm font-semibold text-brand-950 transition-colors hover:bg-white disabled:opacity-40"
       >
         Reserve This Vehicle <ArrowRight className="h-4 w-4" />
       </button>
-      <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-slate-500">
-        <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" /> No charge until
+      <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-slate-400">
+        <ShieldCheck className="h-3.5 w-3.5 text-gold-300" /> No charge until
         confirmed by our team
       </p>
+
+      <style>{`
+        .widget-input {
+          height: 2.5rem;
+          width: 100%;
+          border-radius: 0.5rem;
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          background: rgba(11, 12, 17, 0.6);
+          padding: 0 0.75rem;
+          font-size: 0.875rem;
+          color: #ffffff;
+          color-scheme: dark;
+        }
+        .widget-input:focus {
+          outline: none;
+          border-color: #cbced4;
+          box-shadow: 0 0 0 2px rgba(203, 206, 212, 0.25);
+        }
+      `}</style>
     </div>
   );
 }
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex justify-between text-slate-600">
+    <div className="flex justify-between text-slate-400">
       <span>{label}</span>
-      <span className="font-medium text-slate-800">{value}</span>
+      <span className="font-medium text-slate-200">{value}</span>
     </div>
   );
 }

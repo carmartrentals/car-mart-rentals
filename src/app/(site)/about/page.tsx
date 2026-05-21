@@ -15,13 +15,13 @@ export default async function AboutPage() {
         title="About Car Mart Rentals"
         description="A premium rental company built on trust, quality vehicles and genuine customer care."
       />
-      <section className="bg-white py-14">
+      <section className="bg-brand-950 py-16">
         <div className="container-px grid gap-10 lg:grid-cols-2">
-          <div className="space-y-4 text-slate-600">
+          <div className="space-y-5 text-slate-400">
             {content.sections.map((s, i) => (
               <div key={i}>
                 {s.title && (
-                  <h2 className="mb-1 text-lg font-semibold text-slate-900">
+                  <h2 className="mb-1.5 text-lg font-semibold text-white">
                     {s.title}
                   </h2>
                 )}
@@ -36,10 +36,12 @@ export default async function AboutPage() {
               { icon: Users, title: "Customer First", text: "Concierge-level service every time." },
               { icon: HeartHandshake, title: "Trusted Local", text: "Proudly serving our community." },
             ].map((c) => (
-              <div key={c.title} className="rounded-xl border border-slate-200 p-5 shadow-card">
-                <c.icon className="h-6 w-6 text-gold-600" />
-                <h3 className="mt-3 text-sm font-semibold text-slate-900">{c.title}</h3>
-                <p className="mt-1 text-sm text-slate-600">{c.text}</p>
+              <div key={c.title} className="glass glass-hover rounded-2xl p-5">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5">
+                  <c.icon className="h-5 w-5 text-gold-300" />
+                </div>
+                <h3 className="mt-3.5 text-sm font-semibold text-white">{c.title}</h3>
+                <p className="mt-1 text-sm text-slate-400">{c.text}</p>
               </div>
             ))}
           </div>

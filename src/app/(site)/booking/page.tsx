@@ -38,13 +38,12 @@ export default async function BookingPage({
   const addOns = (data as AddOn[]) ?? [];
 
   return (
-    <div className="bg-slate-50">
-      <section className="border-b border-slate-200 bg-brand-950 py-10">
-        <div className="container-px">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-gold-400">
-            Checkout
-          </p>
-          <h1 className="heading-display mt-1 text-3xl font-bold text-white">
+    <div className="bg-brand-950">
+      <section className="relative overflow-hidden border-b border-white/10 bg-brand-950 py-12">
+        <div className="glow-spot pointer-events-none absolute inset-x-0 top-0 h-48" />
+        <div className="container-px relative">
+          <p className="eyebrow">Checkout</p>
+          <h1 className="heading-display mt-2 text-3xl font-bold text-white sm:text-4xl">
             Complete Your Reservation
           </h1>
         </div>
