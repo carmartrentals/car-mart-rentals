@@ -2,11 +2,13 @@
 
 import { useRef, useState } from "react";
 import { Camera, X, Loader2 } from "lucide-react";
+import { compressImage } from "@/lib/image";
 import type { StorageBucket } from "@/lib/storage";
 
 /**
- * Multi-image uploader. Uploads each selected file to /api/admin/upload
- * and reports the resulting URLs via onChange.
+ * Multi-image uploader. Compresses each selected photo in the browser, then
+ * uploads it to /api/admin/upload and reports the resulting URLs via onChange.
+ * Supports taking a photo or selecting many images from the gallery at once.
  */
 export function PhotoUpload({
   label,
@@ -14,7 +16,7 @@ export function PhotoUpload({
   folder,
   urls,
   onChange,
-  max = 12,
+  max = 30,
 }: {
   label?: string;
   bucket: StorageBucket;
@@ -25,30 +27,54 @@ export function PhotoUpload({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
 
-  async function handleFiles(files: FileList | null) {
-    if (!files || files.length === 0) return;
+  async function handleFiles(fileList: FileList | null) {
+    if (!fileList || fileList.length === 0) return;
     setError(null);
     setBusy(true);
+
     const next = [...urls];
+    const room = Math.max(0, max - next.length);
+    const files = Array.from(fileList).slice(0, room);
+    const skipped = fileList.length - files.length;
+    let failed = 0;
+
+    setProgress({ done: 0, total: files.length });
     try {
-      for (const file of Array.from(files)) {
-        if (next.length >= max) break;
-        const form = new FormData();
-        form.append("file", file);
-        form.append("bucket", bucket);
-        form.append("folder", folder);
-        const res = await fetch("/api/admin/upload", { method: "POST", body: form });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? "Upload failed.");
-        next.push(data.url);
+      for (let i = 0; i < files.length; i++) {
+        try {
+          const prepared = await compressImage(files[i]);
+          const form = new FormData();
+          form.append("file", prepared);
+          form.append("bucket", bucket);
+          form.append("folder", folder);
+          const res = await fetch("/api/admin/upload", {
+            method: "POST",
+            body: form,
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error ?? "Upload failed.");
+          next.push(data.url);
+          onChange([...next]);
+        } catch {
+          failed += 1;
+        }
+        setProgress({ done: i + 1, total: files.length });
       }
-      onChange(next);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Upload failed.");
+      if (failed > 0) {
+        setError(
+          `${failed} photo${failed === 1 ? "" : "s"} could not be uploaded. Please try again.`,
+        );
+      } else if (skipped > 0) {
+        setError(`Only ${max} photos allowed — ${skipped} were not added.`);
+      }
     } finally {
       setBusy(false);
+      setProgress(null);
       if (inputRef.current) inputRef.current.value = "";
     }
   }
@@ -89,7 +115,13 @@ export function PhotoUpload({
             ) : (
               <Camera className="h-5 w-5" />
             )}
-            <span className="text-xs font-medium">{busy ? "Uploading" : "Add"}</span>
+            <span className="text-xs font-medium">
+              {busy
+                ? progress
+                  ? `${progress.done}/${progress.total}`
+                  : "Uploading"
+                : "Add"}
+            </span>
           </button>
         )}
       </div>
@@ -98,14 +130,14 @@ export function PhotoUpload({
         ref={inputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         multiple
         className="hidden"
         onChange={(e) => handleFiles(e.target.files)}
       />
       {error && <p className="mt-1.5 text-xs text-rose-600">{error}</p>}
       <p className="mt-1.5 text-xs text-slate-400">
-        {urls.length}/{max} photos · tap to take a photo or choose from gallery
+        {urls.length}/{max} photos · take a photo or select multiple from your
+        gallery
       </p>
     </div>
   );
