@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   ArrowLeft, Pencil, User, Car, CalendarRange, FileText, CreditCard,
-  ShieldCheck,
+  ShieldCheck, Camera, Siren, Mail, Activity,
 } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getTaxRate } from "@/lib/data/settings";
@@ -21,7 +21,8 @@ import {
 import { formatCurrency, formatDate, formatDateTime, titleCase } from "@/lib/utils";
 import type {
   ReservationWithRelations, ReservationCharge, Payment, Deposit,
-  ReservationRequest,
+  ReservationRequest, Inspection, InspectionPhoto, TollViolation,
+  Notification, ActivityLog,
 } from "@/lib/types/database";
 
 export default async function ReservationDetailPage({
@@ -83,6 +84,54 @@ export default async function ReservationDetailPage({
     requests = (data as ReservationRequest[]) ?? [];
   } catch {
     /* table not migrated yet — ignore */
+  }
+
+  // Inspections, activity, tolls and email history for this reservation —
+  // queried in a resilient block so a problem with one never breaks the page.
+  let inspections: (Inspection & { photos: InspectionPhoto[] })[] = [];
+  let activity: (ActivityLog & {
+    user: { full_name: string; email: string } | null;
+  })[] = [];
+  let tolls: TollViolation[] = [];
+  let emails: Notification[] = [];
+  try {
+    const admin = createAdminClient();
+    const [insRes, actRes, tollRes, mailRes] = await Promise.all([
+      admin
+        .from("inspections")
+        .select("*, photos:inspection_photos(*)")
+        .eq("reservation_id", id)
+        .order("created_at"),
+      admin
+        .from("activity_logs")
+        .select("*, user:users(full_name,email)")
+        .eq("entity_type", "reservation")
+        .eq("entity_id", id)
+        .order("created_at", { ascending: false })
+        .limit(60),
+      admin
+        .from("toll_violations")
+        .select("*")
+        .eq("reservation_id", id)
+        .order("incurred_date", { ascending: false }),
+      admin
+        .from("notifications")
+        .select("*")
+        .eq("reservation_id", id)
+        .order("created_at", { ascending: false }),
+    ]);
+    inspections =
+      (insRes.data as unknown as (Inspection & {
+        photos: InspectionPhoto[];
+      })[]) ?? [];
+    activity =
+      (actRes.data as unknown as (ActivityLog & {
+        user: { full_name: string; email: string } | null;
+      })[]) ?? [];
+    tolls = (tollRes.data as TollViolation[]) ?? [];
+    emails = (mailRes.data as Notification[]) ?? [];
+  } catch {
+    /* ignore — sections simply render empty */
   }
 
   const r = reservation;
@@ -364,6 +413,252 @@ export default async function ReservationDetailPage({
               </CardBody>
             </Card>
           )}
+
+          {/* VEHICLE INSPECTIONS */}
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                <span className="flex items-center gap-2">
+                  <Camera className="h-4 w-4 text-gold-600" /> Vehicle Inspections
+                </span>
+              </CardTitle>
+            </CardHeader>
+            {inspections.length === 0 ? (
+              <CardBody>
+                <p className="text-sm text-slate-400">
+                  No inspections yet — they appear after check-out and check-in.
+                </p>
+              </CardBody>
+            ) : (
+              <CardBody className="space-y-4">
+                {inspections.map((insp) => (
+                  <div
+                    key={insp.id}
+                    className="rounded-lg border border-slate-200 p-4"
+                  >
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold text-slate-800">
+                        {insp.inspection_type === "checkout"
+                          ? "Check-out Inspection"
+                          : "Check-in Inspection"}
+                      </p>
+                      <span className="text-xs text-slate-400">
+                        {formatDateTime(insp.completed_at ?? insp.created_at)}
+                      </span>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm text-slate-600">
+                      <span>
+                        Odometer:{" "}
+                        <strong className="text-slate-800">
+                          {insp.odometer != null
+                            ? `${insp.odometer.toLocaleString()} mi`
+                            : "—"}
+                        </strong>
+                      </span>
+                      <span>
+                        Fuel:{" "}
+                        <strong className="text-slate-800">
+                          {insp.fuel_level != null ? `${insp.fuel_level}%` : "—"}
+                        </strong>
+                      </span>
+                      <span>
+                        Exterior:{" "}
+                        <strong className="text-slate-800">
+                          {insp.exterior_clean ? "Clean" : "Not clean"}
+                        </strong>
+                      </span>
+                      <span>
+                        Interior:{" "}
+                        <strong className="text-slate-800">
+                          {insp.interior_clean ? "Clean" : "Not clean"}
+                        </strong>
+                      </span>
+                    </div>
+                    {insp.notes && (
+                      <p className="mt-2 text-sm text-slate-500">{insp.notes}</p>
+                    )}
+                    {insp.photos.length > 0 && (
+                      <div className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-6">
+                        {insp.photos.map((ph) => (
+                          <a
+                            key={ph.id}
+                            href={ph.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block aspect-square overflow-hidden rounded-md border border-slate-200 transition-colors hover:border-gold-400"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={ph.url}
+                              alt={ph.category}
+                              className="h-full w-full object-cover"
+                            />
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </CardBody>
+            )}
+          </Card>
+
+          {/* TOLLS & VIOLATIONS */}
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                <span className="flex items-center gap-2">
+                  <Siren className="h-4 w-4 text-gold-600" /> Tolls & Violations
+                </span>
+              </CardTitle>
+            </CardHeader>
+            {tolls.length === 0 ? (
+              <CardBody>
+                <p className="text-sm text-slate-400">
+                  No tolls or violations recorded for this rental.
+                </p>
+              </CardBody>
+            ) : (
+              <Table>
+                <THead>
+                  <TR>
+                    <TH>Type</TH>
+                    <TH>Date</TH>
+                    <TH>Status</TH>
+                    <TH className="text-right">Amount</TH>
+                  </TR>
+                </THead>
+                <TBody>
+                  {tolls.map((t) => (
+                    <TR key={t.id}>
+                      <TD className="text-slate-800">
+                        <p className="font-medium">
+                          {titleCase(t.violation_type)}
+                        </p>
+                        {t.description && (
+                          <p className="text-xs text-slate-400">
+                            {t.description}
+                          </p>
+                        )}
+                      </TD>
+                      <TD className="text-slate-500">
+                        {formatDate(t.incurred_date)}
+                      </TD>
+                      <TD>
+                        <Badge
+                          tone={
+                            t.status === "paid"
+                              ? "green"
+                              : t.status === "charged_to_customer"
+                                ? "blue"
+                                : t.status === "waived"
+                                  ? "gray"
+                                  : "amber"
+                          }
+                        >
+                          {titleCase(t.status)}
+                        </Badge>
+                      </TD>
+                      <TD className="text-right font-medium">
+                        {formatCurrency(t.amount)}
+                      </TD>
+                    </TR>
+                  ))}
+                </TBody>
+              </Table>
+            )}
+          </Card>
+
+          {/* EMAIL HISTORY */}
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                <span className="flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-gold-600" /> Email History
+                </span>
+              </CardTitle>
+            </CardHeader>
+            {emails.length === 0 ? (
+              <CardBody>
+                <p className="text-sm text-slate-400">
+                  No emails have been sent for this reservation yet.
+                </p>
+              </CardBody>
+            ) : (
+              <CardBody className="p-0">
+                <ul className="divide-y divide-slate-100">
+                  {emails.map((e) => (
+                    <li
+                      key={e.id}
+                      className="flex items-start justify-between gap-3 px-5 py-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-slate-800">
+                          {e.subject || titleCase(e.type.replace(/_/g, " "))}
+                        </p>
+                        <p className="truncate text-xs text-slate-400">
+                          To {e.recipient} ·{" "}
+                          {formatDateTime(e.sent_at ?? e.created_at)}
+                        </p>
+                      </div>
+                      <Badge
+                        tone={
+                          e.status === "sent"
+                            ? "green"
+                            : e.status === "failed"
+                              ? "red"
+                              : "amber"
+                        }
+                      >
+                        {titleCase(e.status)}
+                      </Badge>
+                    </li>
+                  ))}
+                </ul>
+              </CardBody>
+            )}
+          </Card>
+
+          {/* ACTIVITY TIMELINE */}
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                <span className="flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-gold-600" /> Activity Timeline
+                </span>
+              </CardTitle>
+            </CardHeader>
+            {activity.length === 0 ? (
+              <CardBody>
+                <p className="text-sm text-slate-400">
+                  No activity recorded for this reservation yet.
+                </p>
+              </CardBody>
+            ) : (
+              <CardBody className="p-0">
+                <ul className="divide-y divide-slate-100">
+                  {activity.map((log) => (
+                    <li
+                      key={log.id}
+                      className="flex items-start gap-3 px-5 py-3"
+                    >
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-gold-500" />
+                      <div className="min-w-0">
+                        <p className="text-sm text-slate-700">
+                          {log.description ||
+                            titleCase(log.action.replace(/[._]/g, " "))}
+                        </p>
+                        <p className="text-xs text-slate-400">
+                          {log.user?.full_name || log.user?.email || "System"} ·{" "}
+                          {formatDateTime(log.created_at)}
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </CardBody>
+            )}
+          </Card>
         </div>
 
         {/* SIDEBAR: financial summary */}
