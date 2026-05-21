@@ -2,10 +2,10 @@ import Link from "next/link";
 import {
   CalendarClock, CalendarCheck, Car, Wrench, AlertTriangle,
   CircleDollarSign, CreditCard, ShieldQuestion, Activity, KeyRound,
-  FileWarning,
+  FileWarning, Inbox, CalendarPlus, CalendarMinus,
 } from "lucide-react";
 import {
-  getDashboardData, getExpiringVehicleDocuments,
+  getDashboardData, getExpiringVehicleDocuments, getPendingRequests,
 } from "@/lib/data/dashboard";
 import { getCurrentUser } from "@/lib/auth";
 import { PageHeader } from "@/components/admin/page-header";
@@ -18,10 +18,11 @@ import { formatCurrency, formatDate, formatDateTime, titleCase } from "@/lib/uti
 import type { ReservationWithRelations } from "@/lib/types/database";
 
 export default async function DashboardPage() {
-  const [data, user, expiringDocs] = await Promise.all([
+  const [data, user, expiringDocs, pendingRequests] = await Promise.all([
     getDashboardData(),
     getCurrentUser(),
     getExpiringVehicleDocuments(),
+    getPendingRequests(),
   ]);
   const { stats } = data;
   const firstName = (user?.full_name || "there").split(" ")[0];
@@ -83,6 +84,60 @@ export default async function DashboardPage() {
         <StatCard label="Fleet Size" value={stats.fleetSize}
           icon={Car} href="/admin/vehicles" />
       </div>
+
+      {/* ----------------------------------------- CUSTOMER REQUEST ALERT */}
+      {pendingRequests.length > 0 && (
+        <Card className="mt-6 border-amber-300 ring-1 ring-amber-200">
+          <CardHeader>
+            <CardTitle>
+              <span className="inline-flex items-center gap-2">
+                <Inbox className="h-4 w-4 text-amber-600" />
+                Pending Customer Requests
+              </span>
+            </CardTitle>
+            <Badge tone="amber">{pendingRequests.length}</Badge>
+          </CardHeader>
+          <CardBody className="p-0">
+            <ul className="divide-y divide-slate-100">
+              {pendingRequests.map((req) => {
+                const isExt = req.request_type === "extension";
+                const Icon = isExt ? CalendarPlus : CalendarMinus;
+                return (
+                  <li key={req.id}>
+                    <Link
+                      href={
+                        req.reservation
+                          ? `/admin/reservations/${req.reservation.id}`
+                          : "/admin/reservations"
+                      }
+                      className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-slate-50"
+                    >
+                      <div className="min-w-0">
+                        <p className="flex items-center gap-2 text-sm font-medium text-slate-800">
+                          <Icon className="h-4 w-4 text-gold-600" />
+                          {isExt ? "Extension Request" : "Early Return Request"}
+                          {req.reservation && (
+                            <span className="text-slate-400">
+                              · {req.reservation.reservation_number}
+                            </span>
+                          )}
+                        </p>
+                        <p className="truncate text-xs text-slate-500">
+                          {req.requested_at
+                            ? `Requested date: ${formatDateTime(req.requested_at)}`
+                            : "No date specified"}
+                          {req.note ? ` · ${req.note}` : ""}
+                        </p>
+                      </div>
+                      <Badge tone="amber">Review</Badge>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </CardBody>
+        </Card>
+      )}
 
       {/* ------------------------------------------ DOCUMENT EXPIRY ALERT */}
       {expiringDocs.length > 0 && (

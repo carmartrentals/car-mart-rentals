@@ -65,6 +65,23 @@ export default async function AccountReservationPage({
       is_published: boolean;
     } | null) ?? null;
 
+  // Reservation requests — queried separately so a pre-0011 database still
+  // renders the page.
+  let requests: {
+    request_type: "extension" | "early_return";
+    status: "pending" | "approved" | "declined";
+  }[] = [];
+  try {
+    const { data } = await admin
+      .from("reservation_requests")
+      .select("request_type,status")
+      .eq("reservation_id", id)
+      .order("created_at", { ascending: false });
+    requests = (data as typeof requests) ?? [];
+  } catch {
+    /* table not migrated yet — ignore */
+  }
+
   const r = reservation;
   const v = r.vehicle;
 
@@ -194,6 +211,7 @@ export default async function AccountReservationPage({
               <ReservationActions
                 reservationId={r.id}
                 balanceDue={r.balance_due}
+                requests={requests}
               />
               {v?.slug && (
                 <Link

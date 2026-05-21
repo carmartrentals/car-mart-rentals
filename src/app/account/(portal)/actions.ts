@@ -108,10 +108,14 @@ export async function payMyBalance(reservationId: string): Promise<ActionState> 
   }
 }
 
-/** Customer-submitted rental extension request — recorded for staff review. */
-export async function requestExtension(
+/**
+ * Records a customer request (extension or early return) for staff review.
+ * Requests appear in the admin dashboard and on the reservation page.
+ */
+async function createReservationRequest(
+  type: "extension" | "early_return",
   reservationId: string,
-  requestedReturn: string,
+  requestedDate: string,
   note: string,
 ): Promise<ActionState> {
   const customer = await getCurrentCustomer();
@@ -126,24 +130,70 @@ export async function requestExtension(
     .maybeSingle();
   if (!r) return { ok: false, error: "Reservation not found." };
 
-  await admin.from("notifications").insert({
-    type: "extension_request",
-    channel: "email",
-    recipient: "reservations@carmartrentals.com",
-    subject: `Extension request — ${r.reservation_number}`,
-    body: `${customer.first_name} ${customer.last_name} requested to extend ${r.reservation_number} until ${requestedReturn}. Note: ${note || "—"}`,
-    status: "pending",
+  // Don't allow stacking duplicate pending requests of the same kind.
+  const { data: existing } = await admin
+    .from("reservation_requests")
+    .select("id")
+    .eq("reservation_id", reservationId)
+    .eq("request_type", type)
+    .eq("status", "pending")
+    .limit(1)
+    .maybeSingle();
+  if (existing) {
+    return {
+      ok: false,
+      error:
+        "You already have a pending request of this type. Our team will be in touch shortly.",
+    };
+  }
+
+  const label = type === "extension" ? "an extension" : "an early return";
+  const { error } = await admin.from("reservation_requests").insert({
     reservation_id: reservationId,
     customer_id: customer.id,
+    request_type: type,
+    requested_at: requestedDate || null,
+    note: note.trim() || null,
+    status: "pending",
   });
+  if (error) return { ok: false, error: error.message };
+
   await admin.from("activity_logs").insert({
-    action: "reservation.extension_requested",
+    action: `reservation.${type}_requested`,
     entity_type: "reservation",
     entity_id: reservationId,
-    description: `Customer requested extension until ${requestedReturn}`,
+    description: `Customer requested ${label} for ${r.reservation_number}`,
   });
-
+  revalidatePath(`/account/reservations/${reservationId}`);
   return { ok: true };
+}
+
+/** Customer-submitted rental extension request. */
+export async function requestExtension(
+  reservationId: string,
+  requestedReturn: string,
+  note: string,
+): Promise<ActionState> {
+  return createReservationRequest(
+    "extension",
+    reservationId,
+    requestedReturn,
+    note,
+  );
+}
+
+/** Customer-submitted early-return request. */
+export async function requestEarlyReturn(
+  reservationId: string,
+  requestedDate: string,
+  note: string,
+): Promise<ActionState> {
+  return createReservationRequest(
+    "early_return",
+    reservationId,
+    requestedDate,
+    note,
+  );
 }
 
 /**

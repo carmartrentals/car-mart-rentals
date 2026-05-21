@@ -603,3 +603,20 @@ export interface VehicleDocument {
   created_by: string | null;
   created_at: string;
 }
+
+// --- Customer reservation requests (migration 0011) -------------------------
+export type ReservationRequestType = "extension" | "early_return";
+export type ReservationRequestStatus = "pending" | "approved" | "declined";
+
+export interface ReservationRequest {
+  id: string;
+  reservation_id: string;
+  customer_id: string | null;
+  request_type: ReservationRequestType;
+  requested_at: string | null;
+  note: string | null;
+  status: ReservationRequestStatus;
+  created_at: string;
+  resolved_at: string | null;
+  resolved_by: string | null;
+}

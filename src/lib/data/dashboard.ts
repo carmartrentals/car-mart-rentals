@@ -83,6 +83,37 @@ export async function getExpiringVehicleDocuments(): Promise<ExpiringDoc[]> {
   }
 }
 
+export interface PendingRequest {
+  id: string;
+  request_type: "extension" | "early_return";
+  requested_at: string | null;
+  note: string | null;
+  created_at: string;
+  reservation: { id: string; reservation_number: string } | null;
+}
+
+/**
+ * Pending customer requests (extension / early return) awaiting staff action.
+ * Resilient: returns [] if the reservation_requests table does not exist yet
+ * (database not migrated to 0011).
+ */
+export async function getPendingRequests(): Promise<PendingRequest[]> {
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("reservation_requests")
+      .select(
+        "id,request_type,requested_at,note,created_at,reservation:reservations(id,reservation_number)",
+      )
+      .eq("status", "pending")
+      .order("created_at", { ascending: false })
+      .limit(50);
+    return (data as unknown as PendingRequest[]) ?? [];
+  } catch {
+    return [];
+  }
+}
+
 export async function getDashboardData(): Promise<DashboardData> {
   let admin;
   try {

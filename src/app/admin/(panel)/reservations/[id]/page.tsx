@@ -11,12 +11,14 @@ import { Badge } from "@/components/ui/badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { ReservationStatusActions } from "@/components/admin/reservation-status-actions";
 import { PaymentManager } from "@/components/admin/payment-manager";
+import { RequestPanel } from "@/components/admin/request-panel";
 import {
   RESERVATION_STATUS, PAYMENT_STATUS, RESERVATION_SOURCES,
 } from "@/lib/constants";
 import { formatCurrency, formatDateTime, titleCase } from "@/lib/utils";
 import type {
   ReservationWithRelations, ReservationCharge, Payment, Deposit,
+  ReservationRequest,
 } from "@/lib/types/database";
 
 export default async function ReservationDetailPage({
@@ -66,6 +68,20 @@ export default async function ReservationDetailPage({
   }
   if (!reservation) notFound();
 
+  // Customer requests — queried separately so a pre-0011 database still works.
+  let requests: ReservationRequest[] = [];
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("reservation_requests")
+      .select("*")
+      .eq("reservation_id", id)
+      .order("created_at", { ascending: false });
+    requests = (data as ReservationRequest[]) ?? [];
+  } catch {
+    /* table not migrated yet — ignore */
+  }
+
   const r = reservation;
   const customer = r.customer;
   const vehicle = r.vehicle;
@@ -98,6 +114,9 @@ export default async function ReservationDetailPage({
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
+          {/* CUSTOMER REQUESTS — extension / early return */}
+          <RequestPanel requests={requests} reservationId={r.id} />
+
           {/* STATUS */}
           <Card>
             <CardHeader>
