@@ -10,9 +10,11 @@ import { Alert } from "@/components/ui/misc";
 import { formatCurrency, rentalDays } from "@/lib/utils";
 import {
   payMyBalance, requestExtension, requestEarlyReturn,
+  cancelReservationRequest,
 } from "@/app/account/(portal)/actions";
 
 interface RequestSummary {
+  id: string;
   request_type: "extension" | "early_return";
   status: "pending" | "approved" | "declined";
 }
@@ -49,14 +51,20 @@ export function ReservationActions({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [payError, setPayError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [requestedDate, setRequestedDate] = useState("");
   const [note, setNote] = useState("");
 
-  const hasPending = (t: Mode) =>
-    requests.some((r) => r.request_type === t && r.status === "pending");
+  const pendingExt = requests.find(
+    (r) => r.request_type === "extension" && r.status === "pending",
+  );
+  const pendingEarly = requests.find(
+    (r) => r.request_type === "early_return" && r.status === "pending",
+  );
 
   // Live estimate of the cost change for the chosen date.
   const estimate = useMemo(() => {
@@ -82,6 +90,27 @@ export function ReservationActions({
         window.location.href = String(res.data.url);
       } else {
         setPayError(res.error ?? "Could not start payment.");
+      }
+    });
+  }
+
+  function cancelRequest(requestId: string) {
+    if (
+      !window.confirm(
+        "Cancel this request? You can submit a new one anytime.",
+      )
+    ) {
+      return;
+    }
+    setActionError(null);
+    setCancellingId(requestId);
+    startTransition(async () => {
+      const res = await cancelReservationRequest(requestId);
+      setCancellingId(null);
+      if (res.ok) {
+        router.refresh();
+      } else {
+        setActionError(res.error ?? "Could not cancel the request.");
       }
     });
   }
@@ -118,11 +147,8 @@ export function ReservationActions({
 
   return (
     <div className="space-y-3">
-      {payError && (
-        <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-300">
-          {payError}
-        </div>
-      )}
+      {payError && <ErrorNote>{payError}</ErrorNote>}
+      {actionError && <ErrorNote>{actionError}</ErrorNote>}
 
       {balanceDue > 0 && (
         <Button onClick={pay} loading={pending} className="w-full">
@@ -130,8 +156,12 @@ export function ReservationActions({
         </Button>
       )}
 
-      {hasPending("extension") ? (
-        <PendingNote label="Extension" />
+      {pendingExt ? (
+        <PendingNote
+          label="Extension"
+          busy={pending && cancellingId === pendingExt.id}
+          onCancel={() => cancelRequest(pendingExt.id)}
+        />
       ) : (
         <Button
           variant="secondary"
@@ -142,8 +172,12 @@ export function ReservationActions({
         </Button>
       )}
 
-      {hasPending("early_return") ? (
-        <PendingNote label="Early return" />
+      {pendingEarly ? (
+        <PendingNote
+          label="Early return"
+          busy={pending && cancellingId === pendingEarly.id}
+          onCancel={() => cancelRequest(pendingEarly.id)}
+        />
       ) : (
         <Button
           variant="secondary"
@@ -176,8 +210,8 @@ export function ReservationActions({
         {done ? (
           <p className="text-sm text-slate-600">
             Your request has been sent. Our team will review it and contact you
-            shortly to confirm. The final amount is confirmed once a staff
-            member approves the request.
+            shortly to confirm. You can cancel the request from this page any
+            time before it is approved.
           </p>
         ) : (
           <div className="space-y-4">
@@ -238,11 +272,37 @@ export function ReservationActions({
   );
 }
 
-function PendingNote({ label }: { label: string }) {
+function PendingNote({
+  label,
+  busy,
+  onCancel,
+}: {
+  label: string;
+  busy: boolean;
+  onCancel: () => void;
+}) {
   return (
-    <p className="flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-xs font-medium text-amber-300">
-      <Clock className="h-3.5 w-3.5 shrink-0" />
-      {label} request pending — our team will contact you.
-    </p>
+    <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
+      <p className="flex items-center gap-1.5 text-xs font-medium text-amber-300">
+        <Clock className="h-3.5 w-3.5 shrink-0" />
+        {label} request pending — our team will contact you.
+      </p>
+      <button
+        type="button"
+        onClick={onCancel}
+        disabled={busy}
+        className="mt-1.5 text-xs font-medium text-amber-200/70 underline underline-offset-2 transition-colors hover:text-white disabled:opacity-50"
+      >
+        {busy ? "Cancelling…" : "Cancel this request"}
+      </button>
+    </div>
+  );
+}
+
+function ErrorNote({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-300">
+      {children}
+    </div>
   );
 }

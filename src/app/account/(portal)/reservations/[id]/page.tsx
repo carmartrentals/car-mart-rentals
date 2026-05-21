@@ -69,13 +69,14 @@ export default async function AccountReservationPage({
   // Reservation requests — queried separately so a pre-0011 database still
   // renders the page.
   let requests: {
+    id: string;
     request_type: "extension" | "early_return";
     status: "pending" | "approved" | "declined";
   }[] = [];
   try {
     const { data } = await admin
       .from("reservation_requests")
-      .select("request_type,status")
+      .select("id,request_type,status")
       .eq("reservation_id", id)
       .order("created_at", { ascending: false });
     requests = (data as typeof requests) ?? [];

@@ -240,6 +240,48 @@ export async function requestEarlyReturn(
   );
 }
 
+/** Customer cancels their own still-pending request. */
+export async function cancelReservationRequest(
+  requestId: string,
+): Promise<ActionState> {
+  const customer = await getCurrentCustomer();
+  if (!customer) return { ok: false, error: "Please sign in to continue." };
+
+  const admin = createAdminClient();
+  const { data: req } = await admin
+    .from("reservation_requests")
+    .select("id, reservation_id, customer_id, status, request_type")
+    .eq("id", requestId)
+    .maybeSingle();
+  if (!req || req.customer_id !== customer.id) {
+    return { ok: false, error: "Request not found." };
+  }
+  if (req.status !== "pending") {
+    return {
+      ok: false,
+      error:
+        "This request has already been handled and can no longer be cancelled.",
+    };
+  }
+
+  const { error } = await admin
+    .from("reservation_requests")
+    .delete()
+    .eq("id", requestId);
+  if (error) return { ok: false, error: error.message };
+
+  await admin.from("activity_logs").insert({
+    action: `reservation.${req.request_type}_request_cancelled`,
+    entity_type: "reservation",
+    entity_id: req.reservation_id,
+    description: `Customer cancelled their ${String(
+      req.request_type,
+    ).replace("_", " ")} request`,
+  });
+  revalidatePath(`/account/reservations/${req.reservation_id}`);
+  return { ok: true };
+}
+
 /**
  * Customer submits a review for one of their completed rentals. Reviews are
  * created unpublished — staff approve them before they appear on the website.
