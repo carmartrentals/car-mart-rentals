@@ -120,14 +120,30 @@ export function CalendarTimeline({
               >
                 <Link
                   href={`/admin/vehicles/${v.id}`}
-                  className="w-52 shrink-0 border-r border-slate-200 px-4 py-3 hover:bg-slate-50"
+                  className="flex w-52 shrink-0 items-center gap-3 border-r border-slate-200 px-4 py-3 hover:bg-slate-50"
                 >
-                  <p className="truncate text-sm font-medium text-slate-800">
-                    {v.year} {v.make} {v.model}
-                  </p>
-                  <p className="truncate text-xs text-slate-400">
-                    {v.license_plate || v.color || "—"}
-                  </p>
+                  <span className="relative h-10 w-14 shrink-0 overflow-hidden rounded bg-slate-100">
+                    {v.main_image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={v.main_image_url}
+                        alt={`${v.make} ${v.model}`}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <span className="flex h-full w-full items-center justify-center text-[10px] text-slate-400">
+                        No photo
+                      </span>
+                    )}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium text-slate-800">
+                      {v.year} {v.make} {v.model}
+                    </span>
+                    <span className="block truncate text-xs text-slate-400">
+                      {v.license_plate || v.color || "—"}
+                    </span>
+                  </span>
                 </Link>
                 <div
                   className="relative grid flex-1"
