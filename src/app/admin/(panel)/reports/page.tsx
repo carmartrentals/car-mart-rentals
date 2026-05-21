@@ -4,15 +4,24 @@ import {
   TrendingUp, TrendingDown,
 } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getFleetUtilization } from "@/lib/data/utilization";
 import { PageHeader } from "@/components/admin/page-header";
 import { StatCard } from "@/components/admin/stat-card";
 import { ReportBarChart } from "@/components/admin/report-chart";
 import { Card, CardHeader, CardTitle, CardBody } from "@/components/ui/card";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/misc";
 import { RESERVATION_SOURCES } from "@/lib/constants";
 import { formatCurrency, cn } from "@/lib/utils";
+
+/** Bar colour for a utilization percentage. */
+function utilBar(pct: number): string {
+  if (pct >= 60) return "bg-emerald-500";
+  if (pct >= 30) return "bg-amber-400";
+  return "bg-rose-400";
+}
 
 type Period = "month" | "quarter" | "year" | "all";
 
@@ -74,6 +83,9 @@ export default async function ReportsPage({
   const start = periodStart(period);
   const startIso = start.toISOString();
   const startDate = startIso.slice(0, 10); // YYYY-MM-DD for date columns
+
+  // Fleet utilization is computed independently (resilient to its own errors).
+  const utilizationPromise = getFleetUtilization(start);
 
   let reservations: ResRow[] = [];
   let collected = 0;
@@ -151,6 +163,8 @@ export default async function ReportsPage({
   } catch {
     configError = true;
   }
+
+  const utilization = await utilizationPromise;
 
   // --- Aggregations ---------------------------------------------------------
   const activeRes = reservations.filter((r) => r.status !== "cancelled");
@@ -343,6 +357,73 @@ export default async function ReportsPage({
                   </TR>
                 );
               })}
+            </TBody>
+          </Table>
+        )}
+      </Card>
+
+      {/* Fleet utilization */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Fleet Utilization</CardTitle>
+          {utilization.rows.length > 0 && (
+            <Badge
+              tone={
+                utilization.average >= 60
+                  ? "green"
+                  : utilization.average >= 30
+                    ? "amber"
+                    : "red"
+              }
+            >
+              {utilization.average}% fleet average
+            </Badge>
+          )}
+        </CardHeader>
+        {utilization.rows.length === 0 ? (
+          <CardBody>
+            <p className="text-sm text-slate-400">
+              No vehicle data available for this period.
+            </p>
+          </CardBody>
+        ) : (
+          <Table>
+            <THead>
+              <TR>
+                <TH>Vehicle</TH>
+                <TH className="text-right">Rentals</TH>
+                <TH className="text-right">Days Rented</TH>
+                <TH className="text-right">Days Available</TH>
+                <TH>Utilization</TH>
+              </TR>
+            </THead>
+            <TBody>
+              {utilization.rows.map((u) => (
+                <TR key={u.id}>
+                  <TD className="font-medium text-slate-800">{u.name}</TD>
+                  <TD className="text-right text-slate-500">{u.rentals}</TD>
+                  <TD className="text-right">{u.daysRented}</TD>
+                  <TD className="text-right text-slate-500">
+                    {u.daysAvailable}
+                  </TD>
+                  <TD>
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 w-full max-w-[140px] overflow-hidden rounded-full bg-slate-100">
+                        <div
+                          className={cn(
+                            "h-full rounded-full",
+                            utilBar(u.utilization),
+                          )}
+                          style={{ width: `${u.utilization}%` }}
+                        />
+                      </div>
+                      <span className="w-9 shrink-0 text-right text-xs font-semibold text-slate-700">
+                        {u.utilization}%
+                      </span>
+                    </div>
+                  </TD>
+                </TR>
+              ))}
             </TBody>
           </Table>
         )}
