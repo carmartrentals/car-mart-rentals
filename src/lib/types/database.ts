@@ -614,6 +614,7 @@ export interface ReservationRequest {
   customer_id: string | null;
   request_type: ReservationRequestType;
   requested_at: string | null;
+  estimated_cost: number | null;
   note: string | null;
   status: ReservationRequestStatus;
   created_at: string;

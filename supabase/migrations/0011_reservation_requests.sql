@@ -15,6 +15,9 @@ create table reservation_requests (
   customer_id     uuid references customers(id) on delete set null,
   request_type    reservation_request_type not null,
   requested_at    timestamptz,
+  -- Estimated change to the reservation total: positive = customer pays
+  -- more (extension), negative = customer pays less (early return).
+  estimated_cost  numeric(10,2),
   note            text,
   status          reservation_request_status not null default 'pending',
   created_at      timestamptz not null default now(),

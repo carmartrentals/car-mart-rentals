@@ -126,6 +126,11 @@ export default async function DashboardPage() {
                           {req.requested_at
                             ? `Requested date: ${formatDateTime(req.requested_at)}`
                             : "No date specified"}
+                          {req.estimated_cost != null && req.estimated_cost !== 0
+                            ? ` · Est. ${
+                                req.estimated_cost >= 0 ? "+" : "−"
+                              }${formatCurrency(Math.abs(req.estimated_cost))}`
+                            : ""}
                           {req.note ? ` · ${req.note}` : ""}
                         </p>
                       </div>

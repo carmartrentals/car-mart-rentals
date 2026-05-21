@@ -87,6 +87,7 @@ export interface PendingRequest {
   id: string;
   request_type: "extension" | "early_return";
   requested_at: string | null;
+  estimated_cost: number | null;
   note: string | null;
   created_at: string;
   reservation: { id: string; reservation_number: string } | null;
@@ -103,7 +104,7 @@ export async function getPendingRequests(): Promise<PendingRequest[]> {
     const { data } = await admin
       .from("reservation_requests")
       .select(
-        "id,request_type,requested_at,note,created_at,reservation:reservations(id,reservation_number)",
+        "id,request_type,requested_at,estimated_cost,note,created_at,reservation:reservations(id,reservation_number)",
       )
       .eq("status", "pending")
       .order("created_at", { ascending: false })

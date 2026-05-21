@@ -9,7 +9,7 @@ import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/misc";
-import { formatDateTime } from "@/lib/utils";
+import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { resolveReservationRequest } from "@/app/admin/(panel)/reservations/request-actions";
 import type { ReservationRequest } from "@/lib/types/database";
 
@@ -79,6 +79,24 @@ export function RequestPanel({
                       </span>
                     </p>
                   )}
+                  {req.estimated_cost != null && req.estimated_cost !== 0 && (
+                    <p className="mt-1 text-sm text-slate-600">
+                      Estimated{" "}
+                      {req.estimated_cost >= 0
+                        ? "additional charge"
+                        : "reduction"}
+                      :{" "}
+                      <span
+                        className={`font-semibold ${
+                          req.estimated_cost >= 0
+                            ? "text-amber-700"
+                            : "text-emerald-700"
+                        }`}
+                      >
+                        {formatCurrency(Math.abs(req.estimated_cost))}
+                      </span>
+                    </p>
+                  )}
                   {req.note && (
                     <p className="mt-1 text-sm text-slate-500">
                       &ldquo;{req.note}&rdquo;
@@ -123,8 +141,8 @@ export function RequestPanel({
       )}
       {pendingCount > 0 && (
         <p className="border-t border-slate-100 px-5 py-3 text-xs text-slate-500">
-          Approving a request marks it handled — remember to update the rental
-          dates with the <strong>Edit</strong> button if you approve a change.
+          Approving a request automatically updates the rental&apos;s return
+          date and recalculates the total and balance due.
         </p>
       )}
     </Card>

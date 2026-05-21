@@ -6,6 +6,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentCustomer } from "@/lib/account";
 import { getStripe, stripeConfigured, toCents } from "@/lib/stripe";
 import { uploadFile, storagePath } from "@/lib/storage";
+import { getTaxRate } from "@/lib/data/settings";
+import { rentalDays } from "@/lib/utils";
 import type { ActionState } from "@/lib/form";
 
 /** Customer uploads one of their own documents (license / insurance). */
@@ -120,15 +122,47 @@ async function createReservationRequest(
 ): Promise<ActionState> {
   const customer = await getCurrentCustomer();
   if (!customer) return { ok: false, error: "Please sign in to continue." };
+  if (!requestedDate) return { ok: false, error: "Please choose a date." };
+
+  const requested = new Date(requestedDate);
+  if (Number.isNaN(requested.getTime())) {
+    return { ok: false, error: "Please choose a valid date." };
+  }
 
   const admin = createAdminClient();
   const { data: r } = await admin
     .from("reservations")
-    .select("id, reservation_number")
+    .select(
+      "id, reservation_number, pickup_at, return_at, rate_amount, addons_total, fees_total, discount_amount, total",
+    )
     .eq("id", reservationId)
     .eq("customer_id", customer.id)
     .maybeSingle();
   if (!r) return { ok: false, error: "Reservation not found." };
+
+  const pickup = new Date(r.pickup_at as string);
+  const currentReturn = new Date(r.return_at as string);
+
+  if (type === "extension" && requested <= currentReturn) {
+    return {
+      ok: false,
+      error: "An extension date must be after your current return date.",
+    };
+  }
+  if (type === "early_return") {
+    if (requested >= currentReturn) {
+      return {
+        ok: false,
+        error: "An early return date must be before your current return date.",
+      };
+    }
+    if (requested <= pickup) {
+      return {
+        ok: false,
+        error: "The return date must be after your pickup date.",
+      };
+    }
+  }
 
   // Don't allow stacking duplicate pending requests of the same kind.
   const { data: existing } = await admin
@@ -147,12 +181,22 @@ async function createReservationRequest(
     };
   }
 
+  // Estimate the change to the total: extra (or fewer) days at the same
+  // per-day rate, plus tax. Positive = customer pays more.
+  const taxRate = await getTaxRate();
+  const oldDays = rentalDays(r.pickup_at as string, r.return_at as string);
+  const newDays = rentalDays(r.pickup_at as string, requested.toISOString());
+  const rentalDelta = Number(r.rate_amount ?? 0) * (newDays - oldDays);
+  const estimatedCost =
+    Math.round(rentalDelta * (1 + taxRate / 100) * 100) / 100;
+
   const label = type === "extension" ? "an extension" : "an early return";
   const { error } = await admin.from("reservation_requests").insert({
     reservation_id: reservationId,
     customer_id: customer.id,
     request_type: type,
-    requested_at: requestedDate || null,
+    requested_at: requested.toISOString(),
+    estimated_cost: estimatedCost,
     note: note.trim() || null,
     status: "pending",
   });

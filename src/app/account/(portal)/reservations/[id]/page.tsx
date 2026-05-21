@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { getCurrentCustomer } from "@/lib/account";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTaxRate } from "@/lib/data/settings";
 import { Badge } from "@/components/ui/badge";
 import { ReservationActions } from "@/components/account/reservation-actions";
 import { LeaveReview } from "@/components/account/leave-review";
@@ -81,6 +82,8 @@ export default async function AccountReservationPage({
   } catch {
     /* table not migrated yet — ignore */
   }
+
+  const taxRate = await getTaxRate();
 
   const r = reservation;
   const v = r.vehicle;
@@ -211,6 +214,10 @@ export default async function AccountReservationPage({
               <ReservationActions
                 reservationId={r.id}
                 balanceDue={r.balance_due}
+                pickupAt={r.pickup_at}
+                returnAt={r.return_at}
+                rateAmount={r.rate_amount}
+                taxRate={taxRate}
                 requests={requests}
               />
               {v?.slug && (
