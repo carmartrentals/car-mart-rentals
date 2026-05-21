@@ -4,12 +4,8 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser, canWrite, logActivity } from "@/lib/auth";
 import { getTaxRate } from "@/lib/data/settings";
-import { rentalDays } from "@/lib/utils";
+import { projectReservationChange } from "@/lib/pricing";
 import type { ActionState } from "@/lib/form";
-
-function round2(n: number): number {
-  return Math.round((n + Number.EPSILON) * 100) / 100;
-}
 
 /**
  * Approve or decline a customer reservation request. Approving an extension
@@ -53,28 +49,20 @@ export async function resolveReservationRequest(
       .maybeSingle();
     if (!resv) return { ok: false, error: "Reservation not found." };
 
-    const taxRate = await getTaxRate();
-    const newDays = rentalDays(
-      resv.pickup_at as string,
-      req.requested_at as string,
-    );
     const rateAmount = Number(resv.rate_amount ?? 0);
-    const rentalSubtotal = round2(rateAmount * newDays);
-    const subtotal = round2(
-      rentalSubtotal +
-        Number(resv.addons_total ?? 0) +
-        Number(resv.fees_total ?? 0),
-    );
-    const taxableBase = Math.max(
-      0,
-      subtotal - Number(resv.discount_amount ?? 0),
-    );
-    const taxAmount = round2(taxableBase * (taxRate / 100));
-    const total = round2(taxableBase + taxAmount);
     const amountPaid = Number(resv.amount_paid ?? 0);
-    const balanceDue = round2(Math.max(0, total - amountPaid));
+    const projected = projectReservationChange({
+      pickupAt: resv.pickup_at as string,
+      newReturnAt: req.requested_at as string,
+      rateAmount,
+      addonsTotal: Number(resv.addons_total ?? 0),
+      feesTotal: Number(resv.fees_total ?? 0),
+      discountAmount: Number(resv.discount_amount ?? 0),
+      amountPaid,
+      taxRatePercent: await getTaxRate(),
+    });
     const paymentStatus =
-      balanceDue <= 0
+      projected.balanceDue <= 0
         ? amountPaid > 0
           ? "paid"
           : "unpaid"
@@ -86,11 +74,11 @@ export async function resolveReservationRequest(
       .from("reservations")
       .update({
         return_at: req.requested_at,
-        rental_days: newDays,
-        subtotal,
-        tax_amount: taxAmount,
-        total,
-        balance_due: balanceDue,
+        rental_days: projected.newDays,
+        subtotal: projected.subtotal,
+        tax_amount: projected.taxAmount,
+        total: projected.total,
+        balance_due: projected.balanceDue,
         payment_status: paymentStatus,
       })
       .eq("id", reservationId);
@@ -100,9 +88,9 @@ export async function resolveReservationRequest(
     await admin
       .from("reservation_charges")
       .update({
-        quantity: newDays,
+        quantity: projected.newDays,
         unit_price: rateAmount,
-        amount: rentalSubtotal,
+        amount: projected.rentalSubtotal,
       })
       .eq("reservation_id", reservationId)
       .eq("charge_type", "base_rate");

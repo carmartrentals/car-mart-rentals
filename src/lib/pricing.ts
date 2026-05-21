@@ -114,6 +114,47 @@ export function computeReservationTotals(input: PricingInput): PricingResult {
   };
 }
 
+export interface ReservationChangeInput {
+  pickupAt: string | Date;
+  newReturnAt: string | Date;
+  rateAmount: number;
+  addonsTotal: number;
+  feesTotal: number;
+  discountAmount: number;
+  amountPaid: number;
+  /** Tax rate as a percentage, e.g. 9.5 */
+  taxRatePercent: number;
+}
+
+export interface ReservationChangeResult {
+  newDays: number;
+  rentalSubtotal: number;
+  subtotal: number;
+  taxAmount: number;
+  total: number;
+  balanceDue: number;
+}
+
+/**
+ * Projects a reservation's totals when its return date changes — used for
+ * extension and early-return requests. Keeps the existing per-day rate,
+ * add-ons, fees and discount; recomputes rental days, tax, total and balance.
+ */
+export function projectReservationChange(
+  input: ReservationChangeInput,
+): ReservationChangeResult {
+  const newDays = rentalDays(input.pickupAt, input.newReturnAt);
+  const rentalSubtotal = round2(input.rateAmount * newDays);
+  const subtotal = round2(
+    rentalSubtotal + input.addonsTotal + input.feesTotal,
+  );
+  const taxableBase = Math.max(0, subtotal - input.discountAmount);
+  const taxAmount = round2(taxableBase * (input.taxRatePercent / 100));
+  const total = round2(taxableBase + taxAmount);
+  const balanceDue = round2(Math.max(0, total - input.amountPaid));
+  return { newDays, rentalSubtotal, subtotal, taxAmount, total, balanceDue };
+}
+
 function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }

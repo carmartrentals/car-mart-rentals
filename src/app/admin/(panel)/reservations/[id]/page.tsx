@@ -4,6 +4,8 @@ import {
   ArrowLeft, Pencil, User, Car, CalendarRange, FileText, CreditCard,
 } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getTaxRate } from "@/lib/data/settings";
+import { projectReservationChange } from "@/lib/pricing";
 import { PageHeader } from "@/components/admin/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardBody } from "@/components/ui/card";
@@ -86,6 +88,34 @@ export default async function ReservationDetailPage({
   const customer = r.customer;
   const vehicle = r.vehicle;
 
+  // Project the financial impact of each pending request so staff can see
+  // exactly how much more (or less) they'll collect before approving.
+  const taxRate = await getTaxRate();
+  const projections: Record<
+    string,
+    { newDays: number; total: number; balanceDue: number; delta: number }
+  > = {};
+  for (const req of requests) {
+    if (req.status === "pending" && req.requested_at) {
+      const p = projectReservationChange({
+        pickupAt: r.pickup_at,
+        newReturnAt: req.requested_at,
+        rateAmount: r.rate_amount,
+        addonsTotal: r.addons_total,
+        feesTotal: r.fees_total,
+        discountAmount: r.discount_amount,
+        amountPaid: r.amount_paid,
+        taxRatePercent: taxRate,
+      });
+      projections[req.id] = {
+        newDays: p.newDays,
+        total: p.total,
+        balanceDue: p.balanceDue,
+        delta: Math.round((p.total - r.total) * 100) / 100,
+      };
+    }
+  }
+
   return (
     <>
       <Link
@@ -115,7 +145,13 @@ export default async function ReservationDetailPage({
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           {/* CUSTOMER REQUESTS — extension / early return */}
-          <RequestPanel requests={requests} reservationId={r.id} />
+          <RequestPanel
+            requests={requests}
+            reservationId={r.id}
+            currentTotal={r.total}
+            currentDays={r.rental_days}
+            projections={projections}
+          />
 
           {/* STATUS */}
           <Card>
