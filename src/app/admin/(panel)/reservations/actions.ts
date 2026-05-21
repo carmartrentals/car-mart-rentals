@@ -7,6 +7,8 @@ import { getCurrentUser, canWrite, logActivity } from "@/lib/auth";
 import { reservationSchema } from "@/lib/validation";
 import { computeReservationTotals } from "@/lib/pricing";
 import { getTaxRate } from "@/lib/data/settings";
+import { notifyCustomer } from "@/lib/notifications";
+import { formatDateTime } from "@/lib/utils";
 import { BLOCKING_RESERVATION_STATUSES } from "@/lib/constants";
 import { zodErrorState, fd, nullable, type ActionState } from "@/lib/form";
 import type { Vehicle, ReservationStatus } from "@/lib/types/database";
@@ -244,22 +246,35 @@ export async function setReservationStatus(
   if (!user || !canWrite(user.role, "reservations")) return;
 
   const admin = createAdminClient();
+
+  // Load the reservation first so we can detect a move to "confirmed".
+  const { data: beforeRow } = await admin
+    .from("reservations")
+    .select(
+      "status, vehicle_id, reservation_number, pickup_at, return_at, customer:customers(first_name,email)",
+    )
+    .eq("id", reservationId)
+    .maybeSingle();
+  const before = beforeRow as unknown as {
+    status: string;
+    vehicle_id: string | null;
+    reservation_number: string;
+    pickup_at: string;
+    return_at: string;
+    customer: { first_name: string; email: string } | null;
+  } | null;
+
   await admin
     .from("reservations")
     .update({ status })
     .eq("id", reservationId);
 
   // Keep vehicle status roughly in sync.
-  const { data: res } = await admin
-    .from("reservations")
-    .select("vehicle_id")
-    .eq("id", reservationId)
-    .maybeSingle();
-  if (res?.vehicle_id) {
+  if (before?.vehicle_id) {
     if (status === "active") {
-      await admin.from("vehicles").update({ status: "rented" }).eq("id", res.vehicle_id);
+      await admin.from("vehicles").update({ status: "rented" }).eq("id", before.vehicle_id);
     } else if (status === "completed" || status === "cancelled" || status === "no_show") {
-      await admin.from("vehicles").update({ status: "available" }).eq("id", res.vehicle_id);
+      await admin.from("vehicles").update({ status: "available" }).eq("id", before.vehicle_id);
     }
   }
 
@@ -270,6 +285,32 @@ export async function setReservationStatus(
     entityId: reservationId,
     description: `Status changed to ${status}`,
   });
+
+  // Email the customer when the booking is newly confirmed.
+  if (
+    status === "confirmed" &&
+    before &&
+    before.status !== "confirmed" &&
+    before.customer?.email
+  ) {
+    await notifyCustomer({
+      type: "booking_confirmed",
+      to: before.customer.email,
+      subject: `✅ Your booking is confirmed — ${before.reservation_number}`,
+      heading: "Your Booking Is Confirmed",
+      intro: `Hi ${before.customer.first_name}, your reservation is confirmed. We look forward to seeing you at pickup.`,
+      rows: [
+        { label: "Reservation", value: before.reservation_number },
+        { label: "Pickup", value: formatDateTime(before.pickup_at) },
+        { label: "Return", value: formatDateTime(before.return_at) },
+      ],
+      cta: {
+        label: "View Reservation",
+        path: `/account/reservations/${reservationId}`,
+      },
+      reservationId,
+    });
+  }
 
   revalidatePath("/admin/reservations");
   revalidatePath(`/admin/reservations/${reservationId}`);

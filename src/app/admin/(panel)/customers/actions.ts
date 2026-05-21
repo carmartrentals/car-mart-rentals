@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser, canWrite, logActivity } from "@/lib/auth";
+import { notifyCustomer } from "@/lib/notifications";
 import { customerSchema } from "@/lib/validation";
 import { zodErrorState, fd, nullable, type ActionState } from "@/lib/form";
 
@@ -218,6 +219,28 @@ export async function verifyCustomerDocuments(
     entityType: "customer",
     entityId: customerId,
   });
+
+  // Let the customer know once their documents are verified.
+  if (verified) {
+    const { data: cust } = await admin
+      .from("customers")
+      .select("first_name, email")
+      .eq("id", customerId)
+      .maybeSingle();
+    if (cust?.email) {
+      await notifyCustomer({
+        type: "documents_verified",
+        to: cust.email,
+        subject: "✅ Your documents are verified — you're all set",
+        heading: "Documents Verified",
+        intro: `Hi ${cust.first_name}, your driver license and insurance have been reviewed and verified. You're all set for pickup — no further documents are needed.`,
+        rows: [],
+        cta: { label: "View My Account", path: "/account" },
+        customerId,
+      });
+    }
+  }
+
   revalidatePath(`/admin/customers/${customerId}`);
   return { ok: true };
 }

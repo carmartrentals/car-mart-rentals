@@ -5,6 +5,8 @@ import { headers } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser, canWrite, logActivity } from "@/lib/auth";
 import { getStripe, stripeConfigured, toCents } from "@/lib/stripe";
+import { notifyCustomer } from "@/lib/notifications";
+import { formatCurrency, titleCase } from "@/lib/utils";
 import type { ActionState } from "@/lib/form";
 import type { PaymentMethod, Deposit } from "@/lib/types/database";
 
@@ -90,6 +92,48 @@ export async function recordManualPayment(
     entityId: reservationId,
     description: `${input.type} of ${input.amount} via ${input.method}`,
   });
+
+  // Email the customer a receipt for a recorded payment.
+  if (input.type === "payment") {
+    const { data: rInfo } = await admin
+      .from("reservations")
+      .select(
+        "reservation_number, balance_due, customer:customers(first_name,email)",
+      )
+      .eq("id", reservationId)
+      .maybeSingle();
+    const info = rInfo as unknown as {
+      reservation_number: string;
+      balance_due: number;
+      customer: { first_name: string; email: string } | null;
+    } | null;
+    if (info?.customer?.email) {
+      await notifyCustomer({
+        type: "payment_receipt",
+        to: info.customer.email,
+        subject: `🧾 Payment received — ${info.reservation_number}`,
+        heading: "Payment Received",
+        intro: `Hi ${info.customer.first_name}, thank you — we've recorded your payment.`,
+        rows: [
+          { label: "Reservation", value: info.reservation_number },
+          {
+            label: "Amount paid",
+            value: formatCurrency(round2(input.amount)),
+          },
+          { label: "Method", value: titleCase(input.method) },
+          {
+            label: "Balance remaining",
+            value: formatCurrency(Number(info.balance_due ?? 0)),
+          },
+        ],
+        cta: {
+          label: "View Reservation",
+          path: `/account/reservations/${reservationId}`,
+        },
+        reservationId,
+      });
+    }
+  }
 
   revalidatePath(`/admin/reservations/${reservationId}`);
   return { ok: true };

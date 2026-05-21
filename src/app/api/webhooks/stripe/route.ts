@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { getStripe, fromCents } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendNotification } from "@/lib/notifications";
+import { notifyCustomer, notifyCompany } from "@/lib/notifications";
 import { formatCurrency } from "@/lib/utils";
 
 export const runtime = "nodejs";
@@ -103,27 +103,66 @@ export async function POST(request: Request) {
             description: `Online payment of ${amount} received`,
           });
 
-          // Payment receipt email (best-effort)
+          // Payment receipt to the customer + alert to the company
           const { data: info } = await admin
             .from("reservations")
             .select(
-              "reservation_number, customer:customers(first_name,last_name,email)",
+              "reservation_number, balance_due, customer:customers(first_name,last_name,email)",
             )
             .eq("id", reservationId)
             .maybeSingle();
           const detail = info as unknown as {
             reservation_number: string;
-            customer: { first_name: string; last_name: string; email: string } | null;
+            balance_due: number;
+            customer: {
+              first_name: string;
+              last_name: string;
+              email: string;
+            } | null;
           } | null;
-          if (detail?.customer?.email) {
-            await sendNotification({
-              type: "payment_receipt",
-              templateKey: "payment_receipt",
-              to: detail.customer.email,
-              variables: {
-                customer_name: `${detail.customer.first_name} ${detail.customer.last_name}`,
-                amount: formatCurrency(amount),
-                reservation_number: detail.reservation_number,
+          if (detail) {
+            const balance = formatCurrency(Number(detail.balance_due ?? 0));
+            if (detail.customer?.email) {
+              await notifyCustomer({
+                type: "payment_receipt",
+                to: detail.customer.email,
+                subject: `🧾 Payment received — ${detail.reservation_number}`,
+                heading: "Payment Received",
+                intro: `Hi ${detail.customer.first_name}, thank you — your online payment has been received.`,
+                rows: [
+                  { label: "Reservation", value: detail.reservation_number },
+                  { label: "Amount paid", value: formatCurrency(amount) },
+                  { label: "Method", value: "Online card payment" },
+                  { label: "Balance remaining", value: balance },
+                ],
+                cta: {
+                  label: "View Reservation",
+                  path: `/account/reservations/${reservationId}`,
+                },
+                reservationId,
+              });
+            }
+            await notifyCompany({
+              type: "payment_received",
+              subject: `💳 Online payment received — ${detail.reservation_number}`,
+              heading: "Online Payment Received",
+              intro: `A customer paid online for reservation ${detail.reservation_number}.`,
+              rows: [
+                { label: "Reservation", value: detail.reservation_number },
+                { label: "Amount", value: formatCurrency(amount) },
+                ...(detail.customer
+                  ? [
+                      {
+                        label: "Customer",
+                        value: `${detail.customer.first_name} ${detail.customer.last_name}`,
+                      },
+                    ]
+                  : []),
+                { label: "Balance remaining", value: balance },
+              ],
+              cta: {
+                label: "Open in Admin Panel",
+                path: `/admin/reservations/${reservationId}`,
               },
               reservationId,
             });

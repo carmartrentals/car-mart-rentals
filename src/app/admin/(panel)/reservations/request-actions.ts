@@ -5,6 +5,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser, canWrite, logActivity } from "@/lib/auth";
 import { getTaxRate } from "@/lib/data/settings";
 import { projectReservationChange } from "@/lib/pricing";
+import { notifyCustomer } from "@/lib/notifications";
+import { formatDateTime } from "@/lib/utils";
 import type { ActionState } from "@/lib/form";
 
 /**
@@ -116,6 +118,56 @@ export async function resolveReservationRequest(
         ? `Approved a customer ${req.request_type.replace("_", " ")} request`
         : `Declined a customer ${req.request_type.replace("_", " ")} request`,
   });
+
+  // Let the customer know the outcome.
+  const { data: rInfo } = await admin
+    .from("reservations")
+    .select(
+      "reservation_number, return_at, customer:customers(first_name,email)",
+    )
+    .eq("id", reservationId)
+    .maybeSingle();
+  const info = rInfo as unknown as {
+    reservation_number: string;
+    return_at: string;
+    customer: { first_name: string; email: string } | null;
+  } | null;
+  const requestLabel =
+    req.request_type === "extension" ? "extension" : "early return";
+  if (info?.customer?.email) {
+    await notifyCustomer({
+      type: `${req.request_type}_request_${status}`,
+      to: info.customer.email,
+      subject:
+        status === "approved"
+          ? `✅ Your ${requestLabel} request was approved — ${info.reservation_number}`
+          : `Your ${requestLabel} request — ${info.reservation_number}`,
+      heading:
+        status === "approved" ? "Request Approved" : "Request Update",
+      intro:
+        status === "approved"
+          ? `Good news, ${info.customer.first_name} — your ${requestLabel} request has been approved.`
+          : `Hi ${info.customer.first_name}, unfortunately we were unable to approve your ${requestLabel} request. Please contact us if you'd like to discuss other options.`,
+      rows: [
+        { label: "Reservation", value: info.reservation_number },
+        { label: "Request", value: `Vehicle ${requestLabel}` },
+        ...(status === "approved"
+          ? [
+              {
+                label: "New return",
+                value: formatDateTime(info.return_at),
+              },
+            ]
+          : []),
+      ],
+      cta: {
+        label: "View Reservation",
+        path: `/account/reservations/${reservationId}`,
+      },
+      reservationId,
+    });
+  }
+
   revalidatePath(`/admin/reservations/${reservationId}`);
   revalidatePath("/admin");
   return { ok: true };

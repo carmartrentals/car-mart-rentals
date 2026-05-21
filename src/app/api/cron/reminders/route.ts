@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendNotification } from "@/lib/notifications";
+import { sendNotification, notifyCompany } from "@/lib/notifications";
 import { formatDateTime } from "@/lib/utils";
 import type { ReservationWithRelations } from "@/lib/types/database";
 
@@ -117,21 +117,49 @@ export async function GET(request: Request) {
       .lt("return_at", new Date().toISOString());
     for (const r of (overdue as unknown as ReservationWithRelations[]) ?? []) {
       await admin.from("reservations").update({ status: "overdue" }).eq("id", r.id);
-      if (!r.customer?.email || (await alreadySent("overdue_alert", r.id))) continue;
-      await sendNotification({
-        type: "overdue_alert",
-        templateKey: "overdue_alert",
-        to: r.customer.email,
-        variables: {
-          customer_name: name(r),
-          vehicle_name: vehicle(r),
-          reservation_number: r.reservation_number,
-          return_at: formatDateTime(r.return_at),
-        },
-        reservationId: r.id,
-        customerId: r.customer_id,
-      });
-      counts.overdue++;
+
+      // Customer overdue alert (de-duplicated).
+      if (r.customer?.email && !(await alreadySent("overdue_alert", r.id))) {
+        await sendNotification({
+          type: "overdue_alert",
+          templateKey: "overdue_alert",
+          to: r.customer.email,
+          variables: {
+            customer_name: name(r),
+            vehicle_name: vehicle(r),
+            reservation_number: r.reservation_number,
+            return_at: formatDateTime(r.return_at),
+          },
+          reservationId: r.id,
+          customerId: r.customer_id,
+        });
+        counts.overdue++;
+      }
+
+      // Company overdue alert (de-duplicated, separate type).
+      if (!(await alreadySent("overdue_company_alert", r.id))) {
+        await notifyCompany({
+          type: "overdue_company_alert",
+          subject: `🔴 Overdue rental — ${r.reservation_number}`,
+          heading: "Overdue Rental",
+          intro: `${name(r)} has not yet returned ${vehicle(r)}. This rental is now overdue and needs follow-up.`,
+          rows: [
+            { label: "Reservation", value: r.reservation_number },
+            { label: "Customer", value: name(r) },
+            { label: "Vehicle", value: vehicle(r) },
+            { label: "Was due back", value: formatDateTime(r.return_at) },
+            ...(r.customer?.phone
+              ? [{ label: "Customer phone", value: r.customer.phone }]
+              : []),
+          ],
+          cta: {
+            label: "Open in Admin Panel",
+            path: `/admin/reservations/${r.id}`,
+          },
+          reservationId: r.id,
+          customerId: r.customer_id,
+        });
+      }
     }
 
     // 4. Document reminders — confirmed pickups within 3 days, docs unverified
