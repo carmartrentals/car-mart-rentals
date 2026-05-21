@@ -341,7 +341,7 @@ export function AgreementDocument(props: AgreementDocProps) {
         <View style={{ marginTop: 16 }}>
           <Text style={s.sectionLabel}>Terms &amp; Conditions</Text>
           {props.terms.map((t, i) => (
-            <View key={i} wrap={false}>
+            <View key={i} style={{ marginBottom: 6 }}>
               <Text style={s.termTitle}>
                 {i + 1}. {t.title}
               </Text>
