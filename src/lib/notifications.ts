@@ -72,3 +72,45 @@ export async function sendNotification(params: {
     console.error("sendNotification error:", err);
   }
 }
+
+/**
+ * Sends an internal alert email to the company's own address — used for new
+ * customer requests, contact-form enquiries and reviews. The recipient is the
+ * email set in the company profile. Best-effort: never throws.
+ */
+export async function notifyCompany(params: {
+  type: string;
+  subject: string;
+  lines: string[];
+  reservationId?: string | null;
+  customerId?: string | null;
+}): Promise<void> {
+  try {
+    const admin = createAdminClient();
+    const company = await getCompanyProfile();
+    const to = company.email;
+    if (!to) return;
+
+    const html = fallbackHtml(
+      params.lines.filter(Boolean).join("<br/>"),
+      company.name,
+      company.phone,
+    );
+    const result = await sendEmail({ to, subject: params.subject, html });
+
+    await admin.from("notifications").insert({
+      type: params.type,
+      channel: "email",
+      recipient: to,
+      subject: params.subject,
+      body: html,
+      status: result.ok ? "sent" : result.skipped ? "pending" : "failed",
+      reservation_id: params.reservationId ?? null,
+      customer_id: params.customerId ?? null,
+      error: result.error ?? null,
+      sent_at: result.ok ? new Date().toISOString() : null,
+    });
+  } catch (err) {
+    console.error("notifyCompany error:", err);
+  }
+}

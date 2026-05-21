@@ -48,7 +48,7 @@ on conflict (name) do nothing;
 -- ----------------------------------------------------------------------------
 insert into locations (name, address, city, state, zip, phone, email, business_hours, is_active) values
   ('Car Mart Rentals — Main Branch', '1450 Auto Center Dr', 'Los Angeles', 'CA', '90001',
-   '(323) 555-0142', 'reservations@carmartrentals.com',
+   '(323) 555-0142', 'contact@carmartrentals.com',
    '{"mon":"8:00-18:00","tue":"8:00-18:00","wed":"8:00-18:00","thu":"8:00-18:00","fri":"8:00-19:00","sat":"9:00-17:00","sun":"closed"}'::jsonb,
    true);
 
@@ -57,7 +57,7 @@ insert into locations (name, address, city, state, zip, phone, email, business_h
 -- ----------------------------------------------------------------------------
 insert into settings (key, value, category, label, description) values
   ('company_profile',
-   '{"name":"Car Mart Rentals","legal_name":"Car Mart Rentals LLC","email":"reservations@carmartrentals.com","phone":"(323) 555-0142","website":"https://carmartrentals.com","address":"1450 Auto Center Dr, Los Angeles, CA 90001","logo_url":""}'::jsonb,
+   '{"name":"Car Mart Rentals","legal_name":"Car Mart Rentals LLC","email":"contact@carmartrentals.com","phone":"(323) 555-0142","website":"https://carmartrentals.com","address":"1450 Auto Center Dr, Los Angeles, CA 90001","logo_url":""}'::jsonb,
    'general', 'Company Profile', 'Business identity used on the website and documents.'),
   ('tax', '{"rate":9.5,"label":"Sales Tax","enabled":true}'::jsonb,
    'finance', 'Tax', 'Default sales tax applied to taxable charges.'),

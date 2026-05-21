@@ -1,6 +1,7 @@
 "use server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { notifyCompany } from "@/lib/notifications";
 import type { ActionState } from "@/lib/form";
 
 /**
@@ -35,6 +36,19 @@ export async function submitContactForm(input: {
       status: "new",
     });
     if (error) return { ok: false, error: error.message };
+
+    await notifyCompany({
+      type: "website_enquiry",
+      subject: `New website enquiry - ${name}`,
+      lines: [
+        `${name} sent a message through the website contact form.`,
+        email ? `Email: ${email}` : "",
+        phone ? `Phone: ${phone}` : "",
+        `Message: ${message}`,
+        "It has also been added to the Leads page in your admin panel.",
+      ],
+    });
+
     return { ok: true };
   } catch (e) {
     return {

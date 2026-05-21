@@ -17,7 +17,7 @@ import type {
 export const COMPANY = {
   name: "Car Mart Rentals",
   tagline: "Luxury & Insurance Replacement Rentals",
-  email: "reservations@carmartrentals.com",
+  email: "contact@carmartrentals.com",
   phone: "(323) 555-0142",
   phoneHref: "tel:+13235550142",
   address: "1450 Auto Center Dr, Los Angeles, CA 90001",

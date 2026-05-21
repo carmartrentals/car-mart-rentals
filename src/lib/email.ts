@@ -22,7 +22,7 @@ export async function sendEmail(params: {
   html: string;
 }): Promise<SendEmailResult> {
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM || "reservations@carmartrentals.com";
+  const from = process.env.EMAIL_FROM || "contact@carmartrentals.com";
 
   if (!apiKey) {
     return { ok: false, skipped: true, error: "Email provider not configured." };

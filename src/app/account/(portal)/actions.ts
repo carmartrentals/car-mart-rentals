@@ -7,7 +7,8 @@ import { getCurrentCustomer } from "@/lib/account";
 import { getStripe, stripeConfigured, toCents } from "@/lib/stripe";
 import { uploadFile, storagePath } from "@/lib/storage";
 import { getTaxRate } from "@/lib/data/settings";
-import { rentalDays } from "@/lib/utils";
+import { notifyCompany } from "@/lib/notifications";
+import { rentalDays, formatDateTime } from "@/lib/utils";
 import type { ActionState } from "@/lib/form";
 
 /** Customer uploads one of their own documents (license / insurance). */
@@ -208,6 +209,27 @@ async function createReservationRequest(
     entity_id: reservationId,
     description: `Customer requested ${label} for ${r.reservation_number}`,
   });
+
+  await notifyCompany({
+    type: `${type}_request`,
+    subject: `New ${
+      type === "extension" ? "extension" : "early return"
+    } request — ${r.reservation_number}`,
+    lines: [
+      `${customer.first_name} ${customer.last_name} has requested ${label} for reservation ${r.reservation_number}.`,
+      `Requested date: ${formatDateTime(requested.toISOString())}`,
+      estimatedCost
+        ? `Estimated change to the total: ${
+            estimatedCost >= 0 ? "+" : "-"
+          }$${Math.abs(estimatedCost).toFixed(2)}`
+        : "",
+      note.trim() ? `Customer note: ${note.trim()}` : "",
+      "Open the reservation in the admin panel to approve or decline it.",
+    ],
+    reservationId,
+    customerId: customer.id,
+  });
+
   revalidatePath(`/account/reservations/${reservationId}`);
   return { ok: true };
 }
@@ -347,6 +369,20 @@ export async function submitMyReview(input: {
     entity_id: input.reservationId,
     description: `Customer reviewed ${r.reservation_number} (${rating}★)`,
   });
+
+  await notifyCompany({
+    type: "review_submitted",
+    subject: `New customer review — ${rating}-star`,
+    lines: [
+      `${customer.first_name} ${customer.last_name} left a ${rating}-star review for ${r.reservation_number}.`,
+      input.title.trim() ? `Title: ${input.title.trim()}` : "",
+      `Review: ${input.comment.trim()}`,
+      "Approve it in Admin - Reviews to publish it on your website.",
+    ],
+    reservationId: input.reservationId,
+    customerId: customer.id,
+  });
+
   revalidatePath(`/account/reservations/${input.reservationId}`);
   return { ok: true };
 }
