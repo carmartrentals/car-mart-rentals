@@ -16,7 +16,7 @@ export default async function PortalLayout({
   const customer = await requireCustomer();
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50">
+    <div className="flex min-h-screen flex-col bg-brand-950 text-slate-300">
       <AccountHeader customerName={`${customer.first_name} ${customer.last_name}`} />
       <main className="flex-1">
         <div className="container-px py-8">{children}</div>

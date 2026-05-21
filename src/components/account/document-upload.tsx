@@ -50,34 +50,34 @@ export function DocumentUpload({
   }
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4">
+    <div className="glass rounded-2xl p-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-slate-800">{label}</p>
+        <p className="text-sm font-semibold text-white">{label}</p>
         {url && (
-          <span className="flex items-center gap-1 text-xs font-medium text-emerald-600">
+          <span className="flex items-center gap-1 text-xs font-medium text-emerald-400">
             <CheckCircle2 className="h-3.5 w-3.5" /> Uploaded
           </span>
         )}
       </div>
-      {hint && <p className="mt-0.5 text-xs text-slate-400">{hint}</p>}
+      {hint && <p className="mt-0.5 text-xs text-slate-500">{hint}</p>}
 
-      <div className="mt-3 aspect-[16/10] overflow-hidden rounded-lg bg-slate-100">
+      <div className="mt-3 aspect-[16/10] overflow-hidden rounded-lg border border-white/10 bg-brand-900">
         {url ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img src={url} alt={label} className="h-full w-full object-cover" />
         ) : (
-          <div className="flex h-full items-center justify-center text-slate-300">
+          <div className="flex h-full items-center justify-center text-slate-600">
             <Upload className="h-8 w-8" />
           </div>
         )}
       </div>
 
-      {error && <p className="mt-2 text-xs text-rose-600">{error}</p>}
+      {error && <p className="mt-2 text-xs text-rose-400">{error}</p>}
 
       <button
         onClick={() => inputRef.current?.click()}
         disabled={pending}
-        className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-300 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+        className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-white/15 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-white/10 disabled:opacity-50"
       >
         {pending ? (
           <Loader2 className="h-4 w-4 animate-spin" />

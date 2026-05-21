@@ -7,10 +7,11 @@ export default async function ProfilePage() {
   return (
     <div className="mx-auto max-w-2xl">
       <div className="mb-6">
-        <h1 className="heading-display text-2xl font-bold text-slate-900">
+        <p className="eyebrow">Account</p>
+        <h1 className="heading-display mt-2 text-2xl font-bold text-white">
           Profile &amp; Settings
         </h1>
-        <p className="mt-0.5 text-sm text-slate-500">
+        <p className="mt-0.5 text-sm text-slate-400">
           Update your contact details and account password.
         </p>
       </div>

@@ -38,9 +38,9 @@ export function LeaveReview({
   // Already reviewed — show a read-only summary.
   if (existingReview) {
     return (
-      <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+      <div className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
         <div className="flex items-center justify-between">
-          <p className="text-sm font-semibold text-slate-800">Your Review</p>
+          <p className="text-sm font-semibold text-white">Your Review</p>
           <Badge tone={existingReview.is_published ? "green" : "amber"}>
             {existingReview.is_published ? "Published" : "Pending approval"}
           </Badge>
@@ -52,14 +52,14 @@ export function LeaveReview({
               className={cn(
                 "h-4 w-4",
                 n <= existingReview.rating
-                  ? "fill-gold-500 text-gold-500"
-                  : "fill-slate-200 text-slate-200",
+                  ? "fill-gold-400 text-gold-400"
+                  : "fill-white/10 text-white/10",
               )}
             />
           ))}
         </div>
         {existingReview.comment && (
-          <p className="mt-1.5 text-sm text-slate-600">
+          <p className="mt-1.5 text-sm text-slate-400">
             “{existingReview.comment}”
           </p>
         )}
@@ -87,7 +87,7 @@ export function LeaveReview({
 
   return (
     <>
-      <Button variant="outline" className="w-full" onClick={() => {
+      <Button variant="secondary" className="w-full" onClick={() => {
         setDone(false);
         setError(null);
         setOpen(true);

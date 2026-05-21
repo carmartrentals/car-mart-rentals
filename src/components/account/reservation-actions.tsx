@@ -6,7 +6,6 @@ import { CreditCard, CalendarPlus, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { Field, Input, Textarea } from "@/components/ui/field";
-import { Alert } from "@/components/ui/misc";
 import { payMyBalance, requestExtension } from "@/app/account/(portal)/actions";
 
 /** Customer-facing actions on a reservation: pay balance, request extension. */
@@ -51,7 +50,11 @@ export function ReservationActions({
 
   return (
     <div className="space-y-3">
-      {error && <Alert tone="error">{error}</Alert>}
+      {error && (
+        <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
+          {error}
+        </div>
+      )}
 
       {balanceDue > 0 && (
         <Button onClick={pay} loading={pending} className="w-full">
@@ -59,7 +62,7 @@ export function ReservationActions({
         </Button>
       )}
       <Button
-        variant="outline"
+        variant="secondary"
         onClick={() => {
           setExtDone(false);
           setExtOpen(true);
