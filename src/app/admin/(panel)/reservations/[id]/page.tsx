@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   ArrowLeft, Pencil, User, Car, CalendarRange, FileText, CreditCard,
+  ShieldCheck,
 } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getTaxRate } from "@/lib/data/settings";
@@ -17,7 +18,7 @@ import { RequestPanel } from "@/components/admin/request-panel";
 import {
   RESERVATION_STATUS, PAYMENT_STATUS, RESERVATION_SOURCES,
 } from "@/lib/constants";
-import { formatCurrency, formatDateTime, titleCase } from "@/lib/utils";
+import { formatCurrency, formatDate, formatDateTime, titleCase } from "@/lib/utils";
 import type {
   ReservationWithRelations, ReservationCharge, Payment, Deposit,
   ReservationRequest,
@@ -216,6 +217,74 @@ export default async function ReservationDetailPage({
             </Card>
           </div>
 
+          {/* CUSTOMER DOCUMENTS */}
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                <span className="flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-gold-600" />
+                  Customer Documents
+                </span>
+              </CardTitle>
+              {customer && (
+                <Badge tone={customer.documents_verified ? "green" : "amber"}>
+                  {customer.documents_verified
+                    ? "Verified"
+                    : "Not verified"}
+                </Badge>
+              )}
+            </CardHeader>
+            <CardBody className="space-y-4">
+              {customer ? (
+                <>
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <DocThumb
+                      label="Driver License — Front"
+                      url={customer.dl_front_url}
+                    />
+                    <DocThumb
+                      label="Driver License — Back"
+                      url={customer.dl_back_url}
+                    />
+                    <DocThumb
+                      label="Proof of Insurance"
+                      url={customer.insurance_doc_url}
+                    />
+                  </div>
+                  {(customer.dl_number ||
+                    customer.dl_state ||
+                    customer.dl_expiration) && (
+                    <div className="grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-3">
+                      <Info
+                        icon={CreditCard}
+                        label="License #"
+                        value={customer.dl_number || "—"}
+                      />
+                      <Info
+                        icon={CreditCard}
+                        label="License State"
+                        value={customer.dl_state || "—"}
+                      />
+                      <Info
+                        icon={CalendarRange}
+                        label="License Expires"
+                        value={
+                          customer.dl_expiration
+                            ? formatDate(customer.dl_expiration)
+                            : "—"
+                        }
+                      />
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-slate-400">
+                  No customer assigned to this reservation.
+                </p>
+              )}
+            </CardBody>
+          </Card>
+
           {/* PERIOD */}
           <Card>
             <CardHeader><CardTitle>Rental Period</CardTitle></CardHeader>
@@ -381,6 +450,43 @@ function Line({
     <div className={`flex justify-between ${muted ? "text-slate-400" : "text-slate-600"}`}>
       <span>{label}</span>
       <span className={muted ? "" : "font-medium text-slate-800"}>{value}</span>
+    </div>
+  );
+}
+
+function DocThumb({ label, url }: { label: string; url: string | null }) {
+  const isPdf = !!url && url.toLowerCase().includes(".pdf");
+  return (
+    <div>
+      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
+        {label}
+      </p>
+      {url ? (
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block overflow-hidden rounded-lg border border-slate-200 transition-colors hover:border-gold-400"
+        >
+          {isPdf ? (
+            <span className="flex aspect-[4/3] flex-col items-center justify-center gap-1 bg-slate-50 text-slate-500">
+              <FileText className="h-6 w-6" />
+              <span className="text-xs font-medium">View PDF</span>
+            </span>
+          ) : (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={url}
+              alt={label}
+              className="aspect-[4/3] w-full object-cover"
+            />
+          )}
+        </a>
+      ) : (
+        <div className="flex aspect-[4/3] items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 text-xs text-slate-400">
+          Not uploaded
+        </div>
+      )}
     </div>
   );
 }
