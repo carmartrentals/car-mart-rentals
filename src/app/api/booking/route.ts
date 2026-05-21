@@ -3,7 +3,7 @@ import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { computeReservationTotals } from "@/lib/pricing";
 import { getTaxRate } from "@/lib/data/settings";
-import { sendNotification } from "@/lib/notifications";
+import { sendNotification, notifyCompany } from "@/lib/notifications";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import type { AddOn, Vehicle } from "@/lib/types/database";
 
@@ -222,6 +222,36 @@ export async function POST(request: Request) {
       pickup_at: formatDateTime(input.pickup_at),
       return_at: formatDateTime(input.return_at),
       total: formatCurrency(pricing.total),
+    },
+    reservationId: reservation.id,
+    customerId,
+  });
+
+  // Internal alert to the company (best-effort)
+  await notifyCompany({
+    type: "new_booking",
+    subject: `New website booking — ${reservation.reservation_number}`,
+    heading: "New Website Booking",
+    intro: `${input.customer.first_name} ${input.customer.last_name} booked a vehicle on your website. It is pending your confirmation.`,
+    rows: [
+      {
+        label: "Customer",
+        value: `${input.customer.first_name} ${input.customer.last_name}`,
+      },
+      {
+        label: "Vehicle",
+        value: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
+      },
+      { label: "Reservation", value: reservation.reservation_number },
+      { label: "Pickup", value: formatDateTime(input.pickup_at) },
+      { label: "Return", value: formatDateTime(input.return_at) },
+      { label: "Total", value: formatCurrency(pricing.total) },
+      { label: "Email", value: input.customer.email },
+      { label: "Phone", value: input.customer.phone },
+    ],
+    cta: {
+      label: "Open in Admin Panel",
+      path: `/admin/reservations/${reservation.id}`,
     },
     reservationId: reservation.id,
     customerId,

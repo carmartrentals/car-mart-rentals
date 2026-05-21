@@ -215,17 +215,37 @@ async function createReservationRequest(
     subject: `New ${
       type === "extension" ? "extension" : "early return"
     } request — ${r.reservation_number}`,
-    lines: [
-      `${customer.first_name} ${customer.last_name} has requested ${label} for reservation ${r.reservation_number}.`,
-      `Requested date: ${formatDateTime(requested.toISOString())}`,
-      estimatedCost
-        ? `Estimated change to the total: ${
-            estimatedCost >= 0 ? "+" : "-"
-          }$${Math.abs(estimatedCost).toFixed(2)}`
-        : "",
-      note.trim() ? `Customer note: ${note.trim()}` : "",
-      "Open the reservation in the admin panel to approve or decline it.",
+    heading:
+      type === "extension"
+        ? "New Extension Request"
+        : "New Early Return Request",
+    intro: `${customer.first_name} ${customer.last_name} has requested ${label} for reservation ${r.reservation_number}. Review it in the admin panel to approve or decline.`,
+    rows: [
+      {
+        label: "Customer",
+        value: `${customer.first_name} ${customer.last_name}`,
+      },
+      { label: "Reservation", value: r.reservation_number },
+      {
+        label: "Requested date",
+        value: formatDateTime(requested.toISOString()),
+      },
+      ...(estimatedCost
+        ? [
+            {
+              label: "Estimated change",
+              value: `${estimatedCost >= 0 ? "+" : "-"}$${Math.abs(
+                estimatedCost,
+              ).toFixed(2)}`,
+            },
+          ]
+        : []),
+      ...(note.trim() ? [{ label: "Customer note", value: note.trim() }] : []),
     ],
+    cta: {
+      label: "Review in Admin Panel",
+      path: `/admin/reservations/${reservationId}`,
+    },
     reservationId,
     customerId: customer.id,
   });
@@ -373,12 +393,20 @@ export async function submitMyReview(input: {
   await notifyCompany({
     type: "review_submitted",
     subject: `New customer review — ${rating}-star`,
-    lines: [
-      `${customer.first_name} ${customer.last_name} left a ${rating}-star review for ${r.reservation_number}.`,
-      input.title.trim() ? `Title: ${input.title.trim()}` : "",
-      `Review: ${input.comment.trim()}`,
-      "Approve it in Admin - Reviews to publish it on your website.",
+    heading: "New Customer Review",
+    intro: `${customer.first_name} ${customer.last_name} left a ${rating}-star review for ${r.reservation_number}. Approve it to publish it on your website.`,
+    rows: [
+      {
+        label: "Customer",
+        value: `${customer.first_name} ${customer.last_name}`,
+      },
+      { label: "Rating", value: `${rating} out of 5 stars` },
+      ...(input.title.trim()
+        ? [{ label: "Title", value: input.title.trim() }]
+        : []),
+      { label: "Review", value: input.comment.trim() },
     ],
+    cta: { label: "Approve in Admin Panel", path: "/admin/reviews" },
     reservationId: input.reservationId,
     customerId: customer.id,
   });

@@ -40,13 +40,15 @@ export async function submitContactForm(input: {
     await notifyCompany({
       type: "website_enquiry",
       subject: `New website enquiry - ${name}`,
-      lines: [
-        `${name} sent a message through the website contact form.`,
-        email ? `Email: ${email}` : "",
-        phone ? `Phone: ${phone}` : "",
-        `Message: ${message}`,
-        "It has also been added to the Leads page in your admin panel.",
+      heading: "New Website Enquiry",
+      intro: `${name} sent a message through the website contact form. It has also been added to your Leads page.`,
+      rows: [
+        { label: "Name", value: name },
+        ...(email ? [{ label: "Email", value: email }] : []),
+        ...(phone ? [{ label: "Phone", value: phone }] : []),
+        { label: "Message", value: message },
       ],
+      cta: { label: "View in Leads", path: "/admin/leads" },
     });
 
     return { ok: true };
