@@ -1,8 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Keep the PDF renderer out of the bundler — it ships its own dependencies.
-  serverExternalPackages: ["@react-pdf/renderer"],
+  // Keep these out of the bundler — they ship their own dependencies.
+  serverExternalPackages: ["@react-pdf/renderer", "nodemailer"],
   // Allow larger uploads through Server Actions (e.g. document photos).
   experimental: {
     serverActions: {
