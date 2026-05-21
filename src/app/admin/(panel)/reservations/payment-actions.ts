@@ -98,7 +98,7 @@ export async function recordManualPayment(
     const { data: rInfo } = await admin
       .from("reservations")
       .select(
-        "reservation_number, balance_due, customer:customers(first_name,email)",
+        "reservation_number, balance_due, customer:customers(first_name,email), vehicle:vehicles(main_image_url)",
       )
       .eq("id", reservationId)
       .maybeSingle();
@@ -106,6 +106,7 @@ export async function recordManualPayment(
       reservation_number: string;
       balance_due: number;
       customer: { first_name: string; email: string } | null;
+      vehicle: { main_image_url: string | null } | null;
     } | null;
     if (info?.customer?.email) {
       await notifyCustomer({
@@ -130,6 +131,7 @@ export async function recordManualPayment(
           label: "View Reservation",
           path: `/account/reservations/${reservationId}`,
         },
+        imageUrl: info.vehicle?.main_image_url,
         reservationId,
       });
     }

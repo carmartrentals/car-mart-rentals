@@ -38,6 +38,7 @@ function emailShell(opts: {
   companyName: string;
   companyPhone: string;
   kicker?: string;
+  imageUrl?: string;
   contentHtml: string;
   footerNote?: string;
 }): string {
@@ -46,6 +47,9 @@ function emailShell(opts: {
     : "";
   const footerNote = opts.footerNote
     ? `<p style="margin:4px 0 0;font-size:11px;color:#cbd5e1;">${escapeHtml(opts.footerNote)}</p>`
+    : "";
+  const image = opts.imageUrl
+    ? `<img src="${escapeHtml(opts.imageUrl)}" alt="Vehicle" width="504" style="display:block;width:100%;max-width:504px;height:auto;border-radius:8px;margin:0 0 22px;background:#0b0c11;" />`
     : "";
 
   return `<div style="margin:0;padding:24px 12px;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;">
@@ -57,6 +61,7 @@ function emailShell(opts: {
           ${kicker}
         </td></tr>
         <tr><td style="padding:28px;">
+          ${image}
           ${opts.contentHtml}
         </td></tr>
         <tr><td style="background:#f8fafc;padding:16px 28px;border-top:1px solid #e2e8f0;">
@@ -74,6 +79,7 @@ function alertEmailHtml(opts: {
   companyName: string;
   companyPhone: string;
   kicker?: string;
+  imageUrl?: string;
   heading: string;
   intro: string;
   rows: { label: string; value: string }[];
@@ -112,6 +118,7 @@ function alertEmailHtml(opts: {
     companyName: opts.companyName,
     companyPhone: opts.companyPhone,
     kicker: opts.kicker,
+    imageUrl: opts.imageUrl,
     contentHtml: content,
     footerNote: opts.footerNote,
   });
@@ -127,6 +134,7 @@ export async function sendNotification(params: {
   templateKey: string;
   to: string;
   variables: Record<string, string>;
+  imageUrl?: string | null;
   reservationId?: string | null;
   customerId?: string | null;
 }): Promise<void> {
@@ -154,6 +162,7 @@ export async function sendNotification(params: {
     const html = emailShell({
       companyName: company.name,
       companyPhone: company.phone,
+      imageUrl: params.imageUrl ?? undefined,
       contentHtml: `<div style="font-size:14px;line-height:1.7;color:#334155;">${innerBody}</div>`,
       footerNote: `You're receiving this email about your reservation with ${company.name}.`,
     });
@@ -190,6 +199,7 @@ export async function notifyCompany(params: {
   intro: string;
   rows: { label: string; value: string }[];
   cta?: { label: string; path: string };
+  imageUrl?: string | null;
   reservationId?: string | null;
   customerId?: string | null;
 }): Promise<void> {
@@ -209,6 +219,7 @@ export async function notifyCompany(params: {
       companyName: company.name,
       companyPhone: company.phone,
       kicker: "Admin Notification",
+      imageUrl: params.imageUrl ?? undefined,
       heading: params.heading,
       intro: params.intro,
       rows: params.rows,
@@ -248,6 +259,7 @@ export async function notifyCustomer(params: {
   intro: string;
   rows: { label: string; value: string }[];
   cta?: { label: string; path: string };
+  imageUrl?: string | null;
   reservationId?: string | null;
   customerId?: string | null;
 }): Promise<void> {
@@ -265,6 +277,7 @@ export async function notifyCustomer(params: {
     const html = alertEmailHtml({
       companyName: company.name,
       companyPhone: company.phone,
+      imageUrl: params.imageUrl ?? undefined,
       heading: params.heading,
       intro: params.intro,
       rows: params.rows,

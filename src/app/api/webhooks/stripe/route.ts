@@ -107,7 +107,7 @@ export async function POST(request: Request) {
           const { data: info } = await admin
             .from("reservations")
             .select(
-              "reservation_number, balance_due, customer:customers(first_name,last_name,email)",
+              "reservation_number, balance_due, customer:customers(first_name,last_name,email), vehicle:vehicles(main_image_url)",
             )
             .eq("id", reservationId)
             .maybeSingle();
@@ -119,6 +119,7 @@ export async function POST(request: Request) {
               last_name: string;
               email: string;
             } | null;
+            vehicle: { main_image_url: string | null } | null;
           } | null;
           if (detail) {
             const balance = formatCurrency(Number(detail.balance_due ?? 0));
@@ -139,6 +140,7 @@ export async function POST(request: Request) {
                   label: "View Reservation",
                   path: `/account/reservations/${reservationId}`,
                 },
+                imageUrl: detail.vehicle?.main_image_url,
                 reservationId,
               });
             }
@@ -164,6 +166,7 @@ export async function POST(request: Request) {
                 label: "Open in Admin Panel",
                 path: `/admin/reservations/${reservationId}`,
               },
+              imageUrl: detail.vehicle?.main_image_url,
               reservationId,
             });
           }

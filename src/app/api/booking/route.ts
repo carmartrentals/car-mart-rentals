@@ -227,6 +227,7 @@ export async function POST(request: Request) {
       { label: "Return", value: formatDateTime(input.return_at) },
       { label: "Estimated total", value: formatCurrency(pricing.total) },
     ],
+    imageUrl: vehicle.main_image_url,
     reservationId: reservation.id,
     customerId,
   });
@@ -257,6 +258,7 @@ export async function POST(request: Request) {
       label: "Open in Admin Panel",
       path: `/admin/reservations/${reservation.id}`,
     },
+    imageUrl: vehicle.main_image_url,
     reservationId: reservation.id,
     customerId,
   });

@@ -77,6 +77,7 @@ export async function GET(request: Request) {
           reservation_number: r.reservation_number,
           pickup_at: formatDateTime(r.pickup_at),
         },
+        imageUrl: r.vehicle?.main_image_url,
         reservationId: r.id,
         customerId: r.customer_id,
       });
@@ -103,6 +104,7 @@ export async function GET(request: Request) {
           reservation_number: r.reservation_number,
           return_at: formatDateTime(r.return_at),
         },
+        imageUrl: r.vehicle?.main_image_url,
         reservationId: r.id,
         customerId: r.customer_id,
       });
@@ -130,6 +132,7 @@ export async function GET(request: Request) {
             reservation_number: r.reservation_number,
             return_at: formatDateTime(r.return_at),
           },
+          imageUrl: r.vehicle?.main_image_url,
           reservationId: r.id,
           customerId: r.customer_id,
         });
@@ -156,6 +159,7 @@ export async function GET(request: Request) {
             label: "Open in Admin Panel",
             path: `/admin/reservations/${r.id}`,
           },
+          imageUrl: r.vehicle?.main_image_url,
           reservationId: r.id,
           customerId: r.customer_id,
         });
@@ -185,6 +189,7 @@ export async function GET(request: Request) {
           customer_name: name(r),
           reservation_number: r.reservation_number,
         },
+        imageUrl: r.vehicle?.main_image_url,
         reservationId: r.id,
         customerId: r.customer_id,
       });

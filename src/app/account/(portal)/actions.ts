@@ -350,7 +350,9 @@ export async function submitMyReview(input: {
   const admin = createAdminClient();
   const { data: r } = await admin
     .from("reservations")
-    .select("id, status, vehicle_id, reservation_number")
+    .select(
+      "id, status, vehicle_id, reservation_number, vehicle:vehicles(main_image_url)",
+    )
     .eq("id", input.reservationId)
     .eq("customer_id", customer.id)
     .maybeSingle();
@@ -409,6 +411,9 @@ export async function submitMyReview(input: {
       { label: "Review", value: input.comment.trim() },
     ],
     cta: { label: "Approve in Admin Panel", path: "/admin/reviews" },
+    imageUrl: (
+      r as unknown as { vehicle?: { main_image_url: string | null } | null }
+    ).vehicle?.main_image_url,
     reservationId: input.reservationId,
     customerId: customer.id,
   });

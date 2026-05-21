@@ -251,7 +251,7 @@ export async function setReservationStatus(
   const { data: beforeRow } = await admin
     .from("reservations")
     .select(
-      "status, vehicle_id, reservation_number, pickup_at, return_at, customer:customers(first_name,email)",
+      "status, vehicle_id, reservation_number, pickup_at, return_at, customer:customers(first_name,email), vehicle:vehicles(main_image_url)",
     )
     .eq("id", reservationId)
     .maybeSingle();
@@ -262,6 +262,7 @@ export async function setReservationStatus(
     pickup_at: string;
     return_at: string;
     customer: { first_name: string; email: string } | null;
+    vehicle: { main_image_url: string | null } | null;
   } | null;
 
   await admin
@@ -308,6 +309,7 @@ export async function setReservationStatus(
         label: "View Reservation",
         path: `/account/reservations/${reservationId}`,
       },
+      imageUrl: before.vehicle?.main_image_url,
       reservationId,
     });
   }

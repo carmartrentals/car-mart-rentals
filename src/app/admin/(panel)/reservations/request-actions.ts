@@ -123,7 +123,7 @@ export async function resolveReservationRequest(
   const { data: rInfo } = await admin
     .from("reservations")
     .select(
-      "reservation_number, return_at, customer:customers(first_name,email)",
+      "reservation_number, return_at, customer:customers(first_name,email), vehicle:vehicles(main_image_url)",
     )
     .eq("id", reservationId)
     .maybeSingle();
@@ -131,6 +131,7 @@ export async function resolveReservationRequest(
     reservation_number: string;
     return_at: string;
     customer: { first_name: string; email: string } | null;
+    vehicle: { main_image_url: string | null } | null;
   } | null;
   const requestLabel =
     req.request_type === "extension" ? "extension" : "early return";
@@ -164,6 +165,7 @@ export async function resolveReservationRequest(
         label: "View Reservation",
         path: `/account/reservations/${reservationId}`,
       },
+      imageUrl: info.vehicle?.main_image_url,
       reservationId,
     });
   }
