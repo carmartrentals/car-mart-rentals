@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/admin/page-header";
 import { FilterBar } from "@/components/admin/filter-bar";
 import { LeadForm } from "@/components/admin/lead-form";
 import { StatusSelect } from "@/components/admin/status-select";
+import { LeadToClaimButton } from "@/components/admin/lead-to-claim-button";
 import { Card } from "@/components/ui/card";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { EmptyState, Alert } from "@/components/ui/misc";
@@ -91,6 +92,7 @@ export default async function LeadsPage({
                 <TH>Inquiry</TH>
                 <TH>Added</TH>
                 <TH>Status</TH>
+                <TH>Convert</TH>
               </TR>
             </THead>
             <TBody>
@@ -113,6 +115,12 @@ export default async function LeadsPage({
                       value={l.status}
                       options={STATUSES}
                       action={setLeadStatus.bind(null, l.id)}
+                    />
+                  </TD>
+                  <TD>
+                    <LeadToClaimButton
+                      leadId={l.id}
+                      converted={l.status === "converted"}
                     />
                   </TD>
                 </TR>
