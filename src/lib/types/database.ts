@@ -253,6 +253,9 @@ export interface Reservation {
   status: ReservationStatus;
   source: ReservationSource;
   insurance_required: boolean;
+  risk_level: string | null;
+  risk_summary: string | null;
+  risk_assessed_at: string | null;
   notes: string | null;
   internal_notes: string | null;
   created_by: string | null;

@@ -16,6 +16,7 @@ import { ReservationStatusActions } from "@/components/admin/reservation-status-
 import { PaymentManager } from "@/components/admin/payment-manager";
 import { RequestPanel } from "@/components/admin/request-panel";
 import { InsuranceRequiredToggle } from "@/components/admin/insurance-required-toggle";
+import { RiskPanel } from "@/components/admin/risk-panel";
 import {
   DOCUMENT_STATUS_LABEL, DOCUMENT_STATUS_TONE, isExpired,
 } from "@/lib/documents";
@@ -278,6 +279,14 @@ export default async function ReservationDetailPage({
               </CardBody>
             </Card>
           </div>
+
+          {/* AI RISK CHECK */}
+          <RiskPanel
+            reservationId={r.id}
+            level={r.risk_level}
+            summary={r.risk_summary}
+            assessedAt={r.risk_assessed_at}
+          />
 
           {/* CUSTOMER DOCUMENTS & VERIFICATION */}
           <Card>

@@ -8,10 +8,13 @@ import { reservationSchema } from "@/lib/validation";
 import { computeReservationTotals } from "@/lib/pricing";
 import { getTaxRate } from "@/lib/data/settings";
 import { notifyCustomer } from "@/lib/notifications";
+import { aiConfigured, assessBookingRisk } from "@/lib/ai";
 import { formatDateTime } from "@/lib/utils";
 import { BLOCKING_RESERVATION_STATUSES } from "@/lib/constants";
 import { zodErrorState, fd, nullable, type ActionState } from "@/lib/form";
-import type { Vehicle, ReservationStatus } from "@/lib/types/database";
+import type {
+  Vehicle, ReservationStatus, Customer, Reservation,
+} from "@/lib/types/database";
 
 function readForm(form: FormData) {
   return {
@@ -349,4 +352,152 @@ export async function setReservationInsuranceRequired(
 
   revalidatePath(`/admin/reservations/${reservationId}`);
   return { ok: true };
+}
+
+type RiskVehicle = {
+  year: number;
+  make: string;
+  model: string;
+  category: string;
+  daily_rate: number;
+};
+type RiskHistory = {
+  total: number;
+  completed: number;
+  no_show: number;
+  cancelled: number;
+  overdue: number;
+};
+
+/** Build a plain-text fact sheet about a booking for the AI risk analyst. */
+function buildRiskContext(
+  r: Reservation & { customer: Customer | null; vehicle: RiskVehicle | null },
+  history: RiskHistory,
+): string {
+  const now = Date.now();
+  const lines: string[] = [];
+  const v = r.vehicle;
+  lines.push(
+    v
+      ? `Vehicle: ${v.year} ${v.make} ${v.model}, category ${v.category}, daily rate $${v.daily_rate}.`
+      : "Vehicle: not assigned.",
+  );
+  lines.push(
+    `Booking: $${r.total} total, ${r.rental_days} day(s), pickup ${formatDateTime(r.pickup_at)}.`,
+  );
+  const leadDays = Math.round(
+    (new Date(r.pickup_at).getTime() - new Date(r.created_at).getTime()) /
+      86400000,
+  );
+  lines.push(`Booked ${leadDays} day(s) before pickup. Source: ${r.source}.`);
+  lines.push(
+    `Payment: ${r.payment_status}; paid $${r.amount_paid} of $${r.total}; security deposit $${r.deposit_amount}.`,
+  );
+  const c = r.customer;
+  if (c) {
+    const accountAgeDays = Math.round(
+      (now - new Date(c.created_at).getTime()) / 86400000,
+    );
+    lines.push(
+      `Customer: ${c.first_name} ${c.last_name}. Customer record created ${accountAgeDays} day(s) ago.`,
+    );
+    if (c.date_of_birth) {
+      const age = Math.floor(
+        (now - new Date(c.date_of_birth).getTime()) / (365.25 * 86400000),
+      );
+      lines.push(`Customer age: about ${age}.`);
+    } else {
+      lines.push("Customer age: unknown (no date of birth on file).");
+    }
+    lines.push(`Has online account: ${c.user_id ? "yes" : "no"}.`);
+    lines.push(
+      `Driver license verification: ${c.dl_status}. Insurance verification: ${c.insurance_status}.`,
+    );
+    lines.push(
+      `Blacklisted: ${c.is_blacklisted ? "YES" : "no"}. VIP: ${c.is_vip ? "yes" : "no"}.`,
+    );
+    lines.push(
+      `Rental history: ${history.total} prior booking(s) — ${history.completed} completed, ${history.no_show} no-show, ${history.cancelled} cancelled, ${history.overdue} overdue.`,
+    );
+  } else {
+    lines.push("Customer: no customer record linked to this booking.");
+  }
+  return lines.join("\n");
+}
+
+/** Run an AI fraud/loss risk assessment on a reservation and store it. */
+export async function assessReservationRisk(
+  reservationId: string,
+): Promise<ActionState & { level?: string; summary?: string }> {
+  const user = await getCurrentUser();
+  if (!user || !canWrite(user.role, "reservations")) {
+    return { ok: false, error: "You do not have permission to assess bookings." };
+  }
+  if (!aiConfigured()) {
+    return { ok: false, error: "AI risk checks are not available right now." };
+  }
+
+  const admin = createAdminClient();
+  const { data: row } = await admin
+    .from("reservations")
+    .select(
+      "*, customer:customers(*), vehicle:vehicles(year,make,model,category,daily_rate)",
+    )
+    .eq("id", reservationId)
+    .maybeSingle();
+  if (!row) return { ok: false, error: "Reservation not found." };
+
+  const r = row as unknown as Reservation & {
+    customer: Customer | null;
+    vehicle: RiskVehicle | null;
+  };
+
+  const history: RiskHistory = {
+    total: 0,
+    completed: 0,
+    no_show: 0,
+    cancelled: 0,
+    overdue: 0,
+  };
+  if (r.customer_id) {
+    const { data: past } = await admin
+      .from("reservations")
+      .select("status")
+      .eq("customer_id", r.customer_id)
+      .neq("id", reservationId);
+    for (const p of past ?? []) {
+      history.total++;
+      const s = p.status as string;
+      if (s === "completed") history.completed++;
+      else if (s === "no_show") history.no_show++;
+      else if (s === "cancelled") history.cancelled++;
+      else if (s === "overdue") history.overdue++;
+    }
+  }
+
+  try {
+    const assessment = await assessBookingRisk(buildRiskContext(r, history));
+    await admin
+      .from("reservations")
+      .update({
+        risk_level: assessment.level,
+        risk_summary: assessment.summary,
+        risk_assessed_at: new Date().toISOString(),
+      })
+      .eq("id", reservationId);
+    await logActivity({
+      userId: user.id,
+      action: "reservation.risk_assessed",
+      entityType: "reservation",
+      entityId: reservationId,
+      description: `AI risk check: ${assessment.level}`,
+    });
+    revalidatePath(`/admin/reservations/${reservationId}`);
+    return { ok: true, level: assessment.level, summary: assessment.summary };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "The risk check failed.",
+    };
+  }
 }

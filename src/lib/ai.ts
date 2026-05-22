@@ -300,6 +300,54 @@ export async function runAssistant(
   );
 }
 
+// --- Booking risk assessment -----------------------------------------------
+export interface RiskAssessment {
+  level: "low" | "medium" | "high";
+  summary: string;
+}
+
+/** Assess the fraud / loss risk of a booking from a plain-text fact sheet. */
+export async function assessBookingRisk(
+  context: string,
+): Promise<RiskAssessment> {
+  const completion = await getOpenAI().chat.completions.create({
+    model: "gpt-4o-mini",
+    max_tokens: 300,
+    response_format: { type: "json_object" },
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a practical risk analyst for a car rental company. From " +
+          "the booking facts given, assess the fraud and loss risk. Weigh: " +
+          "how new and how verified the customer is, the value of the " +
+          "vehicle, how last-minute the booking is, the customer's history " +
+          "(no-shows, cancellations, overdue returns), payment status, and " +
+          "any blacklist flag. Return ONLY JSON: " +
+          '{"level":"low|medium|high","summary":"2-4 short sentences naming ' +
+          'the main factors and what staff should check"}. Be fair — most ' +
+          "ordinary bookings are low risk. Reserve 'high' for genuinely " +
+          "concerning combinations.",
+      },
+      { role: "user", content: context },
+    ],
+  });
+  const raw = completion.choices[0]?.message?.content ?? "{}";
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    parsed = {};
+  }
+  const lvl = String(parsed.level ?? "").toLowerCase();
+  return {
+    level: lvl === "high" ? "high" : lvl === "medium" ? "medium" : "low",
+    summary:
+      clean(parsed.summary) ??
+      "No assessment was returned. Please review this booking manually.",
+  };
+}
+
 // --- Marketing copy --------------------------------------------------------
 export interface VehicleCopySpec {
   year: string;
