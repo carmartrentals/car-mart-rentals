@@ -29,12 +29,14 @@ export function BookingForm({
   pickup,
   ret,
   prefill,
+  refCode,
 }: {
   vehicle: Vehicle;
   addOns: AddOn[];
   pickup: string;
   ret: string;
   prefill?: Prefill | null;
+  refCode?: string | null;
 }) {
   const [selectedAddOns, setSelectedAddOns] = useState<string[]>([]);
   const [form, setForm] = useState({
@@ -45,6 +47,7 @@ export function BookingForm({
     dl_number: prefill?.dl_number ?? "",
     dl_state: prefill?.dl_state ?? "",
     notes: "",
+    referral_code: refCode ?? "",
   });
   const [agree, setAgree] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -101,6 +104,7 @@ export function BookingForm({
           return_at: new Date(ret).toISOString(),
           add_on_ids: selectedAddOns,
           customer: form,
+          referral_code: form.referral_code,
         }),
       });
       const data = await res.json();
@@ -178,6 +182,18 @@ export function BookingForm({
               rows={3}
               className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-gold-400 focus:outline-none focus:ring-2 focus:ring-gold-400/25"
               placeholder="Delivery address, flight number, etc."
+            />
+          </div>
+          <div className="mt-4">
+            <label className="mb-1.5 block text-sm font-medium text-slate-300">
+              Referral Code{" "}
+              <span className="text-slate-500">(optional)</span>
+            </label>
+            <input
+              value={form.referral_code}
+              onChange={(e) => setField("referral_code", e.target.value)}
+              placeholder="Got a code from a friend? Enter it here"
+              className={INPUT_CLASS}
             />
           </div>
         </section>

@@ -70,6 +70,7 @@ export default async function BookingPage({
           pickup={pickup as string}
           ret={ret as string}
           prefill={prefill}
+          refCode={str(sp.ref) ?? null}
         />
       </div>
     </div>

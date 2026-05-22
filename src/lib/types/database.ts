@@ -120,6 +120,7 @@ export interface Customer {
   insurance_expiration: string | null;
   dl_verification_method: string | null;
   stripe_verification_session_id: string | null;
+  referral_code: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;

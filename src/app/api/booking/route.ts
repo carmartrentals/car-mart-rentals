@@ -21,6 +21,7 @@ const bookingSchema = z.object({
     dl_state: z.string().max(20).optional().or(z.literal("")),
     notes: z.string().max(1000).optional().or(z.literal("")),
   }),
+  referral_code: z.string().max(40).optional().or(z.literal("")),
 });
 
 /**
@@ -209,6 +210,48 @@ export async function POST(request: Request) {
     entity_id: reservation.id,
     description: `Website booking ${reservation.reservation_number}`,
   });
+
+  // --- Referral -------------------------------------------------------------
+  const refCode = (input.referral_code ?? "").trim().toUpperCase();
+  if (refCode) {
+    const { data: referrer } = await admin
+      .from("customers")
+      .select("id, first_name, last_name")
+      .eq("referral_code", refCode)
+      .maybeSingle();
+    if (referrer && referrer.id !== customerId) {
+      await admin.from("referrals").insert({
+        referrer_id: referrer.id,
+        referred_customer_id: customerId,
+        referred_name: `${input.customer.first_name} ${input.customer.last_name}`,
+        reservation_id: reservation.id,
+        status: "pending",
+      });
+      await notifyCompany({
+        type: "referral_booking",
+        subject: `🎁 Referral booking — ${reservation.reservation_number}`,
+        heading: "Referral Booking",
+        intro: `${input.customer.first_name} ${input.customer.last_name} booked using a referral code from ${referrer.first_name} ${referrer.last_name}. Apply the referral reward to both customers once this rental is complete.`,
+        rows: [
+          {
+            label: "New customer",
+            value: `${input.customer.first_name} ${input.customer.last_name}`,
+          },
+          {
+            label: "Referred by",
+            value: `${referrer.first_name} ${referrer.last_name}`,
+          },
+          { label: "Reservation", value: reservation.reservation_number },
+        ],
+        cta: {
+          label: "Open in Admin Panel",
+          path: `/admin/reservations/${reservation.id}`,
+        },
+        reservationId: reservation.id,
+        customerId,
+      });
+    }
+  }
 
   // Booking confirmation email to the customer (best-effort)
   await notifyCustomer({
