@@ -15,12 +15,18 @@ export function formatCurrency(value: number | null | undefined): string {
   }).format(value ?? 0);
 }
 
+// Reservation date/times are stored and shown as a fixed wall-clock value.
+// Every formatter below pins to UTC so a date reads identically whether the
+// code runs on the server or in the customer's / staff member's browser.
+const DISPLAY_TZ = "UTC";
+
 /** Format a date string as "May 19, 2026". */
 export function formatDate(value: string | Date | null | undefined): string {
   if (!value) return "—";
   const d = typeof value === "string" ? new Date(value) : value;
   if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleDateString("en-US", {
+    timeZone: DISPLAY_TZ,
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -33,6 +39,7 @@ export function formatDateTime(value: string | Date | null | undefined): string 
   const d = typeof value === "string" ? new Date(value) : value;
   if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleString("en-US", {
+    timeZone: DISPLAY_TZ,
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -41,15 +48,15 @@ export function formatDateTime(value: string | Date | null | undefined): string 
   });
 }
 
-/** Format for <input type="datetime-local"> values. */
+/** Format for <input type="datetime-local"> values — matches formatDateTime. */
 export function toDateTimeLocal(value: string | Date | null | undefined): string {
   if (!value) return "";
   const d = typeof value === "string" ? new Date(value) : value;
   if (Number.isNaN(d.getTime())) return "";
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
-    d.getHours(),
-  )}:${pad(d.getMinutes())}`;
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(
+    d.getUTCDate(),
+  )}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
 }
 
 /** Whole rental days between two dates (minimum 1, partial day rounds up). */
