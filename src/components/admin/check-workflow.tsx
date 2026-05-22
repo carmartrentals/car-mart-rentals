@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   ShieldCheck, Gauge, Camera, AlertTriangle, PenLine, CheckCircle2,
-  Plus, Trash2, Loader2,
+  Plus, Trash2, Loader2, Sparkles,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardBody } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,8 +13,11 @@ import { Alert } from "@/components/ui/misc";
 import { PhotoUpload } from "@/components/admin/photo-upload";
 import { SignaturePad } from "@/components/admin/signature-pad";
 import { formatCurrency } from "@/lib/utils";
-import { submitCheckout, submitCheckin } from "@/app/admin/(panel)/check/actions";
+import {
+  submitCheckout, submitCheckin, scanForDamage,
+} from "@/app/admin/(panel)/check/actions";
 import type { DamageSeverity } from "@/lib/types/database";
+import type { DamageFinding } from "@/lib/ai";
 
 interface DamageRow {
   location: string;
@@ -64,6 +67,12 @@ export function CheckWorkflow(props: CheckWorkflowProps) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  // AI damage scan (check-in only)
+  const [scanning, startScan] = useTransition();
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [scanFindings, setScanFindings] = useState<DamageFinding[]>([]);
+  const [scanned, setScanned] = useState(false);
+
   // Live mileage calculation for check-in
   const mileage = useMemo(() => {
     if (isCheckout) return null;
@@ -100,6 +109,36 @@ export function CheckWorkflow(props: CheckWorkflowProps) {
   }
   function removeDamage(i: number) {
     setDamages((d) => d.filter((_, idx) => idx !== i));
+  }
+
+  function runScan() {
+    setScanError(null);
+    const urls = [...extPhotos, ...intPhotos];
+    if (urls.length === 0) {
+      setScanError("Upload the return photos above first, then run the scan.");
+      return;
+    }
+    startScan(async () => {
+      const res = await scanForDamage(props.reservationId, urls);
+      if (res.ok) {
+        setScanFindings(res.findings ?? []);
+        setScanned(true);
+      } else {
+        setScanError(res.error ?? "The damage scan failed.");
+      }
+    });
+  }
+  function acceptFinding(i: number) {
+    const f = scanFindings[i];
+    if (!f) return;
+    setDamages((d) => [
+      ...d,
+      { location: f.location, description: f.description, severity: f.severity },
+    ]);
+    setScanFindings((s) => s.filter((_, idx) => idx !== i));
+  }
+  function dismissFinding(i: number) {
+    setScanFindings((s) => s.filter((_, idx) => idx !== i));
   }
 
   function handleSubmit() {
@@ -294,11 +333,77 @@ export function CheckWorkflow(props: CheckWorkflowProps) {
               {isCheckout ? "Existing Damage" : "New / Return Damage"}
             </span>
           </CardTitle>
-          <Button size="sm" variant="outline" onClick={addDamage} type="button">
-            <Plus className="h-4 w-4" /> Add
-          </Button>
+          <div className="flex gap-2">
+            {!isCheckout && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={runScan}
+                loading={scanning}
+                type="button"
+              >
+                <Sparkles className="h-4 w-4" /> AI Damage Scan
+              </Button>
+            )}
+            <Button size="sm" variant="outline" onClick={addDamage} type="button">
+              <Plus className="h-4 w-4" /> Add
+            </Button>
+          </div>
         </CardHeader>
         <CardBody className="space-y-3">
+          {scanError && <p className="text-sm text-rose-600">{scanError}</p>}
+          {scanned && !scanError && scanFindings.length === 0 && (
+            <div className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>
+                AI scan found no new damage compared with the pickup photos.
+              </span>
+            </div>
+          )}
+          {scanFindings.length > 0 && (
+            <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <p className="flex items-center gap-1.5 text-sm font-semibold text-amber-800">
+                <Sparkles className="h-4 w-4" /> AI spotted possible new damage —
+                review each and add the ones you confirm.
+              </p>
+              {scanFindings.map((f, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-2 rounded-md border border-amber-200 bg-white px-2.5 py-2 text-sm"
+                >
+                  <span className="flex-1">
+                    <strong className="text-slate-800">
+                      {f.location || "Damage"}
+                    </strong>
+                    {f.description && (
+                      <span className="text-slate-600"> — {f.description}</span>
+                    )}
+                    <span className="ml-1 text-xs uppercase text-amber-700">
+                      ({f.severity})
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => acceptFinding(i)}
+                    className="rounded-md bg-slate-900 px-2 py-1 text-xs font-medium text-white hover:bg-slate-700"
+                  >
+                    Add
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => dismissFinding(i)}
+                    className="rounded-md px-2 py-1 text-xs font-medium text-slate-400 hover:text-slate-600"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              ))}
+              <p className="text-[11px] text-amber-700">
+                AI can miss things or over-flag — always confirm against the
+                actual vehicle.
+              </p>
+            </div>
+          )}
           {damages.length === 0 ? (
             <p className="text-sm text-slate-400">
               No damage recorded. Use “Add” to log any dents, scratches or issues.

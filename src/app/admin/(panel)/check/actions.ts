@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser, canWrite, logActivity } from "@/lib/auth";
+import { aiConfigured, detectVehicleDamage, type DamageFinding } from "@/lib/ai";
 import type { ActionState } from "@/lib/form";
 import type {
   Reservation, Vehicle, Inspection, AgreementTemplate, DamageSeverity,
@@ -450,4 +451,51 @@ async function createAgreement(admin: Admin, reservationId: string) {
     title: tpl?.name ?? "Rental Agreement",
     content: tpl?.sections ?? [],
   });
+}
+
+// ===========================================================================
+// AI DAMAGE SCAN — compare the return photos against the check-out photos
+// ===========================================================================
+export async function scanForDamage(
+  reservationId: string,
+  checkinPhotoUrls: string[],
+): Promise<ActionState & { findings?: DamageFinding[] }> {
+  const user = await getCurrentUser();
+  if (!user || !canWrite(user.role, "checkinout")) {
+    return { ok: false, error: "You do not have permission to run inspections." };
+  }
+  if (!aiConfigured()) {
+    return { ok: false, error: "AI damage scanning is not available right now." };
+  }
+  if (!checkinPhotoUrls.length) {
+    return { ok: false, error: "Upload the return photos first, then run the scan." };
+  }
+
+  const admin = createAdminClient();
+  let checkoutUrls: string[] = [];
+  const { data: insp } = await admin
+    .from("inspections")
+    .select("id")
+    .eq("reservation_id", reservationId)
+    .eq("inspection_type", "checkout")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (insp) {
+    const { data: photos } = await admin
+      .from("inspection_photos")
+      .select("url")
+      .eq("inspection_id", insp.id);
+    checkoutUrls = (photos ?? []).map((p) => p.url as string);
+  }
+
+  try {
+    const findings = await detectVehicleDamage(checkoutUrls, checkinPhotoUrls);
+    return { ok: true, findings };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "The damage scan failed.",
+    };
+  }
 }
