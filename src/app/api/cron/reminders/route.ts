@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendNotification, notifyCompany } from "@/lib/notifications";
-import { formatDateTime } from "@/lib/utils";
+import { sendNotification, notifyCompany, notifyCustomer } from "@/lib/notifications";
+import { formatDateTime, formatCurrency } from "@/lib/utils";
 import type { ReservationWithRelations } from "@/lib/types/database";
 
 export const runtime = "nodejs";
@@ -39,7 +39,14 @@ export async function GET(request: Request) {
   }
 
   const RES = "*, customer:customers(*), vehicle:vehicles(*)";
-  const counts = { pickup: 0, return: 0, overdue: 0, document: 0 };
+  const counts = {
+    pickup: 0,
+    return: 0,
+    overdue: 0,
+    document: 0,
+    deposit: 0,
+    deposit_expiring: 0,
+  };
 
   async function alreadySent(type: string, reservationId: string) {
     const { data } = await admin
@@ -198,6 +205,120 @@ export async function GET(request: Request) {
         customerId: r.customer_id,
       });
       counts.document++;
+    }
+
+    // 5. Deposit reminders — confirmed pickups within 3 days, a deposit is
+    //    required but no hold has been authorized yet.
+    const { data: authRows } = await admin
+      .from("deposits")
+      .select("reservation_id")
+      .eq("status", "authorized");
+    const authorizedResIds = new Set(
+      (authRows ?? []).map((d) => d.reservation_id as string),
+    );
+    for (const r of (docPending as unknown as ReservationWithRelations[]) ?? []) {
+      const c = r.customer;
+      if (
+        !c?.email ||
+        Number(r.deposit_amount ?? 0) <= 0 ||
+        authorizedResIds.has(r.id) ||
+        (await alreadySent("deposit_reminder", r.id))
+      )
+        continue;
+      await notifyCustomer({
+        type: "deposit_reminder",
+        to: c.email,
+        subject: `🔒 Authorize your security deposit — ${r.reservation_number}`,
+        heading: "Authorize Your Security Deposit",
+        intro: `Hi ${name(r)}, your pickup of ${vehicle(r)} is coming up. Please authorize the refundable security deposit online for a quick, easy pickup. This places a hold on your card — it is not a charge.`,
+        rows: [
+          { label: "Reservation", value: r.reservation_number },
+          { label: "Pickup", value: formatDateTime(r.pickup_at) },
+          {
+            label: "Deposit hold",
+            value: formatCurrency(Number(r.deposit_amount ?? 0)),
+          },
+        ],
+        cta: {
+          label: "Authorize Deposit",
+          path: `/account/reservations/${r.id}`,
+        },
+        imageUrl: r.vehicle?.main_image_url,
+        reservationId: r.id,
+        customerId: r.customer_id,
+      });
+      counts.deposit++;
+    }
+
+    // 6. Deposit hold expiring — Stripe authorization holds last about 7 days.
+    //    Warn the company once a hold is 5+ days old so they can re-authorize.
+    const fiveDaysAgo = new Date(Date.now() - 5 * 86400000).toISOString();
+    const { data: oldHolds } = await admin
+      .from("deposits")
+      .select(
+        "id, amount, authorized_at, reservation:reservations(id, reservation_number, status, customer:customers(first_name,last_name), vehicle:vehicles(year,make,model,main_image_url))",
+      )
+      .eq("status", "authorized")
+      .lte("authorized_at", fiveDaysAgo);
+    type DepositHoldRow = {
+      id: string;
+      amount: number;
+      authorized_at: string;
+      reservation: {
+        id: string;
+        reservation_number: string;
+        status: string;
+        customer: { first_name: string; last_name: string } | null;
+        vehicle: {
+          year: number;
+          make: string;
+          model: string;
+          main_image_url: string | null;
+        } | null;
+      } | null;
+    };
+    for (const d of (oldHolds as unknown as DepositHoldRow[]) ?? []) {
+      const resv = d.reservation;
+      if (!resv || ["completed", "cancelled"].includes(resv.status)) continue;
+      // De-dup per hold: skip if already alerted after this authorization.
+      const { data: prior } = await admin
+        .from("notifications")
+        .select("id")
+        .eq("type", "deposit_expiring_alert")
+        .eq("reservation_id", resv.id)
+        .gte("created_at", d.authorized_at)
+        .limit(1)
+        .maybeSingle();
+      if (prior) continue;
+      const custName = resv.customer
+        ? `${resv.customer.first_name} ${resv.customer.last_name}`
+        : "the customer";
+      const vehName = resv.vehicle
+        ? `${resv.vehicle.year} ${resv.vehicle.make} ${resv.vehicle.model}`
+        : "the vehicle";
+      await notifyCompany({
+        type: "deposit_expiring_alert",
+        subject: `⏳ Deposit hold expiring soon — ${resv.reservation_number}`,
+        heading: "Security Deposit Hold Expiring",
+        intro: `The security deposit hold for ${resv.reservation_number} was authorized on ${formatDateTime(d.authorized_at)}. Stripe holds expire about 7 days after authorization — re-authorize it (or capture what you need) before it lapses.`,
+        rows: [
+          { label: "Reservation", value: resv.reservation_number },
+          { label: "Customer", value: custName },
+          { label: "Vehicle", value: vehName },
+          {
+            label: "Hold amount",
+            value: formatCurrency(Number(d.amount ?? 0)),
+          },
+          { label: "Authorized on", value: formatDateTime(d.authorized_at) },
+        ],
+        cta: {
+          label: "Open in Admin Panel",
+          path: `/admin/reservations/${resv.id}`,
+        },
+        imageUrl: resv.vehicle?.main_image_url,
+        reservationId: resv.id,
+      });
+      counts.deposit_expiring++;
     }
   } catch (err) {
     return NextResponse.json(
