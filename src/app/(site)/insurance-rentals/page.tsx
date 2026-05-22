@@ -3,6 +3,7 @@ import Link from "next/link";
 import { FileCheck2, PhoneCall, CarFront, Receipt, ArrowRight } from "lucide-react";
 import { PageHero } from "@/components/site/page-hero";
 import { VehicleCard } from "@/components/site/vehicle-card";
+import { BodyShopPartner } from "@/components/site/body-shop-partner";
 import { getPublicVehicles } from "@/lib/data/vehicles";
 import { getCompanyProfile } from "@/lib/data/settings";
 
@@ -94,6 +95,8 @@ export default async function InsuranceRentalsPage() {
           )}
         </div>
       </section>
+
+      <BodyShopPartner />
     </>
   );
 }

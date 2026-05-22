@@ -14,6 +14,7 @@ import {
 import { getFeaturedVehicles } from "@/lib/data/vehicles";
 import { VehicleCard } from "@/components/site/vehicle-card";
 import { BookingSearch } from "@/components/site/booking-search";
+import { BodyShopPartner } from "@/components/site/body-shop-partner";
 import { ReviewCard } from "@/components/site/review-card";
 import { StarRating } from "@/components/site/star-rating";
 import { getCompanyProfile } from "@/lib/data/settings";
@@ -282,6 +283,9 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* ------------------------------------------------------ BODY SHOP */}
+      <BodyShopPartner />
 
       {/* ------------------------------------------------------------- REVIEWS */}
       {reviewSummary.count > 0 && (

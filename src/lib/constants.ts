@@ -28,6 +28,11 @@ export const SITE_URL = (
   process.env.NEXT_PUBLIC_SITE_URL || "https://car-mart-rentals.vercel.app"
 ).replace(/\/$/, "");
 
+/** Collision-repair / body-shop referral partner. */
+export const BODY_SHOP = {
+  name: "International Auto Collision Center",
+} as const;
+
 // --- Badge styling: maps a status to Tailwind classes ----------------------
 type BadgeTone =
   | "green" | "blue" | "amber" | "red" | "gray" | "purple" | "indigo";
