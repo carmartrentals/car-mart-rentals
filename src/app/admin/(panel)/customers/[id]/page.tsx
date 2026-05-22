@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { DeleteButton } from "@/components/admin/delete-button";
 import { CustomerDocuments } from "@/components/admin/customer-documents";
+import { getIdentitySummary, type IdentitySummary } from "@/lib/identity";
 import { RESERVATION_STATUS } from "@/lib/constants";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { deleteCustomer } from "../actions";
@@ -47,6 +48,10 @@ export default async function CustomerDetailPage({
   if (!customer) notFound();
 
   const c = customer;
+  let identity: IdentitySummary | null = null;
+  if (c.dl_verification_method === "stripe_identity" && c.stripe_verification_session_id) {
+    identity = await getIdentitySummary(c.stripe_verification_session_id);
+  }
   const totalSpent = reservations
     .filter((r) => ["completed", "active"].includes(r.status))
     .reduce((sum, r) => sum + Number(r.amount_paid ?? 0), 0);
@@ -152,7 +157,7 @@ export default async function CustomerDetailPage({
 
         {/* Activity */}
         <div className="space-y-6 lg:col-span-2">
-          <CustomerDocuments customer={c} />
+          <CustomerDocuments customer={c} identity={identity} />
 
           <div className="grid gap-4 sm:grid-cols-3">
             <MiniStat icon={ClipboardList} label="Total Rentals" value={String(reservations.length)} />

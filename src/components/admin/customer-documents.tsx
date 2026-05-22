@@ -4,7 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Upload, Eye, CheckCircle2, XCircle, Loader2, RefreshCw, FileText,
-  ShieldCheck, ShieldAlert, AlertTriangle,
+  ShieldCheck, ShieldAlert, AlertTriangle, ScanLine, ExternalLink,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardBody } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,12 +16,19 @@ import {
 import {
   DOCUMENT_STATUS_LABEL, DOCUMENT_STATUS_TONE, isExpired,
 } from "@/lib/documents";
+import { prettyDocumentType, type IdentitySummary } from "@/lib/identity";
 import { formatDate } from "@/lib/utils";
 import type { Customer, DocumentStatus } from "@/lib/types/database";
 
 type DocKind = "dl_front" | "dl_back" | "insurance";
 
-export function CustomerDocuments({ customer }: { customer: Customer }) {
+export function CustomerDocuments({
+  customer,
+  identity,
+}: {
+  customer: Customer;
+  identity?: IdentitySummary | null;
+}) {
   const [error, setError] = useState<string | null>(null);
 
   return (
@@ -76,6 +83,8 @@ export function CustomerDocuments({ customer }: { customer: Customer }) {
           ]}
           onError={setError}
         />
+
+        {identity && <IdentityPanel identity={identity} />}
 
         <div className="border-t border-slate-100" />
 
@@ -259,6 +268,90 @@ function DocSection({
           </Button>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Stripe Identity check summary + deep link to the full report. */
+function IdentityPanel({ identity }: { identity: IdentitySummary }) {
+  const docOk = identity.documentStatus === "verified";
+  const selfieOk = identity.selfieStatus === "verified";
+  const docType = prettyDocumentType(identity.documentType);
+
+  return (
+    <div className="space-y-3 rounded-lg border border-indigo-200 bg-indigo-50/60 p-3.5">
+      <div className="flex items-center gap-2">
+        <ScanLine className="h-4 w-4 text-indigo-600" />
+        <p className="text-sm font-semibold text-slate-800">
+          Instant ID Check — Stripe Identity
+        </p>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        <CheckLine ok={docOk} label="Document verified" note={identity.documentError} />
+        <CheckLine
+          ok={selfieOk}
+          label="Selfie matched to the ID"
+          note={identity.selfieError}
+        />
+      </div>
+
+      {(docType || identity.issuingCountry || identity.verifiedName) && (
+        <div className="grid gap-2 border-t border-indigo-100 pt-2.5 sm:grid-cols-3">
+          <KV label="Document" value={docType} />
+          <KV label="Issuing country" value={identity.issuingCountry} />
+          <KV label="Verified name" value={identity.verifiedName} />
+        </div>
+      )}
+
+      <a
+        href={identity.dashboardUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-indigo-500"
+      >
+        View ID photos, selfie &amp; fraud analysis in Stripe
+        <ExternalLink className="h-3.5 w-3.5" />
+      </a>
+      <p className="text-[11px] text-slate-400">
+        For privacy, the licence photos, selfie image and Stripe&apos;s
+        fraud/network analysis open securely in your Stripe dashboard.
+      </p>
+    </div>
+  );
+}
+
+function CheckLine({
+  ok,
+  label,
+  note,
+}: {
+  ok: boolean;
+  label: string;
+  note: string | null;
+}) {
+  return (
+    <div className="flex items-start gap-1.5 text-xs">
+      {ok ? (
+        <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
+      ) : (
+        <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+      )}
+      <span className={ok ? "text-slate-700" : "text-slate-500"}>
+        {label}
+        {note && <span className="block text-slate-400">{note}</span>}
+      </span>
+    </div>
+  );
+}
+
+function KV({ label, value }: { label: string; value: string | null }) {
+  return (
+    <div>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+        {label}
+      </p>
+      <p className="text-xs text-slate-700">{value || "—"}</p>
     </div>
   );
 }
