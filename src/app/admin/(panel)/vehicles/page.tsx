@@ -15,6 +15,23 @@ import type { Vehicle } from "@/lib/types/database";
 
 type SearchParams = Promise<Record<string, string | undefined>>;
 
+/** Who currently has a vehicle out — used to link rented cars to their reservation. */
+type ActiveRental = {
+  reservation_id: string;
+  reservation_number: string;
+  customer_name: string;
+};
+
+type RentalRow = {
+  id: string;
+  reservation_number: string;
+  vehicle_id: string | null;
+  customer:
+    | { first_name: string | null; last_name: string | null }
+    | { first_name: string | null; last_name: string | null }[]
+    | null;
+};
+
 export default async function VehiclesPage({
   searchParams,
 }: {
@@ -24,6 +41,7 @@ export default async function VehiclesPage({
 
   let vehicles: Vehicle[] = [];
   let configError = false;
+  const rentals: Record<string, ActiveRental> = {};
 
   try {
     const admin = createAdminClient();
@@ -37,6 +55,34 @@ export default async function VehiclesPage({
     }
     const { data } = await query.order("created_at", { ascending: false });
     vehicles = (data as Vehicle[]) ?? [];
+
+    // For vehicles that are out, find who has them — link to the reservation.
+    const rentedIds = vehicles
+      .filter((v) => v.status === "rented")
+      .map((v) => v.id);
+    if (rentedIds.length > 0) {
+      const { data: resData } = await admin
+        .from("reservations")
+        .select(
+          "id, reservation_number, vehicle_id, customer:customers(first_name,last_name)",
+        )
+        .in("vehicle_id", rentedIds)
+        .in("status", ["active", "overdue"])
+        .order("pickup_at", { ascending: false });
+      for (const r of (resData ?? []) as unknown as RentalRow[]) {
+        if (r.vehicle_id && !rentals[r.vehicle_id]) {
+          const c = Array.isArray(r.customer) ? r.customer[0] : r.customer;
+          const name = c
+            ? `${c.first_name ?? ""} ${c.last_name ?? ""}`.trim()
+            : "";
+          rentals[r.vehicle_id] = {
+            reservation_id: r.id,
+            reservation_number: r.reservation_number,
+            customer_name: name,
+          };
+        }
+      }
+    }
   } catch {
     configError = true;
   }
@@ -107,6 +153,7 @@ export default async function VehiclesPage({
                 <TH>Vehicle</TH>
                 <TH>Category</TH>
                 <TH>Status</TH>
+                <TH>Rented To</TH>
                 <TH>Plate</TH>
                 <TH>Odometer</TH>
                 <TH className="text-right">Daily Rate</TH>
@@ -147,6 +194,23 @@ export default async function VehiclesPage({
                     <Badge tone={VEHICLE_STATUS[v.status].tone}>
                       {VEHICLE_STATUS[v.status].label}
                     </Badge>
+                  </TD>
+                  <TD>
+                    {rentals[v.id] ? (
+                      <Link
+                        href={`/admin/reservations/${rentals[v.id].reservation_id}`}
+                        className="inline-flex flex-col text-sm font-medium text-gold-700 hover:text-gold-600"
+                      >
+                        <span>
+                          {rentals[v.id].customer_name || "View reservation"}
+                        </span>
+                        <span className="text-xs font-normal text-slate-500">
+                          {rentals[v.id].reservation_number}
+                        </span>
+                      </Link>
+                    ) : (
+                      <span className="text-slate-400">—</span>
+                    )}
                   </TD>
                   <TD className="text-slate-500">{v.license_plate || "—"}</TD>
                   <TD className="text-slate-500">
