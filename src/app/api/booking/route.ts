@@ -211,6 +211,13 @@ export async function POST(request: Request) {
     description: `Website booking ${reservation.reservation_number}`,
   });
 
+  // Mark any abandoned-booking drafts for this customer as converted.
+  await admin
+    .from("booking_drafts")
+    .update({ status: "converted" })
+    .eq("email", email)
+    .eq("status", "open");
+
   // --- Referral -------------------------------------------------------------
   const refCode = (input.referral_code ?? "").trim().toUpperCase();
   if (refCode) {

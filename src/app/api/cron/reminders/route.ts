@@ -46,6 +46,7 @@ export async function GET(request: Request) {
     document: 0,
     deposit: 0,
     deposit_expiring: 0,
+    recovery: 0,
   };
 
   async function alreadySent(type: string, reservationId: string) {
@@ -319,6 +320,69 @@ export async function GET(request: Request) {
         reservationId: resv.id,
       });
       counts.deposit_expiring++;
+    }
+
+    // 7. Abandoned-booking recovery — email customers who started a booking
+    //    but never completed it.
+    const twoHoursAgo = new Date(Date.now() - 2 * 3_600_000).toISOString();
+    const sevenDaysAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
+    const { data: drafts } = await admin
+      .from("booking_drafts")
+      .select(
+        "id, email, first_name, pickup_at, return_at, vehicle:vehicles(slug, year, make, model, main_image_url)",
+      )
+      .eq("status", "open")
+      .lte("created_at", twoHoursAgo)
+      .gte("created_at", sevenDaysAgo);
+    type DraftRow = {
+      id: string;
+      email: string;
+      first_name: string | null;
+      pickup_at: string | null;
+      return_at: string | null;
+      vehicle: {
+        slug: string;
+        year: number;
+        make: string;
+        model: string;
+        main_image_url: string | null;
+      } | null;
+    };
+    for (const d of (drafts as unknown as DraftRow[]) ?? []) {
+      if (!d.email) continue;
+      const veh = d.vehicle;
+      const vehName = veh
+        ? `${veh.year} ${veh.make} ${veh.model}`
+        : "your selected vehicle";
+      let path = "/vehicles";
+      if (veh?.slug && d.pickup_at && d.return_at) {
+        path =
+          `/booking?vehicle=${veh.slug}` +
+          `&pickup=${encodeURIComponent(d.pickup_at)}` +
+          `&return=${encodeURIComponent(d.return_at)}`;
+      } else if (veh?.slug) {
+        path = `/vehicles/${veh.slug}`;
+      }
+      await notifyCustomer({
+        type: "abandoned_booking_recovery",
+        to: d.email,
+        subject: `Still interested in the ${vehName}?`,
+        heading: "Your Booking Is Waiting",
+        intro: `Hi${d.first_name ? " " + d.first_name : ""}, you started a booking for the ${vehName} but didn't finish. It's still available — pick up right where you left off; it only takes a couple of minutes.`,
+        rows: [
+          { label: "Vehicle", value: vehName },
+          ...(d.pickup_at
+            ? [{ label: "Pickup", value: formatDateTime(d.pickup_at) }]
+            : []),
+        ],
+        cta: { label: "Complete My Booking", path },
+        imageUrl: veh?.main_image_url,
+      });
+      await admin
+        .from("booking_drafts")
+        .update({ status: "recovered" })
+        .eq("id", d.id);
+      counts.recovery++;
     }
   } catch (err) {
     return NextResponse.json(

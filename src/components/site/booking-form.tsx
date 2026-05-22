@@ -6,6 +6,7 @@ import Image from "next/image";
 import { CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
 import type { Vehicle, AddOn } from "@/lib/types/database";
 import { formatCurrency, formatDateTime, rentalDays, bestRate } from "@/lib/utils";
+import { saveBookingDraft } from "@/app/(site)/booking/actions";
 
 const TAX_RATE = 0.095;
 
@@ -86,6 +87,19 @@ export function BookingForm({
     setForm((f) => ({ ...f, [k]: v }));
   }
 
+  // Save a draft when the customer enters their email, so we can follow up
+  // if they don't complete the booking.
+  function saveDraft() {
+    if (!form.email.includes("@")) return;
+    saveBookingDraft({
+      email: form.email,
+      firstName: form.first_name,
+      vehicleId: vehicle.id,
+      pickupAt: new Date(pickup).toISOString(),
+      returnAt: new Date(ret).toISOString(),
+    }).catch(() => {});
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -164,7 +178,7 @@ export function BookingForm({
             <Input label="Last Name" required value={form.last_name}
               onChange={(v) => setField("last_name", v)} />
             <Input label="Email" type="email" required value={form.email}
-              onChange={(v) => setField("email", v)} />
+              onChange={(v) => setField("email", v)} onBlur={saveDraft} />
             <Input label="Phone" type="tel" required value={form.phone}
               onChange={(v) => setField("phone", v)} />
             <Input label="Driver License #" value={form.dl_number}
@@ -349,11 +363,12 @@ export function BookingForm({
 }
 
 function Input({
-  label, value, onChange, type = "text", required,
+  label, value, onChange, onBlur, type = "text", required,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
+  onBlur?: () => void;
   type?: string;
   required?: boolean;
 }) {
@@ -368,6 +383,7 @@ function Input({
         value={value}
         required={required}
         onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
         className={INPUT_CLASS}
       />
     </div>
