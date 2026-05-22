@@ -11,11 +11,12 @@ type Row = InsuranceClaim & {
 export default async function ClaimsPage() {
   let claims: Row[] = [];
   let customers: { id: string; label: string }[] = [];
+  let reservations: { id: string; label: string }[] = [];
   let configError = false;
 
   try {
     const admin = createAdminClient();
-    const [claimRes, custRes] = await Promise.all([
+    const [claimRes, custRes, resvRes] = await Promise.all([
       admin
         .from("insurance_claims")
         .select("*, customer:customers(first_name,last_name)")
@@ -24,11 +25,30 @@ export default async function ClaimsPage() {
         .from("customers")
         .select("id,first_name,last_name")
         .order("last_name"),
+      admin
+        .from("reservations")
+        .select(
+          "id, reservation_number, customer:customers(first_name,last_name)",
+        )
+        .order("created_at", { ascending: false })
+        .limit(300),
     ]);
     claims = (claimRes.data as unknown as Row[]) ?? [];
     customers = (
       (custRes.data as Pick<Customer, "id" | "first_name" | "last_name">[]) ?? []
     ).map((c) => ({ id: c.id, label: `${c.first_name} ${c.last_name}` }));
+    reservations = (
+      (resvRes.data as unknown as {
+        id: string;
+        reservation_number: string;
+        customer: { first_name: string; last_name: string } | null;
+      }[]) ?? []
+    ).map((r) => ({
+      id: r.id,
+      label: r.customer
+        ? `${r.reservation_number} — ${r.customer.first_name} ${r.customer.last_name}`
+        : r.reservation_number,
+    }));
   } catch {
     configError = true;
   }
@@ -48,7 +68,11 @@ export default async function ClaimsPage() {
         </div>
       )}
 
-      <ClaimManager claims={claims} customers={customers} />
+      <ClaimManager
+        claims={claims}
+        customers={customers}
+        reservations={reservations}
+      />
     </>
   );
 }

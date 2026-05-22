@@ -10,6 +10,7 @@ export async function saveClaim(input: {
   id?: string;
   claim_number: string;
   customer_id: string;
+  reservation_id: string;
   insurance_company: string;
   adjuster_name: string;
   adjuster_email: string;
@@ -32,6 +33,7 @@ export async function saveClaim(input: {
   const payload = {
     claim_number: input.claim_number.trim(),
     customer_id: input.customer_id || null,
+    reservation_id: input.reservation_id || null,
     insurance_company: input.insurance_company.trim() || null,
     adjuster_name: input.adjuster_name.trim() || null,
     adjuster_email: input.adjuster_email.trim() || null,
@@ -55,5 +57,8 @@ export async function saveClaim(input: {
     description: `Claim ${input.claim_number}`,
   });
   revalidatePath("/admin/claims");
+  if (input.reservation_id) {
+    revalidatePath(`/admin/reservations/${input.reservation_id}`);
+  }
   return { ok: true };
 }

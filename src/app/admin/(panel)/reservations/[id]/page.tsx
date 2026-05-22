@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import {
   ArrowLeft, Pencil, User, Car, CalendarRange, FileText, CreditCard,
   ShieldCheck, ShieldAlert, AlertTriangle, Camera, Siren, Mail, Activity,
-  CheckCircle2, ClipboardCheck,
+  CheckCircle2, ClipboardCheck, Phone,
 } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getTaxRate } from "@/lib/data/settings";
@@ -28,7 +28,7 @@ import { formatCurrency, formatDate, formatDateTime, titleCase } from "@/lib/uti
 import type {
   ReservationWithRelations, ReservationCharge, Payment, Deposit,
   ReservationRequest, Inspection, InspectionPhoto, TollViolation,
-  Notification, ActivityLog,
+  Notification, ActivityLog, InsuranceClaim,
 } from "@/lib/types/database";
 
 export default async function ReservationDetailPage({
@@ -88,6 +88,22 @@ export default async function ReservationDetailPage({
       .eq("reservation_id", id)
       .order("created_at", { ascending: false });
     requests = (data as ReservationRequest[]) ?? [];
+  } catch {
+    /* table not migrated yet — ignore */
+  }
+
+  // Linked insurance claim — separate so a pre-0008 database still works.
+  let claim: InsuranceClaim | null = null;
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("insurance_claims")
+      .select("*")
+      .eq("reservation_id", id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    claim = (data as InsuranceClaim | null) ?? null;
   } catch {
     /* table not migrated yet — ignore */
   }
@@ -474,6 +490,83 @@ export default async function ReservationDetailPage({
               )}
             </CardBody>
           </Card>
+
+          {/* INSURANCE CLAIM */}
+          {claim && (
+            <Card>
+              <CardHeader>
+                <CardTitle>
+                  <span className="flex items-center gap-2">
+                    <ShieldAlert className="h-4 w-4 text-gold-600" /> Insurance
+                    Claim
+                  </span>
+                </CardTitle>
+                <Badge
+                  tone={
+                    (
+                      {
+                        open: "gray",
+                        authorized: "blue",
+                        in_progress: "amber",
+                        billed: "amber",
+                        paid: "green",
+                        closed: "green",
+                        denied: "red",
+                      } as const
+                    )[claim.status]
+                  }
+                >
+                  {titleCase(claim.status)}
+                </Badge>
+              </CardHeader>
+              <CardBody className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <Info
+                    icon={FileText}
+                    label="Claim #"
+                    value={claim.claim_number}
+                  />
+                  <Info
+                    icon={ShieldCheck}
+                    label="Insurer"
+                    value={claim.insurance_company || "—"}
+                  />
+                  <Info
+                    icon={CreditCard}
+                    label="Authorized"
+                    value={formatCurrency(claim.authorized_amount)}
+                  />
+                </div>
+                {(claim.adjuster_name ||
+                  claim.adjuster_phone ||
+                  claim.adjuster_email) && (
+                  <div className="grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-3">
+                    <Info
+                      icon={User}
+                      label="Adjuster"
+                      value={claim.adjuster_name || "—"}
+                    />
+                    <Info
+                      icon={Phone}
+                      label="Adjuster Phone"
+                      value={claim.adjuster_phone || "—"}
+                    />
+                    <Info
+                      icon={Mail}
+                      label="Adjuster Email"
+                      value={claim.adjuster_email || "—"}
+                    />
+                  </div>
+                )}
+                <Link
+                  href="/admin/claims"
+                  className="inline-flex items-center gap-1 text-sm font-semibold text-gold-700 hover:underline"
+                >
+                  Manage in Insurance Claims →
+                </Link>
+              </CardBody>
+            </Card>
+          )}
 
           {/* PERIOD */}
           <Card>

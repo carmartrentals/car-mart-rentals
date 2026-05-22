@@ -32,7 +32,7 @@ const TONE: Record<ClaimStatus, "gray" | "blue" | "amber" | "green" | "red"> = {
 };
 
 const EMPTY = {
-  claim_number: "", customer_id: "", insurance_company: "",
+  claim_number: "", customer_id: "", reservation_id: "", insurance_company: "",
   adjuster_name: "", adjuster_email: "", adjuster_phone: "",
   status: "open" as ClaimStatus, authorized_amount: "", deductible: "",
   claim_date: "", notes: "",
@@ -41,9 +41,11 @@ const EMPTY = {
 export function ClaimManager({
   claims,
   customers,
+  reservations,
 }: {
   claims: Row[];
   customers: { id: string; label: string }[];
+  reservations: { id: string; label: string }[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -67,6 +69,7 @@ export function ClaimManager({
     setForm({
       claim_number: c.claim_number,
       customer_id: c.customer_id ?? "",
+      reservation_id: c.reservation_id ?? "",
       insurance_company: c.insurance_company ?? "",
       adjuster_name: c.adjuster_name ?? "",
       adjuster_email: c.adjuster_email ?? "",
@@ -183,6 +186,15 @@ export function ClaimManager({
                 <option value="">Not linked</option>
                 {customers.map((c) => (
                   <option key={c.id} value={c.id}>{c.label}</option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Reservation">
+              <Select value={form.reservation_id}
+                onChange={(e) => set("reservation_id", e.target.value)}>
+                <option value="">Not linked</option>
+                {reservations.map((r) => (
+                  <option key={r.id} value={r.id}>{r.label}</option>
                 ))}
               </Select>
             </Field>
