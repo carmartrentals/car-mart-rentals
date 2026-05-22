@@ -13,7 +13,8 @@ import { VehicleGallery } from "@/components/site/vehicle-gallery";
 import { BookingWidget } from "@/components/site/booking-widget";
 import { AvailabilityCalendar } from "@/components/site/availability-calendar";
 import { VehicleCard } from "@/components/site/vehicle-card";
-import { VEHICLE_CATEGORIES, FUEL_TYPES } from "@/lib/constants";
+import { JsonLd } from "@/components/seo/json-ld";
+import { VEHICLE_CATEGORIES, FUEL_TYPES, SITE_URL } from "@/lib/constants";
 import { formatCurrency } from "@/lib/utils";
 import type { AddOn } from "@/lib/types/database";
 
@@ -80,8 +81,27 @@ export default async function VehicleDetailPage({
     { label: "Monthly", value: vehicle.monthly_rate },
   ].filter((p) => p.value != null) as { label: string; value: number }[];
 
+  const vehicleLd = {
+    "@context": "https://schema.org",
+    "@type": "Car",
+    name,
+    ...(vehicle.description ? { description: vehicle.description } : {}),
+    ...(vehicle.main_image_url ? { image: vehicle.main_image_url } : {}),
+    brand: { "@type": "Brand", name: vehicle.make },
+    model: vehicle.model,
+    vehicleModelDate: String(vehicle.year),
+    offers: {
+      "@type": "Offer",
+      price: vehicle.daily_rate,
+      priceCurrency: "USD",
+      availability: "https://schema.org/InStock",
+      url: `${SITE_URL}/vehicles/${vehicle.slug}`,
+    },
+  };
+
   return (
     <div className="bg-brand-950">
+      <JsonLd data={vehicleLd} />
       <div className="container-px py-8">
         <Link
           href="/vehicles"

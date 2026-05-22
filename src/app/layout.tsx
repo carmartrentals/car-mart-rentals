@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
-import { COMPANY } from "@/lib/constants";
+import { COMPANY, SITE_URL } from "@/lib/constants";
 import "./globals.css";
+
+const SITE_DESCRIPTION =
+  "Premium luxury car rentals and insurance replacement vehicles. Reserve a Mercedes-AMG, Tesla, and more from Car Mart Rentals.";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -16,19 +19,34 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: {
     default: `${COMPANY.name} — ${COMPANY.tagline}`,
     template: `%s | ${COMPANY.name}`,
   },
-  description:
-    "Premium luxury car rentals and insurance replacement vehicles. Reserve a Mercedes-AMG, Tesla, and more from Car Mart Rentals.",
+  description: SITE_DESCRIPTION,
   keywords: [
     "luxury car rental",
     "insurance replacement rental",
     "exotic car rental",
     "Mercedes rental",
     "Tesla rental",
+    "car rental Los Angeles",
+    "car rental Van Nuys",
   ],
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    siteName: COMPANY.name,
+    title: `${COMPANY.name} — ${COMPANY.tagline}`,
+    description: SITE_DESCRIPTION,
+    url: SITE_URL,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${COMPANY.name} — ${COMPANY.tagline}`,
+    description: SITE_DESCRIPTION,
+  },
 };
 
 export default function RootLayout({

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Phone, Mail, MapPin } from "lucide-react";
 import { getCompanyProfile } from "@/lib/data/settings";
+import { SEO_LOCATIONS } from "@/lib/locations-seo";
 import { BrandLogo } from "@/components/brand-logo";
 
 export async function Footer() {
@@ -63,6 +64,26 @@ export async function Footer() {
               <MapPin className="mt-0.5 h-4 w-4 text-gold-400" />
               <span>{company.address}</span>
             </li>
+          </ul>
+        </div>
+      </div>
+
+      <div className="border-t border-white/10">
+        <div className="container-px py-6">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Service Areas
+          </h4>
+          <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm">
+            {SEO_LOCATIONS.map((l) => (
+              <li key={l.slug}>
+                <Link
+                  href={`/car-rental/${l.slug}`}
+                  className="text-slate-400 hover:text-gold-400"
+                >
+                  Car Rental in {l.area}
+                </Link>
+              </li>
+            ))}
           </ul>
         </div>
       </div>

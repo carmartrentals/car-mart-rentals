@@ -23,6 +23,11 @@ export const COMPANY = {
   address: "1450 Auto Center Dr, Los Angeles, CA 90001",
 } as const;
 
+/** Public site base URL — set NEXT_PUBLIC_SITE_URL on the host in production. */
+export const SITE_URL = (
+  process.env.NEXT_PUBLIC_SITE_URL || "https://car-mart-rentals.vercel.app"
+).replace(/\/$/, "");
+
 // --- Badge styling: maps a status to Tailwind classes ----------------------
 type BadgeTone =
   | "green" | "blue" | "amber" | "red" | "gray" | "purple" | "indigo";
