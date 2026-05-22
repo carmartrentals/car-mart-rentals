@@ -4,6 +4,7 @@ import {
 } from "lucide-react";
 import { getCurrentCustomer } from "@/lib/account";
 import { stripeConfigured } from "@/lib/stripe";
+import { aiConfigured } from "@/lib/ai";
 import { DocumentUpload } from "@/components/account/document-upload";
 import {
   IdentityVerifyButton,
@@ -18,6 +19,7 @@ export default async function AccountDocumentsPage() {
   const dlStatus: DocumentStatus = customer?.dl_status ?? "not_submitted";
   const insStatus: DocumentStatus = customer?.insurance_status ?? "not_submitted";
   const instant = stripeConfigured();
+  const aiEnabled = aiConfigured();
 
   return (
     <>
@@ -98,6 +100,7 @@ export default async function AccountDocumentsPage() {
         </div>
 
         <LicenseDetailsForm
+          aiEnabled={aiEnabled}
           initial={{
             dl_number: customer?.dl_number ?? "",
             dl_state: customer?.dl_state ?? "",
@@ -126,6 +129,7 @@ export default async function AccountDocumentsPage() {
         </div>
 
         <InsuranceDetailsForm
+          aiEnabled={aiEnabled}
           initial={{
             insurance_company: customer?.insurance_company ?? "",
             insurance_policy_no: customer?.insurance_policy_no ?? "",

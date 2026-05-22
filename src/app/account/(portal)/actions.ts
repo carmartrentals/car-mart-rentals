@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentCustomer } from "@/lib/account";
 import { getStripe, stripeConfigured, toCents } from "@/lib/stripe";
+import { aiConfigured, extractInsurance, extractLicense } from "@/lib/ai";
 import { uploadFile, storagePath } from "@/lib/storage";
 import { getTaxRate } from "@/lib/data/settings";
 import { notifyCompany } from "@/lib/notifications";
@@ -227,6 +228,78 @@ export async function startIdentityVerification(): Promise<
         e instanceof Error
           ? e.message
           : "Could not start instant verification.",
+    };
+  }
+}
+
+/** AI-read the customer's uploaded insurance document and return the fields. */
+export async function extractMyInsurance(): Promise<
+  ActionState & {
+    data?: {
+      company: string | null;
+      policyNo: string | null;
+      expiration: string | null;
+    };
+  }
+> {
+  const customer = await getCurrentCustomer();
+  if (!customer) return { ok: false, error: "Please sign in to continue." };
+  if (!aiConfigured()) {
+    return { ok: false, error: "Auto-fill is not available right now." };
+  }
+  if (!customer.insurance_doc_url) {
+    return { ok: false, error: "Upload a photo of your insurance first." };
+  }
+  try {
+    const r = await extractInsurance(customer.insurance_doc_url);
+    return {
+      ok: true,
+      data: {
+        company: r.insurance_company,
+        policyNo: r.policy_number,
+        expiration: r.expiration_date,
+      },
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Could not read the document.",
+    };
+  }
+}
+
+/** AI-read the customer's uploaded driver license and return the fields. */
+export async function extractMyLicense(): Promise<
+  ActionState & {
+    data?: {
+      number: string | null;
+      state: string | null;
+      expiration: string | null;
+    };
+  }
+> {
+  const customer = await getCurrentCustomer();
+  if (!customer) return { ok: false, error: "Please sign in to continue." };
+  if (!aiConfigured()) {
+    return { ok: false, error: "Auto-fill is not available right now." };
+  }
+  if (!customer.dl_front_url) {
+    return { ok: false, error: "Upload a photo of your license front first." };
+  }
+  try {
+    const r = await extractLicense(customer.dl_front_url);
+    return {
+      ok: true,
+      data: {
+        number: r.license_number,
+        state: r.state,
+        expiration: r.expiration_date,
+      },
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Could not read the document.",
     };
   }
 }
