@@ -995,10 +995,10 @@ function DocThumb({ label, url }: { label: string; url: string | null }) {
           href={url}
           target="_blank"
           rel="noopener noreferrer"
-          className="block overflow-hidden rounded-lg border border-slate-200 transition-colors hover:border-gold-400"
+          className="block h-32 w-44 overflow-hidden rounded-lg border border-slate-200 transition-colors hover:border-gold-400"
         >
           {isPdf ? (
-            <span className="flex aspect-[4/3] flex-col items-center justify-center gap-1 bg-slate-50 text-slate-500">
+            <span className="flex h-full w-full flex-col items-center justify-center gap-1 bg-slate-50 text-slate-500">
               <FileText className="h-6 w-6" />
               <span className="text-xs font-medium">View PDF</span>
             </span>
@@ -1007,12 +1007,12 @@ function DocThumb({ label, url }: { label: string; url: string | null }) {
             <img
               src={url}
               alt={label}
-              className="aspect-[4/3] w-full object-cover"
+              className="h-full w-full object-cover"
             />
           )}
         </a>
       ) : (
-        <div className="flex aspect-[4/3] items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 text-xs text-slate-400">
+        <div className="flex h-32 w-44 items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 text-xs text-slate-400">
           Not uploaded
         </div>
       )}
