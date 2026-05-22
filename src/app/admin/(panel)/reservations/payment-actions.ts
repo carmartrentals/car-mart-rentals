@@ -360,6 +360,45 @@ export async function releaseDeposit(depositId: string): Promise<ActionState> {
       entityId: deposit.reservation_id,
       description: "Released security deposit hold",
     });
+
+    // Confirm the release to the customer.
+    if (deposit.reservation_id) {
+      const { data: rInfo } = await admin
+        .from("reservations")
+        .select(
+          "reservation_number, customer:customers(first_name,email), vehicle:vehicles(main_image_url)",
+        )
+        .eq("id", deposit.reservation_id)
+        .maybeSingle();
+      const info = rInfo as unknown as {
+        reservation_number: string;
+        customer: { first_name: string; email: string } | null;
+        vehicle: { main_image_url: string | null } | null;
+      } | null;
+      if (info?.customer?.email) {
+        await notifyCustomer({
+          type: "deposit_released",
+          to: info.customer.email,
+          subject: `✅ Your security deposit has been released — ${info.reservation_number}`,
+          heading: "Security Deposit Released",
+          intro: `Hi ${info.customer.first_name}, good news — the security deposit hold on your card has been released. No charge was made; the held amount is now freed up. Depending on your bank, it can take a few business days to clear from your statement.`,
+          rows: [
+            { label: "Reservation", value: info.reservation_number },
+            {
+              label: "Amount released",
+              value: formatCurrency(Number(deposit.amount ?? 0)),
+            },
+          ],
+          cta: {
+            label: "View Reservation",
+            path: `/account/reservations/${deposit.reservation_id}`,
+          },
+          imageUrl: info.vehicle?.main_image_url,
+          reservationId: deposit.reservation_id,
+        });
+      }
+    }
+
     revalidatePath(`/admin/reservations/${deposit.reservation_id}`);
     return { ok: true };
   } catch (e) {
