@@ -163,6 +163,36 @@ export function ChatWidget({ companyName }: { companyName: string }) {
   );
 }
 
+// Matches markdown links [text](/path) and bare internal paths.
+const LINK_RE =
+  /\[([^\]]+)\]\((\/[^\s)]+)\)|(\/(?:vehicles\/[a-z0-9-]+|vehicles|booking|contact|offers|insurance-replacement)\b)/g;
+
+/** Turn vehicle/booking links in an assistant reply into clickable links. */
+function renderMessage(text: string): React.ReactNode[] {
+  const out: React.ReactNode[] = [];
+  let last = 0;
+  let key = 0;
+  let m: RegExpExecArray | null;
+  LINK_RE.lastIndex = 0;
+  while ((m = LINK_RE.exec(text)) !== null) {
+    if (m.index > last) out.push(text.slice(last, m.index));
+    const href = m[2] ?? m[3];
+    const label = m[1] ?? m[3];
+    out.push(
+      <a
+        key={key++}
+        href={href}
+        className="font-medium text-gold-300 underline underline-offset-2 hover:text-gold-200"
+      >
+        {label}
+      </a>,
+    );
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out;
+}
+
 function Bubble({
   role,
   content,
@@ -180,7 +210,7 @@ function Bubble({
             : "max-w-[85%] whitespace-pre-line rounded-2xl rounded-bl-sm border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200"
         }
       >
-        {content}
+        {isUser ? content : renderMessage(content)}
       </div>
     </div>
   );

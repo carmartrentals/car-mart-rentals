@@ -70,7 +70,7 @@ async function buildContext(): Promise<string> {
     const { data: vehicles } = await admin
       .from("vehicles")
       .select(
-        "year, make, model, category, daily_rate, seats, transmission, fuel_type, status",
+        "year, make, model, category, daily_rate, seats, transmission, fuel_type, status, slug",
       )
       .neq("status", "inactive")
       .order("daily_rate", { ascending: true })
@@ -81,7 +81,8 @@ async function buildContext(): Promise<string> {
         parts.push(
           `- ${v.year} ${v.make} ${v.model} (${v.category}): ` +
             `from ${formatCurrency(Number(v.daily_rate))} per day, ` +
-            `${v.seats} seats, ${v.transmission}, ${v.fuel_type}.`,
+            `${v.seats} seats, ${v.transmission}, ${v.fuel_type}. ` +
+            `Link: /vehicles/${v.slug}`,
         );
       }
     }
