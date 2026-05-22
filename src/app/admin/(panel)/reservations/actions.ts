@@ -58,6 +58,39 @@ async function priceReservation(
   return { vehicle, pricing };
 }
 
+/**
+ * Recompute a vehicle's status from its reservations so the fleet list never
+ * shows a car as "Rented" when nobody actually has it (or "Available" when a
+ * car is genuinely out). Only flips the rented/available pair — a vehicle
+ * marked Maintenance, Inactive or On Turo is a manual state and left alone.
+ */
+async function syncVehicleStatus(
+  admin: ReturnType<typeof createAdminClient>,
+  vehicleId: string,
+): Promise<void> {
+  const { data: vehicleRow } = await admin
+    .from("vehicles")
+    .select("status")
+    .eq("id", vehicleId)
+    .maybeSingle();
+  const current = (vehicleRow as { status: string } | null)?.status;
+  if (current !== "rented" && current !== "available") return;
+
+  const { count } = await admin
+    .from("reservations")
+    .select("id", { count: "exact", head: true })
+    .eq("vehicle_id", vehicleId)
+    .in("status", ["active", "overdue"]);
+
+  const shouldBe = (count ?? 0) > 0 ? "rented" : "available";
+  if (shouldBe !== current) {
+    await admin
+      .from("vehicles")
+      .update({ status: shouldBe })
+      .eq("id", vehicleId);
+  }
+}
+
 export async function createReservation(
   _prev: ActionState,
   form: FormData,
@@ -152,6 +185,9 @@ export async function createReservation(
     description: `Created reservation ${created.reservation_number}`,
   });
 
+  // If the reservation was created already active, mark the car as rented.
+  await syncVehicleStatus(admin, input.vehicle_id);
+
   revalidatePath("/admin/reservations");
   redirect(`/admin/reservations/${created.id}`);
 }
@@ -197,10 +233,12 @@ export async function updateReservation(
 
   const { data: current } = await admin
     .from("reservations")
-    .select("amount_paid")
+    .select("amount_paid, vehicle_id")
     .eq("id", reservationId)
     .maybeSingle();
   const amountPaid = Number(current?.amount_paid ?? 0);
+  const oldVehicleId =
+    (current as { vehicle_id: string | null } | null)?.vehicle_id ?? null;
 
   const { error } = await admin
     .from("reservations")
@@ -227,6 +265,13 @@ export async function updateReservation(
     .eq("id", reservationId);
 
   if (error) return { ok: false, error: error.message };
+
+  // Keep vehicle availability in sync — the edit may have moved this
+  // reservation to a different car or changed its status.
+  await syncVehicleStatus(admin, input.vehicle_id);
+  if (oldVehicleId && oldVehicleId !== input.vehicle_id) {
+    await syncVehicleStatus(admin, oldVehicleId);
+  }
 
   await logActivity({
     userId: user.id,
@@ -273,13 +318,9 @@ export async function setReservationStatus(
     .update({ status })
     .eq("id", reservationId);
 
-  // Keep vehicle status roughly in sync.
+  // Keep vehicle availability in sync with the new reservation status.
   if (before?.vehicle_id) {
-    if (status === "active") {
-      await admin.from("vehicles").update({ status: "rented" }).eq("id", before.vehicle_id);
-    } else if (status === "completed" || status === "cancelled" || status === "no_show") {
-      await admin.from("vehicles").update({ status: "available" }).eq("id", before.vehicle_id);
-    }
+    await syncVehicleStatus(admin, before.vehicle_id);
   }
 
   await logActivity({
