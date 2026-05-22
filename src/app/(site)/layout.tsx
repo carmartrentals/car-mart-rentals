@@ -3,7 +3,6 @@ import { Footer } from "@/components/site/footer";
 import { ChatWidget } from "@/components/site/chat-widget";
 import { getCompanyProfile } from "@/lib/data/settings";
 import { aiConfigured } from "@/lib/ai";
-import { COMPANY } from "@/lib/constants";
 
 export default async function SiteLayout({
   children,
@@ -16,7 +15,7 @@ export default async function SiteLayout({
       <Navbar phone={company.phone} phoneHref={company.phoneHref} />
       <main className="flex-1">{children}</main>
       <Footer />
-      {aiConfigured() && <ChatWidget companyName={COMPANY.name} />}
+      {aiConfigured() && <ChatWidget companyName={company.name} />}
     </div>
   );
 }

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { aiConfigured, runAssistant, type ChatMessage } from "@/lib/ai";
 import { getPageContent } from "@/lib/website-content";
-import { COMPANY } from "@/lib/constants";
+import { getCompanyProfile } from "@/lib/data/settings";
 import { formatCurrency } from "@/lib/utils";
 
 export const runtime = "nodejs";
@@ -58,10 +58,11 @@ export async function POST(request: Request) {
 
 /** Assemble the grounding knowledge the assistant is allowed to use. */
 async function buildContext(): Promise<string> {
+  const company = await getCompanyProfile();
   const parts: string[] = [
-    `COMPANY: ${COMPANY.name} — ${COMPANY.tagline}. ` +
-      `Phone: ${COMPANY.phone}. Email: ${COMPANY.email}. ` +
-      `Address: ${COMPANY.address}.`,
+    `COMPANY: ${company.name} — ${company.tagline}. ` +
+      `Phone: ${company.phone}. Email: ${company.email}. ` +
+      `Address: ${company.address}.`,
   ];
 
   try {
