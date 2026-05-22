@@ -300,6 +300,37 @@ export async function runAssistant(
   );
 }
 
+// --- Business questions ("ask your numbers") -------------------------------
+/** Answer an owner's plain-language question from a business data snapshot. */
+export async function answerBusinessQuestion(
+  messages: ChatMessage[],
+  snapshot: string,
+): Promise<string> {
+  const completion = await getOpenAI().chat.completions.create({
+    model: "gpt-4o-mini",
+    max_tokens: 500,
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a business analyst for a car rental company, helping the " +
+          "owner understand their numbers. Answer using ONLY the BUSINESS " +
+          "SNAPSHOT below. Be concise and specific, quote the actual figures, " +
+          "and format money clearly (e.g. $1,250). If the snapshot does not " +
+          "contain what is needed, say so plainly and suggest which report to " +
+          "open. Never invent numbers.\n\n" +
+          "=== BUSINESS SNAPSHOT ===\n" +
+          snapshot,
+      },
+      ...messages.map((m) => ({ role: m.role, content: m.content })),
+    ],
+  });
+  return (
+    completion.choices[0]?.message?.content?.trim() ||
+    "I couldn't find that in the data — try checking the Reports section."
+  );
+}
+
 // --- Booking risk assessment -----------------------------------------------
 export interface RiskAssessment {
   level: "low" | "medium" | "high";
