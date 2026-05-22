@@ -40,7 +40,14 @@ export async function BodyShopPartner() {
           </h2>
           <p className="relative mt-3 max-w-2xl leading-relaxed text-slate-400">
             We&apos;ve partnered with{" "}
-            <span className="font-semibold text-white">{BODY_SHOP.name}</span>{" "}
+            <a
+              href={BODY_SHOP.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-gold-300 underline decoration-gold-300/40 underline-offset-2 transition-colors hover:text-gold-200"
+            >
+              {BODY_SHOP.name}
+            </a>{" "}
             so you can handle your repair and your rental together. Drop your
             car for collision repair, drive away in a replacement vehicle from
             us, and let our teams coordinate the rest.

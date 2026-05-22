@@ -31,6 +31,7 @@ export const SITE_URL = (
 /** Collision-repair / body-shop referral partner. */
 export const BODY_SHOP = {
   name: "International Auto Collision Center",
+  url: "https://international-collision.com",
 } as const;
 
 // --- Badge styling: maps a status to Tailwind classes ----------------------
