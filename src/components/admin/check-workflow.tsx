@@ -72,6 +72,7 @@ export function CheckWorkflow(props: CheckWorkflowProps) {
   const [scanError, setScanError] = useState<string | null>(null);
   const [scanFindings, setScanFindings] = useState<DamageFinding[]>([]);
   const [scanned, setScanned] = useState(false);
+  const [scanEstimate, setScanEstimate] = useState(0);
 
   // Live mileage calculation for check-in
   const mileage = useMemo(() => {
@@ -121,7 +122,11 @@ export function CheckWorkflow(props: CheckWorkflowProps) {
     startScan(async () => {
       const res = await scanForDamage(props.reservationId, urls);
       if (res.ok) {
-        setScanFindings(res.findings ?? []);
+        const findings = res.findings ?? [];
+        setScanFindings(findings);
+        setScanEstimate(
+          findings.reduce((s, f) => s + (f.estimatedCost ?? 0), 0),
+        );
         setScanned(true);
       } else {
         setScanError(res.error ?? "The damage scan failed.");
@@ -381,6 +386,11 @@ export function CheckWorkflow(props: CheckWorkflowProps) {
                     <span className="ml-1 text-xs uppercase text-amber-700">
                       ({f.severity})
                     </span>
+                    {f.estimatedCost != null && (
+                      <span className="ml-1 text-xs font-semibold text-slate-700">
+                        ~{formatCurrency(f.estimatedCost)}
+                      </span>
+                    )}
                   </span>
                   <button
                     type="button"
@@ -398,9 +408,26 @@ export function CheckWorkflow(props: CheckWorkflowProps) {
                   </button>
                 </div>
               ))}
+              {scanEstimate > 0 && (
+                <div className="flex items-center justify-between gap-2 rounded-md border border-amber-200 bg-white px-2.5 py-2 text-sm">
+                  <span className="text-slate-600">
+                    Estimated repair total:{" "}
+                    <strong className="text-slate-800">
+                      ~{formatCurrency(scanEstimate)}
+                    </strong>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setDamageFee(String(scanEstimate))}
+                    className="shrink-0 rounded-md bg-slate-900 px-2 py-1 text-xs font-medium text-white hover:bg-slate-700"
+                  >
+                    Use as Damage Charge
+                  </button>
+                </div>
+              )}
               <p className="text-[11px] text-amber-700">
-                AI can miss things or over-flag — always confirm against the
-                actual vehicle.
+                AI can miss things, over-flag, or misjudge cost — always confirm
+                against the actual vehicle and adjust the charge as needed.
               </p>
             </div>
           )}

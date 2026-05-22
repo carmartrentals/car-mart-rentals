@@ -151,6 +151,7 @@ export interface DamageFinding {
   location: string;
   description: string;
   severity: DamageSeverity;
+  estimatedCost: number | null;
 }
 
 const DAMAGE_INSTRUCTION =
@@ -161,7 +162,10 @@ const DAMAGE_INSTRUCTION =
   "dents, scratches, scrapes, cracked or chipped glass, missing parts, flat " +
   "or damaged tires, and notable new stains. Return ONLY a JSON object of the " +
   'form {"damage":[{"location":"short area name e.g. front bumper",' +
-  '"description":"what the damage is","severity":"minor|moderate|major"}]}. ' +
+  '"description":"what the damage is","severity":"minor|moderate|major",' +
+  '"estimated_cost":<rough US-dollar repair cost as a plain number>}]}. ' +
+  "For estimated_cost, give a realistic rough repair/repaint cost in US " +
+  "dollars as a plain number with no symbols. " +
   "Ignore damage that appears in BOTH the pickup and return photos — that is " +
   'pre-existing. If you cannot clearly see any new damage, return {"damage":[]}. ' +
   "Be conservative: only report damage you can clearly see.";
@@ -229,6 +233,15 @@ export async function detectVehicleDamage(
     const t = String(v).toLowerCase();
     return t === "major" ? "major" : t === "moderate" ? "moderate" : "minor";
   };
+  const num = (v: unknown): number | null => {
+    const n =
+      typeof v === "number"
+        ? v
+        : typeof v === "string"
+          ? parseFloat(v.replace(/[^0-9.]/g, ""))
+          : NaN;
+    return Number.isFinite(n) && n >= 0 ? Math.round(n) : null;
+  };
   return list
     .map((d) => {
       const row = (d ?? {}) as Record<string, unknown>;
@@ -236,6 +249,7 @@ export async function detectVehicleDamage(
         location: clean(row.location) ?? "",
         description: clean(row.description) ?? "",
         severity: sev(row.severity),
+        estimatedCost: num(row.estimated_cost),
       };
     })
     .filter((d) => d.location || d.description);
