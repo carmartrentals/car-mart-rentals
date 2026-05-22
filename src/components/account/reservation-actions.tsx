@@ -12,7 +12,7 @@ import { Alert } from "@/components/ui/misc";
 import { formatCurrency, rentalDays } from "@/lib/utils";
 import {
   payMyBalance, payMyDeposit, requestExtension, requestEarlyReturn,
-  cancelReservationRequest,
+  cancelReservationRequest, cancelMyReservation,
 } from "@/app/account/(portal)/actions";
 
 interface RequestSummary {
@@ -35,6 +35,7 @@ function toLocalInput(iso: string): string {
 /** Customer-facing actions: pay balance, request extension or early return. */
 export function ReservationActions({
   reservationId,
+  status,
   balanceDue,
   depositAmount = 0,
   depositStatus = null,
@@ -45,6 +46,7 @@ export function ReservationActions({
   requests = [],
 }: {
   reservationId: string;
+  status: string;
   balanceDue: number;
   depositAmount?: number;
   depositStatus?: string | null;
@@ -59,6 +61,25 @@ export function ReservationActions({
   const [payError, setPayError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [showCancel, setShowCancel] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+
+  const canCancel = ["pending", "confirmed", "quote"].includes(status);
+  const freeCancel =
+    (new Date(pickupAt).getTime() - Date.now()) / 3_600_000 >= 48;
+
+  function confirmCancel() {
+    setCancelError(null);
+    startTransition(async () => {
+      const res = await cancelMyReservation(reservationId);
+      if (res.ok) {
+        setShowCancel(false);
+        router.refresh();
+      } else {
+        setCancelError(res.error ?? "Could not cancel the booking.");
+      }
+    });
+  }
   const [mode, setMode] = useState<Mode | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -230,6 +251,54 @@ export function ReservationActions({
           <CalendarMinus className="h-4 w-4" /> Request Early Return
         </Button>
       )}
+
+      {canCancel && (
+        <button
+          type="button"
+          onClick={() => {
+            setCancelError(null);
+            setShowCancel(true);
+          }}
+          className="w-full pt-1 text-center text-xs font-medium text-slate-500 underline underline-offset-2 transition-colors hover:text-rose-300"
+        >
+          Cancel this booking
+        </button>
+      )}
+
+      <Modal
+        open={showCancel}
+        onClose={() => setShowCancel(false)}
+        title="Cancel This Booking?"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setShowCancel(false)}>
+              Keep Booking
+            </Button>
+            <Button variant="danger" onClick={confirmCancel} loading={pending}>
+              Cancel Booking
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          {cancelError && <Alert tone="error">{cancelError}</Alert>}
+          <p className="text-sm text-slate-600">
+            Are you sure you want to cancel this reservation? This can&apos;t be
+            undone online.
+          </p>
+          <div
+            className={`rounded-lg border px-4 py-3 text-sm ${
+              freeCancel
+                ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                : "border-amber-200 bg-amber-50 text-amber-800"
+            }`}
+          >
+            {freeCancel
+              ? "Your pickup is more than 48 hours away — this cancellation is free."
+              : "Your pickup is within 48 hours — a cancellation fee may apply per our policy. Our team will follow up with you."}
+          </div>
+        </div>
+      </Modal>
 
       <Modal
         open={mode !== null}

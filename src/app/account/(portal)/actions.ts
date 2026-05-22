@@ -8,7 +8,7 @@ import { getStripe, stripeConfigured, toCents } from "@/lib/stripe";
 import { aiConfigured, extractInsurance, extractLicense } from "@/lib/ai";
 import { uploadFile, storagePath } from "@/lib/storage";
 import { getTaxRate } from "@/lib/data/settings";
-import { notifyCompany } from "@/lib/notifications";
+import { notifyCompany, notifyCustomer } from "@/lib/notifications";
 import { rentalDays, formatDateTime } from "@/lib/utils";
 import type { ActionState } from "@/lib/form";
 
@@ -808,6 +808,97 @@ export async function updateMyProfile(input: {
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/account/profile");
+  revalidatePath("/account");
+  return { ok: true };
+}
+
+/** Customer cancels their own upcoming reservation. */
+export async function cancelMyReservation(
+  reservationId: string,
+): Promise<ActionState> {
+  const customer = await getCurrentCustomer();
+  if (!customer) return { ok: false, error: "Please sign in to continue." };
+
+  const admin = createAdminClient();
+  const { data: resRow } = await admin
+    .from("reservations")
+    .select(
+      "id, status, reservation_number, pickup_at, vehicle:vehicles(year,make,model,main_image_url)",
+    )
+    .eq("id", reservationId)
+    .eq("customer_id", customer.id)
+    .maybeSingle();
+  if (!resRow) return { ok: false, error: "Reservation not found." };
+  const r = resRow as unknown as {
+    id: string;
+    status: string;
+    reservation_number: string;
+    pickup_at: string;
+    vehicle: {
+      year: number;
+      make: string;
+      model: string;
+      main_image_url: string | null;
+    } | null;
+  };
+  if (!["pending", "confirmed", "quote"].includes(r.status)) {
+    return {
+      ok: false,
+      error:
+        "This reservation can no longer be cancelled online — please contact us.",
+    };
+  }
+
+  const { error } = await admin
+    .from("reservations")
+    .update({ status: "cancelled" })
+    .eq("id", reservationId);
+  if (error) return { ok: false, error: error.message };
+
+  const vehicleName = r.vehicle
+    ? `${r.vehicle.year} ${r.vehicle.make} ${r.vehicle.model}`
+    : "the vehicle";
+
+  await notifyCompany({
+    type: "reservation_cancelled_by_customer",
+    subject: `❌ Booking cancelled by customer — ${r.reservation_number}`,
+    heading: "Booking Cancelled by Customer",
+    intro: `${customer.first_name} ${customer.last_name} cancelled reservation ${r.reservation_number} (${vehicleName}) online. Review any deposit hold or cancellation fee that may apply.`,
+    rows: [
+      { label: "Reservation", value: r.reservation_number },
+      {
+        label: "Customer",
+        value: `${customer.first_name} ${customer.last_name}`,
+      },
+      { label: "Vehicle", value: vehicleName },
+      { label: "Pickup was", value: formatDateTime(r.pickup_at) },
+    ],
+    cta: {
+      label: "Open in Admin Panel",
+      path: `/admin/reservations/${reservationId}`,
+    },
+    imageUrl: r.vehicle?.main_image_url,
+    reservationId,
+    customerId: customer.id,
+  });
+
+  await notifyCustomer({
+    type: "reservation_cancelled",
+    to: customer.email,
+    subject: `Your booking has been cancelled — ${r.reservation_number}`,
+    heading: "Booking Cancelled",
+    intro: `Hi ${customer.first_name}, your reservation ${r.reservation_number} has been cancelled. If this was a mistake or you'd like to rebook, just get in touch — we're happy to help.`,
+    rows: [
+      { label: "Reservation", value: r.reservation_number },
+      { label: "Vehicle", value: vehicleName },
+    ],
+    cta: { label: "Browse Our Fleet", path: "/vehicles" },
+    imageUrl: r.vehicle?.main_image_url,
+    reservationId,
+    customerId: customer.id,
+  });
+
+  revalidatePath(`/account/reservations/${reservationId}`);
   revalidatePath("/account");
   return { ok: true };
 }

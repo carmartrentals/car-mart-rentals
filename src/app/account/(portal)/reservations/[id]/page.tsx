@@ -248,6 +248,7 @@ export default async function AccountReservationPage({
             <div className="space-y-3 p-5">
               <ReservationActions
                 reservationId={r.id}
+                status={r.status}
                 balanceDue={r.balance_due}
                 depositAmount={Number(r.deposit_amount ?? 0)}
                 depositStatus={deposit?.status ?? null}
