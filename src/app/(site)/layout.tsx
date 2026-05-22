@@ -1,6 +1,7 @@
 import { Navbar } from "@/components/site/navbar";
 import { Footer } from "@/components/site/footer";
 import { ChatWidget } from "@/components/site/chat-widget";
+import { CookieConsent } from "@/components/site/cookie-consent";
 import { JsonLd } from "@/components/seo/json-ld";
 import { getCompanyProfile } from "@/lib/data/settings";
 import { aiConfigured } from "@/lib/ai";
@@ -37,6 +38,7 @@ export default async function SiteLayout({
       <main className="flex-1">{children}</main>
       <Footer />
       {aiConfigured() && <ChatWidget companyName={company.name} />}
+      <CookieConsent />
     </div>
   );
 }

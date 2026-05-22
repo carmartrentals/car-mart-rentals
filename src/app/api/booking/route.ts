@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { computeReservationTotals } from "@/lib/pricing";
 import { getTaxRate } from "@/lib/data/settings";
 import { notifyCustomer, notifyCompany } from "@/lib/notifications";
+import { rateLimit, clientIp } from "@/lib/rate-limit";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import type { AddOn, Vehicle } from "@/lib/types/database";
 
@@ -29,6 +30,13 @@ const bookingSchema = z.object({
  * No payment is taken here — staff confirm and collect payment afterwards.
  */
 export async function POST(request: Request) {
+  if (!(await rateLimit(`booking:${clientIp(request)}`, 8, 300))) {
+    return NextResponse.json(
+      { error: "Too many booking attempts — please wait a few minutes." },
+      { status: 429 },
+    );
+  }
+
   let payload: unknown;
   try {
     payload = await request.json();

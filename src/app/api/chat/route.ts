@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { aiConfigured, runAssistant, type ChatMessage } from "@/lib/ai";
 import { getPageContent } from "@/lib/website-content";
 import { getCompanyProfile } from "@/lib/data/settings";
+import { rateLimit, clientIp } from "@/lib/rate-limit";
 import { formatCurrency } from "@/lib/utils";
 
 export const runtime = "nodejs";
@@ -17,6 +18,13 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "The assistant is not available right now." },
       { status: 503 },
+    );
+  }
+
+  if (!(await rateLimit(`chat:${clientIp(request)}`, 20, 60))) {
+    return NextResponse.json(
+      { error: "You're sending messages too fast — please wait a moment." },
+      { status: 429 },
     );
   }
 
