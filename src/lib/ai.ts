@@ -240,3 +240,48 @@ export async function detectVehicleDamage(
     })
     .filter((d) => d.location || d.description);
 }
+
+// --- Website assistant (chat) ----------------------------------------------
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+const ASSISTANT_SYSTEM =
+  "You are a friendly, professional virtual assistant for a car rental " +
+  "company, embedded as a chat widget on their website. Your job is to help " +
+  "visitors with questions about renting a vehicle and gently encourage them " +
+  "to book.\n\n" +
+  "Rules:\n" +
+  "- Use ONLY the BUSINESS INFORMATION provided below. Never invent prices, " +
+  "policies, vehicles, discounts or availability.\n" +
+  "- If something is not covered, say you are not sure and suggest contacting " +
+  "the team or using the booking page.\n" +
+  "- Keep answers short, warm and easy to read — usually 1-3 short sentences " +
+  "or a very short list.\n" +
+  "- When relevant, encourage the visitor to browse the fleet or book online.\n" +
+  "- Only discuss this company and car rental. Politely decline other topics.\n" +
+  "- You cannot make bookings, check live availability, or access accounts — " +
+  "direct those requests to the booking page or the team.";
+
+/** Answer a website visitor's chat message using the business knowledge. */
+export async function runAssistant(
+  messages: ChatMessage[],
+  context: string,
+): Promise<string> {
+  const completion = await getOpenAI().chat.completions.create({
+    model: "gpt-4o-mini",
+    max_tokens: 450,
+    messages: [
+      {
+        role: "system",
+        content: `${ASSISTANT_SYSTEM}\n\n=== BUSINESS INFORMATION ===\n${context}`,
+      },
+      ...messages.map((m) => ({ role: m.role, content: m.content })),
+    ],
+  });
+  return (
+    completion.choices[0]?.message?.content?.trim() ||
+    "Sorry, I'm not able to answer that right now — please contact our team."
+  );
+}
