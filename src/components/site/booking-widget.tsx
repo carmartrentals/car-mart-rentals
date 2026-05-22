@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   CalendarDays, ShieldCheck, ArrowRight, CheckCircle2, AlertTriangle,
+  Lock, CalendarCheck, Sparkles,
 } from "lucide-react";
 import type { Vehicle } from "@/lib/types/database";
 import type { BookedRange } from "@/lib/data/vehicles";
@@ -163,10 +164,20 @@ export function BookingWidget({
       >
         Reserve This Vehicle <ArrowRight className="h-4 w-4" />
       </button>
-      <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-slate-400">
-        <ShieldCheck className="h-3.5 w-3.5 text-gold-300" /> No charge until
-        confirmed by our team
-      </p>
+      <ul className="mt-4 space-y-2 border-t border-white/10 pt-4">
+        <TrustItem icon={ShieldCheck}>
+          No charge until your booking is confirmed
+        </TrustItem>
+        <TrustItem icon={CalendarCheck}>
+          Free cancellation up to 48 hours before pickup
+        </TrustItem>
+        <TrustItem icon={Lock}>
+          Secure checkout — payments handled by Stripe
+        </TrustItem>
+        <TrustItem icon={Sparkles}>
+          Every vehicle hand-detailed &amp; fully inspected
+        </TrustItem>
+      </ul>
 
       <style>{`
         .widget-input {
@@ -196,5 +207,20 @@ function Row({ label, value }: { label: string; value: string }) {
       <span>{label}</span>
       <span className="font-medium text-slate-200">{value}</span>
     </div>
+  );
+}
+
+function TrustItem({
+  icon: Icon,
+  children,
+}: {
+  icon: typeof ShieldCheck;
+  children: React.ReactNode;
+}) {
+  return (
+    <li className="flex items-start gap-2 text-xs text-slate-400">
+      <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gold-300" />
+      <span>{children}</span>
+    </li>
   );
 }
