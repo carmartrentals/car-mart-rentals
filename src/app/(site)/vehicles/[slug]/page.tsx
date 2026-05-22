@@ -5,10 +5,13 @@ import {
   Users, Fuel, Gauge, Settings2, Calendar, ShieldCheck,
   Cog, DoorOpen, CheckCircle2, ArrowLeft,
 } from "lucide-react";
-import { getVehicleBySlug, getSimilarVehicles } from "@/lib/data/vehicles";
+import {
+  getVehicleBySlug, getSimilarVehicles, getVehicleBookedRanges,
+} from "@/lib/data/vehicles";
 import { createClient } from "@/lib/supabase/server";
 import { VehicleGallery } from "@/components/site/vehicle-gallery";
 import { BookingWidget } from "@/components/site/booking-widget";
+import { AvailabilityCalendar } from "@/components/site/availability-calendar";
 import { VehicleCard } from "@/components/site/vehicle-card";
 import { VEHICLE_CATEGORIES, FUEL_TYPES } from "@/lib/constants";
 import { formatCurrency } from "@/lib/utils";
@@ -37,9 +40,10 @@ export default async function VehicleDetailPage({
   const vehicle = await getVehicleBySlug(slug);
   if (!vehicle) notFound();
 
-  const [similar, supabase] = await Promise.all([
+  const [similar, supabase, bookedRanges] = await Promise.all([
     getSimilarVehicles(vehicle, 3),
     createClient(),
+    getVehicleBookedRanges(vehicle.id),
   ]);
   const { data: addOnsData } = await supabase
     .from("add_ons")
@@ -195,6 +199,11 @@ export default async function VehicleDetailPage({
               </div>
             </div>
 
+            {/* Availability */}
+            <div className="mt-6">
+              <AvailabilityCalendar bookedRanges={bookedRanges} />
+            </div>
+
             {/* Add-ons */}
             {addOns.length > 0 && (
               <div className="mt-6 glass rounded-2xl p-6">
@@ -232,7 +241,7 @@ export default async function VehicleDetailPage({
 
           {/* -------------------------------------------------------- SIDEBAR */}
           <div className="lg:sticky lg:top-24 lg:self-start">
-            <BookingWidget vehicle={vehicle} />
+            <BookingWidget vehicle={vehicle} bookedRanges={bookedRanges} />
           </div>
         </div>
 

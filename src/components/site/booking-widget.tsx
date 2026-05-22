@@ -2,8 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarDays, ShieldCheck, ArrowRight } from "lucide-react";
+import {
+  CalendarDays, ShieldCheck, ArrowRight, CheckCircle2, AlertTriangle,
+} from "lucide-react";
 import type { Vehicle } from "@/lib/types/database";
+import type { BookedRange } from "@/lib/data/vehicles";
 import { formatCurrency, rentalDays, bestRate } from "@/lib/utils";
 
 function defaults() {
@@ -16,7 +19,13 @@ function defaults() {
   return { p: fmt(p), r: fmt(r) };
 }
 
-export function BookingWidget({ vehicle }: { vehicle: Vehicle }) {
+export function BookingWidget({
+  vehicle,
+  bookedRanges = [],
+}: {
+  vehicle: Vehicle;
+  bookedRanges?: BookedRange[];
+}) {
   const router = useRouter();
   const init = defaults();
   const [pickup, setPickup] = useState(init.p);
@@ -38,6 +47,19 @@ export function BookingWidget({ vehicle }: { vehicle: Vehicle }) {
       total: subtotal + tax,
     };
   }, [pickup, ret, vehicle]);
+
+  // Real-time availability — does the chosen window overlap a booking?
+  const conflict = useMemo(() => {
+    if (!pickup || !ret) return false;
+    const p = new Date(pickup).getTime();
+    const r = new Date(ret).getTime();
+    if (Number.isNaN(p) || Number.isNaN(r) || r <= p) return false;
+    return bookedRanges.some((b) => {
+      const bs = new Date(b.start).getTime();
+      const be = new Date(b.end).getTime();
+      return p < be && bs < r;
+    });
+  }, [pickup, ret, bookedRanges]);
 
   function reserve() {
     const params = new URLSearchParams({
@@ -112,9 +134,31 @@ export function BookingWidget({ vehicle }: { vehicle: Vehicle }) {
         </p>
       )}
 
+      {quote && (
+        <div
+          className={
+            conflict
+              ? "mt-3 flex items-center gap-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-300"
+              : "mt-3 flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-300"
+          }
+        >
+          {conflict ? (
+            <>
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" /> Not available
+              for these dates — please choose another window.
+            </>
+          ) : (
+            <>
+              <CheckCircle2 className="h-3.5 w-3.5 shrink-0" /> Available for
+              your selected dates.
+            </>
+          )}
+        </div>
+      )}
+
       <button
         onClick={reserve}
-        disabled={!quote}
+        disabled={!quote || conflict}
         className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-gold-500 px-5 py-3 text-sm font-semibold text-brand-950 transition-colors hover:bg-white disabled:opacity-40"
       >
         Reserve This Vehicle <ArrowRight className="h-4 w-4" />

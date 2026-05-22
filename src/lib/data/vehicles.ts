@@ -1,10 +1,54 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type {
   Vehicle,
   VehicleWithImages,
   VehicleCategory,
   FuelType,
 } from "@/lib/types/database";
+
+/** A date range during which a vehicle is unavailable. */
+export interface BookedRange {
+  start: string;
+  end: string;
+}
+
+/**
+ * Upcoming date ranges when a vehicle is unavailable — from live
+ * reservations and from manual calendar blocks. Used to show real-time
+ * availability on the public vehicle page.
+ */
+export async function getVehicleBookedRanges(
+  vehicleId: string,
+): Promise<BookedRange[]> {
+  try {
+    const admin = createAdminClient();
+    const todayIso = new Date(new Date().setHours(0, 0, 0, 0)).toISOString();
+    const [resv, blocks] = await Promise.all([
+      admin
+        .from("reservations")
+        .select("pickup_at, return_at")
+        .eq("vehicle_id", vehicleId)
+        .in("status", ["pending", "confirmed", "active", "overdue"])
+        .gte("return_at", todayIso),
+      admin
+        .from("vehicle_blocks")
+        .select("start_at, end_at")
+        .eq("vehicle_id", vehicleId)
+        .gte("end_at", todayIso),
+    ]);
+    const ranges: BookedRange[] = [];
+    for (const r of resv.data ?? []) {
+      ranges.push({ start: r.pickup_at, end: r.return_at });
+    }
+    for (const b of blocks.data ?? []) {
+      ranges.push({ start: b.start_at, end: b.end_at });
+    }
+    return ranges;
+  } catch {
+    return [];
+  }
+}
 
 export interface VehicleFilters {
   category?: VehicleCategory;
