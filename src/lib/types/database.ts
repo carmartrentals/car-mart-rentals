@@ -256,6 +256,8 @@ export interface Reservation {
   risk_level: string | null;
   risk_summary: string | null;
   risk_assessed_at: string | null;
+  precheckin_completed_at: string | null;
+  precheckin_signature_url: string | null;
   notes: string | null;
   internal_notes: string | null;
   created_by: string | null;

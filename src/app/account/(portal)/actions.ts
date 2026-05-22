@@ -730,3 +730,78 @@ export async function updateMyProfile(input: {
   revalidatePath("/account");
   return { ok: true };
 }
+
+/**
+ * Customer completes online pre-check-in — stores their signed agreement
+ * signature and marks the reservation as pre-checked-in.
+ */
+export async function saveMyPrecheckin(
+  reservationId: string,
+  signatureDataUrl: string,
+): Promise<ActionState> {
+  const customer = await getCurrentCustomer();
+  if (!customer) return { ok: false, error: "Please sign in to continue." };
+  if (!signatureDataUrl || !signatureDataUrl.startsWith("data:image")) {
+    return { ok: false, error: "Please add your signature before continuing." };
+  }
+
+  const admin = createAdminClient();
+  const { data: resv } = await admin
+    .from("reservations")
+    .select("id, reservation_number, customer_id")
+    .eq("id", reservationId)
+    .eq("customer_id", customer.id)
+    .maybeSingle();
+  if (!resv) return { ok: false, error: "Reservation not found." };
+
+  try {
+    const base64 = signatureDataUrl.split(",")[1] ?? "";
+    const buffer = Buffer.from(base64, "base64");
+    if (buffer.length === 0) {
+      return { ok: false, error: "Your signature could not be read. Please try again." };
+    }
+    if (buffer.length > 2 * 1024 * 1024) {
+      return { ok: false, error: "Signature image is too large." };
+    }
+    const path = storagePath(`precheckin-${reservationId}`, "png");
+    const result = await uploadFile("documents", path, buffer, "image/png");
+
+    const { error } = await admin
+      .from("reservations")
+      .update({
+        precheckin_signature_url: result.url,
+        precheckin_completed_at: new Date().toISOString(),
+      })
+      .eq("id", reservationId);
+    if (error) return { ok: false, error: error.message };
+
+    await notifyCompany({
+      type: "precheckin_completed",
+      subject: `✅ Pre-check-in completed — ${resv.reservation_number}`,
+      heading: "Customer Completed Pre-Check-In",
+      intro: `${customer.first_name} ${customer.last_name} completed online pre-check-in for reservation ${resv.reservation_number} — they have reviewed and signed the rental agreement, so pickup should be quick.`,
+      rows: [
+        { label: "Reservation", value: resv.reservation_number },
+        {
+          label: "Customer",
+          value: `${customer.first_name} ${customer.last_name}`,
+        },
+      ],
+      cta: {
+        label: "Open in Admin Panel",
+        path: `/admin/reservations/${reservationId}`,
+      },
+      reservationId,
+      customerId: customer.id,
+    });
+
+    revalidatePath(`/account/reservations/${reservationId}/check-in`);
+    revalidatePath(`/account/reservations/${reservationId}`);
+    return { ok: true };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Could not save your pre-check-in.",
+    };
+  }
+}

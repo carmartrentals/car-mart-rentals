@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import {
   ArrowLeft, Pencil, User, Car, CalendarRange, FileText, CreditCard,
   ShieldCheck, ShieldAlert, AlertTriangle, Camera, Siren, Mail, Activity,
+  CheckCircle2, ClipboardCheck,
 } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getTaxRate } from "@/lib/data/settings";
@@ -433,6 +434,37 @@ export default async function ReservationDetailPage({
                       reservationId={r.id}
                       required={r.insurance_required}
                     />
+                  </div>
+
+                  {/* Online pre-check-in status */}
+                  <div className="border-t border-slate-100 pt-4">
+                    <p className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold text-slate-800">
+                      <ClipboardCheck className="h-4 w-4 text-gold-600" /> Online
+                      Pre-Check-In
+                    </p>
+                    {r.precheckin_completed_at ? (
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                        <span className="flex items-center gap-1.5">
+                          <CheckCircle2 className="h-4 w-4" /> Completed{" "}
+                          {formatDateTime(r.precheckin_completed_at)}
+                        </span>
+                        {r.precheckin_signature_url && (
+                          <a
+                            href={r.precheckin_signature_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-semibold underline"
+                          >
+                            View signature
+                          </a>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-500">
+                        Not completed yet — the customer can pre-check-in from
+                        their account.
+                      </p>
+                    )}
                   </div>
                 </>
               ) : (

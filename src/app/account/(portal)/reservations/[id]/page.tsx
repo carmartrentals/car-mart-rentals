@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   ArrowLeft, FileText, ReceiptText, Car, CalendarRange, Repeat,
+  ClipboardCheck, CheckCircle2,
 } from "lucide-react";
 import { getCurrentCustomer } from "@/lib/account";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -209,6 +210,32 @@ export default async function AccountReservationPage({
               </div>
             </div>
           </Panel>
+
+          {["pending", "confirmed"].includes(r.status) && (
+            <Panel title="Pre-Check-In">
+              <div className="space-y-2 p-5">
+                {r.precheckin_completed_at ? (
+                  <p className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5 text-sm text-emerald-300">
+                    <CheckCircle2 className="h-4 w-4 shrink-0" /> Pre-check-in
+                    complete — your pickup will be quick.
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-sm text-slate-400">
+                      Save time at pickup — review your documents and sign the
+                      rental agreement online in a few minutes.
+                    </p>
+                    <Link
+                      href={`/account/reservations/${r.id}/check-in`}
+                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-gold-500 px-4 py-2.5 text-sm font-semibold text-brand-950 transition-colors hover:bg-white"
+                    >
+                      <ClipboardCheck className="h-4 w-4" /> Start Pre-Check-In
+                    </Link>
+                  </>
+                )}
+              </div>
+            </Panel>
+          )}
 
           <Panel title="Actions">
             <div className="space-y-3 p-5">
