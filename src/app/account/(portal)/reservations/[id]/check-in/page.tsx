@@ -44,6 +44,16 @@ export default async function PrecheckinPage({
     /* template optional */
   }
 
+  const { data: depRow } = await admin
+    .from("deposits")
+    .select("status")
+    .eq("reservation_id", id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const depositAuthorized =
+    (depRow as { status?: string } | null)?.status === "authorized";
+
   const v = reservation.vehicle;
   const vehicleName = v ? `${v.year} ${v.make} ${v.model}` : "your vehicle";
 
@@ -73,6 +83,8 @@ export default async function PrecheckinPage({
         insuranceStatus={customer.insurance_status}
         insuranceRequired={reservation.insurance_required}
         balanceDue={Number(reservation.balance_due ?? 0)}
+        depositAmount={Number(reservation.deposit_amount ?? 0)}
+        depositAuthorized={depositAuthorized}
         agreementName={agreementName}
         agreementSections={agreementSections}
         completedAt={reservation.precheckin_completed_at}

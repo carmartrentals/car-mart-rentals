@@ -125,6 +125,13 @@ export default async function AccountReservationPage({
         </div>
       )}
 
+      {sp.deposit === "1" && (
+        <div className="mb-5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+          Your security deposit hold is authorized — this is not a charge. It
+          will be released after you return the vehicle.
+        </div>
+      )}
+
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           <Panel title="Vehicle & Rental Period">
@@ -242,6 +249,8 @@ export default async function AccountReservationPage({
               <ReservationActions
                 reservationId={r.id}
                 balanceDue={r.balance_due}
+                depositAmount={Number(r.deposit_amount ?? 0)}
+                depositStatus={deposit?.status ?? null}
                 pickupAt={r.pickup_at}
                 returnAt={r.return_at}
                 rateAmount={r.rate_amount}

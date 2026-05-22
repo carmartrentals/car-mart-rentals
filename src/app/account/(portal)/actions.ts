@@ -363,6 +363,87 @@ export async function payMyBalance(reservationId: string): Promise<ActionState> 
 }
 
 /**
+ * Customer authorizes the refundable security deposit. This places a
+ * manual-capture HOLD on their card — it is NOT a charge. Staff capture
+ * it (only if there is damage) or release it after the vehicle returns.
+ */
+export async function payMyDeposit(
+  reservationId: string,
+): Promise<ActionState> {
+  const customer = await getCurrentCustomer();
+  if (!customer) return { ok: false, error: "Please sign in to continue." };
+  if (!stripeConfigured()) {
+    return {
+      ok: false,
+      error: "Online deposits are unavailable right now. Please contact us.",
+    };
+  }
+
+  const admin = createAdminClient();
+  const { data: r } = await admin
+    .from("reservations")
+    .select("id, reservation_number, deposit_amount")
+    .eq("id", reservationId)
+    .eq("customer_id", customer.id)
+    .maybeSingle();
+  if (!r) return { ok: false, error: "Reservation not found." };
+
+  const amount = Number(r.deposit_amount);
+  if (amount <= 0) {
+    return { ok: false, error: "This reservation has no security deposit." };
+  }
+
+  // Reuse a pending deposit row; block if one is already authorized.
+  const { data: existing } = await admin
+    .from("deposits")
+    .select("id, status")
+    .eq("reservation_id", reservationId)
+    .in("status", ["pending", "authorized"])
+    .maybeSingle();
+  if (existing?.status === "authorized") {
+    return { ok: false, error: "Your security deposit is already authorized." };
+  }
+
+  try {
+    const stripe = getStripe();
+    const url = await baseUrl();
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      customer_email: customer.email,
+      // Manual capture = an authorization hold, not a charge.
+      payment_intent_data: { capture_method: "manual" },
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency: "usd",
+            unit_amount: toCents(amount),
+            product_data: {
+              name: `Refundable Security Deposit — ${r.reservation_number}`,
+              description:
+                "Authorization hold only — released after the vehicle is returned",
+            },
+          },
+        },
+      ],
+      metadata: { reservation_id: reservationId, kind: "deposit" },
+      success_url: `${url}/account/reservations/${reservationId}?deposit=1`,
+      cancel_url: `${url}/account/reservations/${reservationId}`,
+    });
+    if (!existing) {
+      await admin.from("deposits").insert({
+        reservation_id: reservationId,
+        amount,
+        status: "pending",
+      });
+    }
+    return { ok: true, data: { url: session.url ?? "" } };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Deposit error." };
+  }
+}
+
+/**
  * Records a customer request (extension or early return) for staff review.
  * Requests appear in the admin dashboard and on the reservation page.
  */

@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ShieldCheck, FileSignature, CreditCard, CheckCircle2, AlertTriangle,
-  Loader2, Eraser, PartyPopper,
+  Loader2, Eraser, PartyPopper, Lock,
 } from "lucide-react";
-import { saveMyPrecheckin, payMyBalance } from "@/app/account/(portal)/actions";
+import {
+  saveMyPrecheckin, payMyBalance, payMyDeposit,
+} from "@/app/account/(portal)/actions";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 import type { AgreementSection, DocumentStatus } from "@/lib/types/database";
 
@@ -21,6 +23,8 @@ export function PrecheckinFlow({
   insuranceStatus,
   insuranceRequired,
   balanceDue,
+  depositAmount,
+  depositAuthorized,
   agreementName,
   agreementSections,
   completedAt,
@@ -34,6 +38,8 @@ export function PrecheckinFlow({
   insuranceStatus: DocumentStatus;
   insuranceRequired: boolean;
   balanceDue: number;
+  depositAmount: number;
+  depositAuthorized: boolean;
   agreementName: string;
   agreementSections: AgreementSection[];
   completedAt: string | null;
@@ -45,6 +51,7 @@ export function PrecheckinFlow({
   const [agreed, setAgreed] = useState(false);
   const [pending, startTransition] = useTransition();
   const [payPending, startPay] = useTransition();
+  const [depositPending, startDeposit] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(Boolean(completedAt));
 
@@ -114,6 +121,18 @@ export function PrecheckinFlow({
         window.location.href = String(res.data.url);
       } else {
         setError(res.error ?? "Could not start payment.");
+      }
+    });
+  }
+
+  function authorizeDeposit() {
+    setError(null);
+    startDeposit(async () => {
+      const res = await payMyDeposit(reservationId);
+      if (res.ok && res.data?.url) {
+        window.location.href = String(res.data.url);
+      } else {
+        setError(res.error ?? "Could not start the deposit authorization.");
       }
     });
   }
@@ -273,9 +292,58 @@ export function PrecheckinFlow({
         </div>
       </StepCard>
 
-      {/* Step 3 — Balance */}
+      {/* Step 3 — Security deposit */}
+      {depositAmount > 0 && (
+        <StepCard
+          n={3}
+          icon={Lock}
+          title="Security Deposit"
+          done={depositAuthorized}
+        >
+          {depositAuthorized ? (
+            <p className="text-sm text-emerald-300">
+              Your refundable {formatCurrency(depositAmount)} deposit hold is
+              authorized — a hold on your card, not a charge.
+            </p>
+          ) : (
+            <>
+              <p className="text-sm text-slate-300">
+                A refundable{" "}
+                <span className="font-semibold text-white">
+                  {formatCurrency(depositAmount)}
+                </span>{" "}
+                hold will be placed on your card.
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                This is an authorization hold — <strong>not a charge</strong>.
+                It is released after you return the vehicle, and only applied
+                if there is damage or an outstanding fee.
+              </p>
+              <button
+                type="button"
+                onClick={authorizeDeposit}
+                disabled={depositPending}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-white/15 px-3.5 py-2 text-sm font-medium text-slate-200 transition-colors hover:bg-white/10 disabled:opacity-50"
+              >
+                {depositPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Lock className="h-4 w-4" />
+                )}
+                Authorize {formatCurrency(depositAmount)} Hold
+              </button>
+            </>
+          )}
+        </StepCard>
+      )}
+
+      {/* Balance */}
       {balanceDue > 0 && (
-        <StepCard n={3} icon={CreditCard} title="Outstanding Balance">
+        <StepCard
+          n={depositAmount > 0 ? 4 : 3}
+          icon={CreditCard}
+          title="Outstanding Balance"
+        >
           <p className="text-sm text-slate-300">
             Balance due:{" "}
             <span className="font-semibold text-white">

@@ -2,14 +2,16 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CreditCard, CalendarPlus, CalendarMinus, Clock } from "lucide-react";
+import {
+  CreditCard, CalendarPlus, CalendarMinus, Clock, ShieldCheck,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { Field, Input, Textarea } from "@/components/ui/field";
 import { Alert } from "@/components/ui/misc";
 import { formatCurrency, rentalDays } from "@/lib/utils";
 import {
-  payMyBalance, requestExtension, requestEarlyReturn,
+  payMyBalance, payMyDeposit, requestExtension, requestEarlyReturn,
   cancelReservationRequest,
 } from "@/app/account/(portal)/actions";
 
@@ -34,6 +36,8 @@ function toLocalInput(iso: string): string {
 export function ReservationActions({
   reservationId,
   balanceDue,
+  depositAmount = 0,
+  depositStatus = null,
   pickupAt,
   returnAt,
   rateAmount,
@@ -42,6 +46,8 @@ export function ReservationActions({
 }: {
   reservationId: string;
   balanceDue: number;
+  depositAmount?: number;
+  depositStatus?: string | null;
   pickupAt: string;
   returnAt: string;
   rateAmount: number;
@@ -90,6 +96,18 @@ export function ReservationActions({
         window.location.href = String(res.data.url);
       } else {
         setPayError(res.error ?? "Could not start payment.");
+      }
+    });
+  }
+
+  function authorizeDeposit() {
+    setPayError(null);
+    startTransition(async () => {
+      const res = await payMyDeposit(reservationId);
+      if (res.ok && res.data?.url) {
+        window.location.href = String(res.data.url);
+      } else {
+        setPayError(res.error ?? "Could not start the deposit authorization.");
       }
     });
   }
@@ -155,6 +173,31 @@ export function ReservationActions({
           <CreditCard className="h-4 w-4" /> Pay Balance
         </Button>
       )}
+
+      {depositAmount > 0 && depositStatus === "authorized" && (
+        <div className="flex items-start gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5 text-xs text-emerald-300">
+          <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          Security deposit authorized — a {formatCurrency(depositAmount)} hold is
+          on your card and will be released after you return the vehicle.
+        </div>
+      )}
+      {depositAmount > 0 &&
+        (!depositStatus || depositStatus === "pending") && (
+          <div>
+            <Button
+              variant="secondary"
+              className="w-full"
+              onClick={authorizeDeposit}
+              loading={pending}
+            >
+              <ShieldCheck className="h-4 w-4" /> Authorize Deposit (
+              {formatCurrency(depositAmount)})
+            </Button>
+            <p className="mt-1 text-center text-xs text-slate-500">
+              A refundable hold — not a charge.
+            </p>
+          </div>
+        )}
 
       {pendingExt ? (
         <PendingNote
