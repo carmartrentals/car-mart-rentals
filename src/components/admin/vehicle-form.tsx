@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Textarea, Select, Field } from "@/components/ui/field";
 import { Card, CardHeader, CardTitle, CardBody } from "@/components/ui/card";
 import { Alert } from "@/components/ui/misc";
+import { AiDescriptionField } from "@/components/admin/ai-description-field";
 import { initialActionState, type ActionState } from "@/lib/form";
 import { VEHICLE_CATEGORIES, FUEL_TYPES, VEHICLE_STATUS } from "@/lib/constants";
 import type { Vehicle } from "@/lib/types/database";
@@ -180,7 +181,7 @@ export function VehicleForm({
               placeholder={"Panoramic Roof\nHeated Seats\nApple CarPlay"} />
           </Field>
           <Field label="Public Description" error={err("description")}>
-            <Textarea name="description" rows={4} defaultValue={vehicle?.description ?? ""} />
+            <AiDescriptionField defaultValue={vehicle?.description ?? ""} />
           </Field>
         </CardBody>
       </Card>

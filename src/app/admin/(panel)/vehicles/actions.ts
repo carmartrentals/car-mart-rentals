@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser, canWrite, logActivity } from "@/lib/auth";
+import { aiConfigured, writeVehicleDescription } from "@/lib/ai";
 import { vehicleSchema } from "@/lib/validation";
 import { slugify } from "@/lib/utils";
 import { zodErrorState, fd, nullable, type ActionState } from "@/lib/form";
@@ -263,4 +264,34 @@ export async function deleteVehicle(vehicleId: string): Promise<void> {
 
   revalidatePath("/admin/vehicles");
   redirect("/admin/vehicles");
+}
+
+/** Generate a marketing description for a vehicle from its specs (AI). */
+export async function generateVehicleDescription(spec: {
+  year: string;
+  make: string;
+  model: string;
+  category: string;
+  features: string;
+}): Promise<ActionState & { text?: string }> {
+  const user = await getCurrentUser();
+  if (!user || !canWrite(user.role, "vehicles")) {
+    return { ok: false, error: "You do not have permission to edit vehicles." };
+  }
+  if (!aiConfigured()) {
+    return { ok: false, error: "AI writing is not available right now." };
+  }
+  if (!spec.make.trim() || !spec.model.trim()) {
+    return { ok: false, error: "Enter the make and model first." };
+  }
+  try {
+    const text = await writeVehicleDescription(spec);
+    if (!text) return { ok: false, error: "Could not generate a description." };
+    return { ok: true, text };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : "Could not generate a description.",
+    };
+  }
 }

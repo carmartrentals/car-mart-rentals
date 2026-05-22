@@ -285,3 +285,43 @@ export async function runAssistant(
     "Sorry, I'm not able to answer that right now — please contact our team."
   );
 }
+
+// --- Marketing copy --------------------------------------------------------
+export interface VehicleCopySpec {
+  year: string;
+  make: string;
+  model: string;
+  category: string;
+  features: string;
+}
+
+/** Write a short, premium marketing description for a vehicle listing. */
+export async function writeVehicleDescription(
+  spec: VehicleCopySpec,
+): Promise<string> {
+  const completion = await getOpenAI().chat.completions.create({
+    model: "gpt-4o-mini",
+    max_tokens: 220,
+    messages: [
+      {
+        role: "system",
+        content:
+          "You write short, vivid marketing descriptions for vehicles on a " +
+          "premium car rental website. Write ONE paragraph of 2-3 sentences " +
+          "(about 40-70 words). Sound upscale and inviting, focus on the " +
+          "experience of driving the car, and weave in the key features " +
+          "naturally. No headings, no bullet points, no quotation marks — " +
+          "return only the paragraph.",
+      },
+      {
+        role: "user",
+        content:
+          "Write a rental listing description for this vehicle:\n" +
+          `Year: ${spec.year}\nMake: ${spec.make}\nModel: ${spec.model}\n` +
+          `Category: ${spec.category}\n` +
+          `Features: ${spec.features || "(none listed)"}`,
+      },
+    ],
+  });
+  return completion.choices[0]?.message?.content?.trim() ?? "";
+}
