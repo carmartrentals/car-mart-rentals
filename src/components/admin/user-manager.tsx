@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
@@ -13,7 +13,7 @@ import { Alert } from "@/components/ui/misc";
 import { formatDate } from "@/lib/utils";
 import { USER_ROLES } from "@/lib/constants";
 import {
-  inviteUser, updateUserRole, toggleUserActive,
+  inviteUser, updateUserRole, toggleUserActive, updateUserName,
 } from "@/app/admin/(panel)/users/actions";
 import type { User, UserRole } from "@/lib/types/database";
 
@@ -38,6 +38,10 @@ export function UserManager({
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState<{ id: string; name: string } | null>(
+    null,
+  );
+  const [editError, setEditError] = useState<string | null>(null);
 
   function set<K extends keyof typeof form>(k: K, v: (typeof form)[K]) {
     setForm((f) => ({ ...f, [k]: v }));
@@ -71,6 +75,20 @@ export function UserManager({
     });
   }
 
+  function saveEdit() {
+    if (!editing) return;
+    setEditError(null);
+    startTransition(async () => {
+      const res = await updateUserName(editing.id, editing.name);
+      if (res.ok) {
+        setEditing(null);
+        router.refresh();
+      } else {
+        setEditError(res.error ?? "Could not update the name.");
+      }
+    });
+  }
+
   return (
     <Card>
       <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
@@ -90,6 +108,7 @@ export function UserManager({
             <TH>Role</TH>
             <TH>Status</TH>
             <TH>Added</TH>
+            <TH />
           </TR>
         </THead>
         <TBody>
@@ -135,6 +154,17 @@ export function UserManager({
                   )}
                 </TD>
                 <TD className="text-slate-500">{formatDate(u.created_at)}</TD>
+                <TD className="text-right">
+                  <button
+                    onClick={() =>
+                      setEditing({ id: u.id, name: u.full_name || "" })
+                    }
+                    disabled={pending}
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
+                  >
+                    <Pencil className="h-3.5 w-3.5" /> Edit
+                  </button>
+                </TD>
               </TR>
             );
           })}
@@ -178,6 +208,33 @@ export function UserManager({
           >
             <Input value={form.password}
               onChange={(e) => set("password", e.target.value)} />
+          </Field>
+        </div>
+      </Modal>
+
+      <Modal
+        open={editing !== null}
+        onClose={() => setEditing(null)}
+        title="Edit Staff Member"
+        description="Update the name shown for this team member."
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setEditing(null)}>
+              Cancel
+            </Button>
+            <Button onClick={saveEdit} loading={pending}>Save Changes</Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          {editError && <Alert tone="error">{editError}</Alert>}
+          <Field label="Full Name" required>
+            <Input
+              value={editing?.name ?? ""}
+              onChange={(e) =>
+                setEditing((p) => (p ? { ...p, name: e.target.value } : p))
+              }
+            />
           </Field>
         </div>
       </Modal>

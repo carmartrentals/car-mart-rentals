@@ -63,6 +63,45 @@ export async function inviteUser(input: {
   return { ok: true };
 }
 
+/** Edit a staff member's name (allowed for any user, including yourself). */
+export async function updateUserName(
+  userId: string,
+  fullName: string,
+): Promise<ActionState> {
+  const user = await getCurrentUser();
+  if (!user || user.role !== "super_admin") {
+    return { ok: false, error: "Only a Super Admin can edit staff users." };
+  }
+  const name = fullName.trim();
+  if (!name) return { ok: false, error: "Enter a name." };
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("users")
+    .update({ full_name: name })
+    .eq("id", userId);
+  if (error) return { ok: false, error: error.message };
+
+  // Keep the auth profile metadata in sync — best-effort.
+  try {
+    await admin.auth.admin.updateUserById(userId, {
+      user_metadata: { full_name: name },
+    });
+  } catch {
+    /* metadata sync is best-effort */
+  }
+
+  await logActivity({
+    userId: user.id,
+    action: "user.updated",
+    entityType: "user",
+    entityId: userId,
+    description: `Name updated to ${name}`,
+  });
+  revalidatePath("/admin/users");
+  return { ok: true };
+}
+
 /** Change a staff member's role. */
 export async function updateUserRole(
   userId: string,
