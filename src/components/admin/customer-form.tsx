@@ -110,11 +110,13 @@ export function CustomerForm({
         <CardBody className="space-y-4">
           <div className="flex flex-wrap gap-6">
             <Checkbox name="is_vip" label="VIP Customer" defaultChecked={customer?.is_vip} />
-            <Checkbox name="documents_verified" label="Documents Verified"
-              defaultChecked={customer?.documents_verified} />
             <Checkbox name="is_blacklisted" label="Blacklisted"
               defaultChecked={customer?.is_blacklisted} />
           </div>
+          <p className="text-xs text-slate-400">
+            Driver license &amp; insurance are reviewed in the Document
+            Verification panel on the customer&apos;s profile.
+          </p>
           <Field label="Internal Notes" error={err("notes")}>
             <Textarea name="notes" rows={3} defaultValue={customer?.notes ?? ""} />
           </Field>

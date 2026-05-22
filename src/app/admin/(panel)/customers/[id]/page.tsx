@@ -152,13 +152,7 @@ export default async function CustomerDetailPage({
 
         {/* Activity */}
         <div className="space-y-6 lg:col-span-2">
-          <CustomerDocuments
-            customerId={id}
-            dlFront={c.dl_front_url}
-            dlBack={c.dl_back_url}
-            insurance={c.insurance_doc_url}
-            verified={c.documents_verified}
-          />
+          <CustomerDocuments customer={c} />
 
           <div className="grid gap-4 sm:grid-cols-3">
             <MiniStat icon={ClipboardList} label="Total Rentals" value={String(reservations.length)} />

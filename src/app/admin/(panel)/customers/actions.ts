@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser, canWrite, logActivity } from "@/lib/auth";
 import { notifyCustomer } from "@/lib/notifications";
+import { syncDocumentsVerified } from "@/lib/documents";
 import { customerSchema } from "@/lib/validation";
 import { zodErrorState, fd, nullable, type ActionState } from "@/lib/form";
 
@@ -30,7 +31,6 @@ function readForm(form: FormData) {
     adjuster_phone: fd(form, "adjuster_phone"),
     is_vip: form.get("is_vip") === "on",
     is_blacklisted: form.get("is_blacklisted") === "on",
-    documents_verified: form.get("documents_verified") === "on",
     notes: fd(form, "notes"),
   };
 }
@@ -57,7 +57,6 @@ function toRow(v: ReturnType<typeof customerSchema.parse>) {
     adjuster_phone: nullable(v.adjuster_phone ?? ""),
     is_vip: v.is_vip ?? false,
     is_blacklisted: v.is_blacklisted ?? false,
-    documents_verified: v.documents_verified ?? false,
     notes: nullable(v.notes ?? ""),
   };
 }
@@ -196,46 +195,135 @@ export async function setCustomerDocument(
   return { ok: true };
 }
 
-/** Mark a customer's documents as verified (or back to pending). */
-export async function verifyCustomerDocuments(
+/** Approve or reject a customer's driver license. */
+export async function verifyDriverLicense(
   customerId: string,
-  verified: boolean,
+  decision: "verified" | "rejected",
+  reason?: string,
 ): Promise<ActionState> {
   const user = await getCurrentUser();
   if (!user || !canWrite(user.role, "customers")) {
     return { ok: false, error: "You do not have permission to verify documents." };
   }
+  if (decision === "rejected" && !reason?.trim()) {
+    return { ok: false, error: "Add a short reason so the customer knows what to fix." };
+  }
 
   const admin = createAdminClient();
   const { error } = await admin
     .from("customers")
-    .update({ documents_verified: verified })
+    .update({
+      dl_status: decision,
+      dl_verified_at: decision === "verified" ? new Date().toISOString() : null,
+      dl_rejection_reason: decision === "rejected" ? reason!.trim() : null,
+    })
     .eq("id", customerId);
   if (error) return { ok: false, error: error.message };
+  await syncDocumentsVerified(admin, customerId);
 
   await logActivity({
     userId: user.id,
-    action: verified ? "customer.documents_verified" : "customer.documents_unverified",
+    action: `customer.license_${decision}`,
     entityType: "customer",
     entityId: customerId,
   });
 
-  // Let the customer know once their documents are verified.
-  if (verified) {
-    const { data: cust } = await admin
-      .from("customers")
-      .select("first_name, email")
-      .eq("id", customerId)
-      .maybeSingle();
-    if (cust?.email) {
+  const { data: cust } = await admin
+    .from("customers")
+    .select("first_name, email")
+    .eq("id", customerId)
+    .maybeSingle();
+  if (cust?.email) {
+    if (decision === "verified") {
       await notifyCustomer({
-        type: "documents_verified",
+        type: "license_verified",
         to: cust.email,
-        subject: "✅ Your documents are verified — you're all set",
-        heading: "Documents Verified",
-        intro: `Hi ${cust.first_name}, your driver license and insurance have been reviewed and verified. You're all set for pickup — no further documents are needed.`,
+        subject: "✅ Your driver license is verified",
+        heading: "Driver License Verified",
+        intro: `Hi ${cust.first_name}, your driver license has been reviewed and verified. You're all set on the license side.`,
         rows: [],
-        cta: { label: "View My Account", path: "/account" },
+        cta: { label: "View My Documents", path: "/account/documents" },
+        customerId,
+      });
+    } else {
+      await notifyCustomer({
+        type: "license_rejected",
+        to: cust.email,
+        subject: "Action needed — driver license verification",
+        heading: "Driver License — Action Needed",
+        intro: `Hi ${cust.first_name}, we weren't able to verify your driver license. Please review the note below and re-upload.`,
+        rows: [{ label: "What to fix", value: reason!.trim() }],
+        cta: { label: "Update My Documents", path: "/account/documents" },
+        customerId,
+      });
+    }
+  }
+
+  revalidatePath(`/admin/customers/${customerId}`);
+  return { ok: true };
+}
+
+/** Approve or reject a customer's proof of insurance. */
+export async function verifyInsurance(
+  customerId: string,
+  decision: "verified" | "rejected",
+  reason?: string,
+): Promise<ActionState> {
+  const user = await getCurrentUser();
+  if (!user || !canWrite(user.role, "customers")) {
+    return { ok: false, error: "You do not have permission to verify documents." };
+  }
+  if (decision === "rejected" && !reason?.trim()) {
+    return { ok: false, error: "Add a short reason so the customer knows what to fix." };
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("customers")
+    .update({
+      insurance_status: decision,
+      insurance_verified_at:
+        decision === "verified" ? new Date().toISOString() : null,
+      insurance_rejection_reason:
+        decision === "rejected" ? reason!.trim() : null,
+    })
+    .eq("id", customerId);
+  if (error) return { ok: false, error: error.message };
+  await syncDocumentsVerified(admin, customerId);
+
+  await logActivity({
+    userId: user.id,
+    action: `customer.insurance_${decision}`,
+    entityType: "customer",
+    entityId: customerId,
+  });
+
+  const { data: cust } = await admin
+    .from("customers")
+    .select("first_name, email")
+    .eq("id", customerId)
+    .maybeSingle();
+  if (cust?.email) {
+    if (decision === "verified") {
+      await notifyCustomer({
+        type: "insurance_verified",
+        to: cust.email,
+        subject: "✅ Your insurance is verified",
+        heading: "Insurance Verified",
+        intro: `Hi ${cust.first_name}, your proof of insurance has been reviewed and verified.`,
+        rows: [],
+        cta: { label: "View My Documents", path: "/account/documents" },
+        customerId,
+      });
+    } else {
+      await notifyCustomer({
+        type: "insurance_rejected",
+        to: cust.email,
+        subject: "Action needed — insurance verification",
+        heading: "Insurance — Action Needed",
+        intro: `Hi ${cust.first_name}, we weren't able to verify your proof of insurance. Please review the note below and re-upload.`,
+        rows: [{ label: "What to fix", value: reason!.trim() }],
+        cta: { label: "Update My Documents", path: "/account/documents" },
         customerId,
       });
     }

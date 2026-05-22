@@ -41,15 +41,193 @@ export async function uploadMyDocument(formData: FormData): Promise<ActionState>
       file.type || "image/jpeg",
     );
     const admin = createAdminClient();
-    // A new upload resets verification — staff must re-review.
-    await admin
-      .from("customers")
-      .update({ [column]: result.url, documents_verified: false })
-      .eq("id", customer.id);
+    // A new upload resets verification for that document — staff must re-review.
+    const update: Record<string, unknown> = {
+      [column]: result.url,
+      documents_verified: false,
+    };
+    if (kind === "dl_front" || kind === "dl_back") {
+      update.dl_status = "pending";
+      update.dl_rejection_reason = null;
+    } else if (kind === "insurance") {
+      update.insurance_status = "pending";
+      update.insurance_rejection_reason = null;
+    }
+    await admin.from("customers").update(update).eq("id", customer.id);
     revalidatePath("/account/documents");
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Upload failed." };
+  }
+}
+
+/**
+ * Customer submits their driver-license details for manual review.
+ * Saves the typed details and flags the license as pending verification.
+ */
+export async function saveMyLicenseInfo(
+  formData: FormData,
+): Promise<ActionState> {
+  const customer = await getCurrentCustomer();
+  if (!customer) return { ok: false, error: "Please sign in to continue." };
+
+  const dlNumber = String(formData.get("dl_number") ?? "").trim();
+  const dlState = String(formData.get("dl_state") ?? "").trim();
+  const dlExpiration = String(formData.get("dl_expiration") ?? "").trim();
+
+  if (!dlNumber) return { ok: false, error: "Enter your driver license number." };
+  if (!dlExpiration) {
+    return { ok: false, error: "Enter your license expiration date." };
+  }
+  if (!customer.dl_front_url || !customer.dl_back_url) {
+    return {
+      ok: false,
+      error: "Upload a photo of both the front and back of your license first.",
+    };
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("customers")
+    .update({
+      dl_number: dlNumber,
+      dl_state: dlState || null,
+      dl_expiration: dlExpiration,
+      dl_status: "pending",
+      dl_rejection_reason: null,
+      dl_verification_method: "manual",
+      documents_verified: false,
+    })
+    .eq("id", customer.id);
+  if (error) return { ok: false, error: error.message };
+
+  await notifyCompany({
+    type: "documents_submitted",
+    subject: `📋 Driver license submitted — ${customer.first_name} ${customer.last_name}`,
+    heading: "Driver License Submitted",
+    intro: `${customer.first_name} ${customer.last_name} submitted their driver license for verification. Please review it in the admin panel.`,
+    rows: [
+      { label: "Customer", value: `${customer.first_name} ${customer.last_name}` },
+      { label: "Email", value: customer.email },
+      { label: "License #", value: dlNumber },
+      ...(dlState ? [{ label: "Issuing state", value: dlState }] : []),
+      { label: "Expires", value: formatDateTime(dlExpiration) },
+    ],
+    cta: {
+      label: "Review in Admin Panel",
+      path: `/admin/customers/${customer.id}`,
+    },
+    customerId: customer.id,
+  });
+
+  revalidatePath("/account/documents");
+  return { ok: true };
+}
+
+/**
+ * Customer submits their insurance details for manual review.
+ * Saves the typed details and flags insurance as pending verification.
+ */
+export async function saveMyInsuranceInfo(
+  formData: FormData,
+): Promise<ActionState> {
+  const customer = await getCurrentCustomer();
+  if (!customer) return { ok: false, error: "Please sign in to continue." };
+
+  const company = String(formData.get("insurance_company") ?? "").trim();
+  const policyNo = String(formData.get("insurance_policy_no") ?? "").trim();
+  const expiration = String(formData.get("insurance_expiration") ?? "").trim();
+
+  if (!company) return { ok: false, error: "Enter your insurance company." };
+  if (!customer.insurance_doc_url) {
+    return {
+      ok: false,
+      error: "Upload a photo of your proof of insurance first.",
+    };
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("customers")
+    .update({
+      insurance_company: company,
+      insurance_policy_no: policyNo || null,
+      insurance_expiration: expiration || null,
+      insurance_status: "pending",
+      insurance_rejection_reason: null,
+      documents_verified: false,
+    })
+    .eq("id", customer.id);
+  if (error) return { ok: false, error: error.message };
+
+  await notifyCompany({
+    type: "documents_submitted",
+    subject: `📋 Insurance submitted — ${customer.first_name} ${customer.last_name}`,
+    heading: "Proof of Insurance Submitted",
+    intro: `${customer.first_name} ${customer.last_name} submitted their proof of insurance for verification. Please review it in the admin panel.`,
+    rows: [
+      { label: "Customer", value: `${customer.first_name} ${customer.last_name}` },
+      { label: "Email", value: customer.email },
+      { label: "Insurance company", value: company },
+      ...(policyNo ? [{ label: "Policy #", value: policyNo }] : []),
+      ...(expiration
+        ? [{ label: "Expires", value: formatDateTime(expiration) }]
+        : []),
+    ],
+    cta: {
+      label: "Review in Admin Panel",
+      path: `/admin/customers/${customer.id}`,
+    },
+    customerId: customer.id,
+  });
+
+  revalidatePath("/account/documents");
+  return { ok: true };
+}
+
+/**
+ * Start an instant ID check with Stripe Identity. Creates a hosted
+ * verification session and returns its URL for the browser to open.
+ */
+export async function startIdentityVerification(): Promise<
+  ActionState & { url?: string }
+> {
+  const customer = await getCurrentCustomer();
+  if (!customer) return { ok: false, error: "Please sign in to continue." };
+  if (!stripeConfigured()) {
+    return { ok: false, error: "Instant verification is not available right now." };
+  }
+
+  try {
+    const session = await getStripe().identity.verificationSessions.create({
+      type: "document",
+      metadata: { customer_id: customer.id },
+      options: { document: { require_matching_selfie: true } },
+      return_url: `${await baseUrl()}/account/documents`,
+    });
+    if (!session.url) {
+      return { ok: false, error: "Could not start verification. Please try again." };
+    }
+    const admin = createAdminClient();
+    await admin
+      .from("customers")
+      .update({
+        stripe_verification_session_id: session.id,
+        dl_status: "pending",
+        dl_rejection_reason: null,
+        dl_verification_method: "stripe_identity",
+        documents_verified: false,
+      })
+      .eq("id", customer.id);
+    return { ok: true, url: session.url };
+  } catch (e) {
+    return {
+      ok: false,
+      error:
+        e instanceof Error
+          ? e.message
+          : "Could not start instant verification.",
+    };
   }
 }
 

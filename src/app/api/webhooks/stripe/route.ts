@@ -3,6 +3,7 @@ import type Stripe from "stripe";
 import { getStripe, fromCents } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notifyCustomer, notifyCompany } from "@/lib/notifications";
+import { syncDocumentsVerified } from "@/lib/documents";
 import { formatCurrency } from "@/lib/utils";
 
 export const runtime = "nodejs";
@@ -187,6 +188,99 @@ export async function POST(request: Request) {
               authorized_at: new Date().toISOString(),
             })
             .eq("id", dep.id);
+        }
+      }
+    } else if (event.type === "identity.verification_session.verified") {
+      // Stripe Identity confirmed the customer's ID document.
+      const vs = event.data.object as Stripe.Identity.VerificationSession;
+      const customerId = vs.metadata?.customer_id;
+      if (customerId) {
+        const update: Record<string, unknown> = {
+          dl_status: "verified",
+          dl_verification_method: "stripe_identity",
+          dl_verified_at: new Date().toISOString(),
+          dl_rejection_reason: null,
+          stripe_verification_session_id: vs.id,
+        };
+        // Best-effort: copy license number / expiry from the report.
+        try {
+          const full = await getStripe().identity.verificationSessions.retrieve(
+            vs.id,
+            { expand: ["last_verification_report"] },
+          );
+          const report = full.last_verification_report;
+          const doc =
+            report && typeof report !== "string"
+              ? (
+                  report as unknown as {
+                    document?: {
+                      number?: string | null;
+                      expiration_date?: {
+                        day: number;
+                        month: number;
+                        year: number;
+                      } | null;
+                    };
+                  }
+                ).document
+              : null;
+          if (doc?.number) update.dl_number = doc.number;
+          if (doc?.expiration_date) {
+            const e = doc.expiration_date;
+            update.dl_expiration = `${e.year}-${String(e.month).padStart(2, "0")}-${String(e.day).padStart(2, "0")}`;
+          }
+        } catch {
+          /* enrichment is optional */
+        }
+        await admin.from("customers").update(update).eq("id", customerId);
+        await syncDocumentsVerified(admin, customerId);
+        const { data: cust } = await admin
+          .from("customers")
+          .select("first_name, email")
+          .eq("id", customerId)
+          .maybeSingle();
+        if (cust?.email) {
+          await notifyCustomer({
+            type: "license_verified",
+            to: cust.email,
+            subject: "✅ Your driver license is verified",
+            heading: "Driver License Verified",
+            intro: `Hi ${cust.first_name}, your driver license has been verified instantly — you're all set on the license side.`,
+            rows: [],
+            cta: { label: "View My Documents", path: "/account/documents" },
+            customerId,
+          });
+        }
+      }
+    } else if (event.type === "identity.verification_session.requires_input") {
+      // Stripe Identity could not verify the document automatically.
+      const vs = event.data.object as Stripe.Identity.VerificationSession;
+      const customerId = vs.metadata?.customer_id;
+      if (customerId) {
+        const reason =
+          vs.last_error?.reason ??
+          "We couldn't verify your license automatically. Please try again or upload photos for manual review.";
+        await admin
+          .from("customers")
+          .update({ dl_status: "rejected", dl_rejection_reason: reason })
+          .eq("id", customerId);
+        await syncDocumentsVerified(admin, customerId);
+        const { data: cust } = await admin
+          .from("customers")
+          .select("first_name, email")
+          .eq("id", customerId)
+          .maybeSingle();
+        if (cust?.email) {
+          await notifyCustomer({
+            type: "license_rejected",
+            to: cust.email,
+            subject: "Action needed — driver license verification",
+            heading: "Driver License — Action Needed",
+            intro: `Hi ${cust.first_name}, we couldn't automatically verify your driver license. You can try the instant check again, or upload clear photos for our team to review manually.`,
+            rows: [{ label: "Reason", value: reason }],
+            cta: { label: "Try Again", path: "/account/documents" },
+            customerId,
+          });
         }
       }
     }

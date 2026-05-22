@@ -175,16 +175,20 @@ export async function GET(request: Request) {
       .gte("pickup_at", today.start)
       .lte("pickup_at", in3.end);
     for (const r of (docPending as unknown as ReservationWithRelations[]) ?? []) {
+      const c = r.customer;
+      const docsComplete =
+        c?.dl_status === "verified" &&
+        (!r.insurance_required || c?.insurance_status === "verified");
       if (
-        !r.customer?.email ||
-        r.customer.documents_verified ||
+        !c?.email ||
+        docsComplete ||
         (await alreadySent("document_reminder", r.id))
       )
         continue;
       await sendNotification({
         type: "document_reminder",
         templateKey: "document_reminder",
-        to: r.customer.email,
+        to: c.email,
         variables: {
           customer_name: name(r),
           reservation_number: r.reservation_number,

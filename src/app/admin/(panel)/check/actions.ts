@@ -65,8 +65,8 @@ export async function submitCheckout(
   if (!user || !canWrite(user.role, "checkinout")) {
     return { ok: false, error: "You do not have permission to perform check-outs." };
   }
-  if (!payload.licenseVerified || !payload.insuranceVerified) {
-    return { ok: false, error: "Verify the driver license and insurance before check-out." };
+  if (!payload.licenseVerified) {
+    return { ok: false, error: "Confirm you have checked the driver license before check-out." };
   }
   if (!payload.customerSignatureUrl) {
     return { ok: false, error: "A customer signature is required." };
@@ -79,13 +79,73 @@ export async function submitCheckout(
 
   const { data: resRow } = await admin
     .from("reservations")
-    .select("*, vehicle:vehicles(*)")
+    .select(
+      "*, vehicle:vehicles(*), customer:customers(dl_status,insurance_status,dl_expiration,insurance_expiration)",
+    )
     .eq("id", reservationId)
     .maybeSingle();
-  const reservation = resRow as (Reservation & { vehicle: Vehicle | null }) | null;
+  const reservation = resRow as
+    | (Reservation & {
+        vehicle: Vehicle | null;
+        customer: {
+          dl_status: string;
+          insurance_status: string;
+          dl_expiration: string | null;
+          insurance_expiration: string | null;
+        } | null;
+      })
+    | null;
   if (!reservation) return { ok: false, error: "Reservation not found." };
   if (!["confirmed", "pending"].includes(reservation.status)) {
     return { ok: false, error: `This reservation is ${reservation.status} and cannot be checked out.` };
+  }
+
+  // Document-verification gate — the car cannot leave the lot until the
+  // customer's driver license (and insurance, if required) is verified.
+  const cust = reservation.customer;
+  if (cust) {
+    if (cust.dl_status !== "verified") {
+      return {
+        ok: false,
+        error:
+          "The customer's driver license is not verified. Verify it on the customer's profile before check-out.",
+      };
+    }
+    if (
+      cust.dl_expiration &&
+      new Date(cust.dl_expiration).getTime() < Date.now()
+    ) {
+      return {
+        ok: false,
+        error:
+          "The customer's driver license has expired. A valid license is required before check-out.",
+      };
+    }
+    if (reservation.insurance_required) {
+      if (cust.insurance_status !== "verified") {
+        return {
+          ok: false,
+          error:
+            "Proof of insurance is required for this rental but has not been verified yet.",
+        };
+      }
+      if (
+        cust.insurance_expiration &&
+        new Date(cust.insurance_expiration).getTime() < Date.now()
+      ) {
+        return {
+          ok: false,
+          error:
+            "The customer's insurance has expired. Valid insurance is required before check-out.",
+        };
+      }
+    }
+  }
+  if (reservation.insurance_required && !payload.insuranceVerified) {
+    return {
+      ok: false,
+      error: "Confirm you have checked the customer's insurance before check-out.",
+    };
   }
 
   // Inspection record

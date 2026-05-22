@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   ArrowLeft, Pencil, User, Car, CalendarRange, FileText, CreditCard,
-  ShieldCheck, Camera, Siren, Mail, Activity,
+  ShieldCheck, ShieldAlert, AlertTriangle, Camera, Siren, Mail, Activity,
 } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getTaxRate } from "@/lib/data/settings";
@@ -15,6 +15,10 @@ import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { ReservationStatusActions } from "@/components/admin/reservation-status-actions";
 import { PaymentManager } from "@/components/admin/payment-manager";
 import { RequestPanel } from "@/components/admin/request-panel";
+import { InsuranceRequiredToggle } from "@/components/admin/insurance-required-toggle";
+import {
+  DOCUMENT_STATUS_LABEL, DOCUMENT_STATUS_TONE, isExpired,
+} from "@/lib/documents";
 import {
   RESERVATION_STATUS, PAYMENT_STATUS, RESERVATION_SOURCES,
 } from "@/lib/constants";
@@ -137,6 +141,15 @@ export default async function ReservationDetailPage({
   const r = reservation;
   const customer = r.customer;
   const vehicle = r.vehicle;
+
+  // Document-verification readiness for check-out.
+  const dlExpired = isExpired(customer?.dl_expiration);
+  const insExpired = isExpired(customer?.insurance_expiration);
+  const dlVerified = customer?.dl_status === "verified" && !dlExpired;
+  const insVerified =
+    customer?.insurance_status === "verified" && !insExpired;
+  const pickupReady =
+    !!customer && dlVerified && (!r.insurance_required || insVerified);
 
   // Project the financial impact of each pending request so staff can see
   // exactly how much more (or less) they'll collect before approving.
@@ -266,44 +279,76 @@ export default async function ReservationDetailPage({
             </Card>
           </div>
 
-          {/* CUSTOMER DOCUMENTS */}
+          {/* CUSTOMER DOCUMENTS & VERIFICATION */}
           <Card>
             <CardHeader>
               <CardTitle>
                 <span className="flex items-center gap-2">
                   <ShieldCheck className="h-4 w-4 text-gold-600" />
-                  Customer Documents
+                  Documents & Verification
                 </span>
               </CardTitle>
               {customer && (
-                <Badge tone={customer.documents_verified ? "green" : "amber"}>
-                  {customer.documents_verified
-                    ? "Verified"
-                    : "Not verified"}
+                <Badge tone={pickupReady ? "green" : "amber"}>
+                  {pickupReady ? "Ready for pickup" : "Pickup blocked"}
                 </Badge>
               )}
             </CardHeader>
             <CardBody className="space-y-4">
               {customer ? (
                 <>
-                  <div className="grid gap-4 sm:grid-cols-3">
-                    <DocThumb
-                      label="Driver License — Front"
-                      url={customer.dl_front_url}
-                    />
-                    <DocThumb
-                      label="Driver License — Back"
-                      url={customer.dl_back_url}
-                    />
-                    <DocThumb
-                      label="Proof of Insurance"
-                      url={customer.insurance_doc_url}
-                    />
-                  </div>
-                  {(customer.dl_number ||
-                    customer.dl_state ||
-                    customer.dl_expiration) && (
-                    <div className="grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-3">
+                  {/* Readiness banner */}
+                  {pickupReady ? (
+                    <div className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                      <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
+                      <span>
+                        All required documents are verified — this rental can be
+                        checked out.
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                      <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                      <span>
+                        Check-out is blocked until the required documents are
+                        verified.{" "}
+                        <Link
+                          href={`/admin/customers/${customer.id}`}
+                          className="font-semibold underline"
+                        >
+                          Review &amp; verify on the customer&apos;s profile →
+                        </Link>
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Driver license */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold text-slate-800">
+                        Driver License
+                      </p>
+                      <Badge tone={DOCUMENT_STATUS_TONE[customer.dl_status]}>
+                        {DOCUMENT_STATUS_LABEL[customer.dl_status]}
+                      </Badge>
+                    </div>
+                    {dlExpired && (
+                      <p className="flex items-center gap-1.5 text-xs font-medium text-rose-600">
+                        <AlertTriangle className="h-3.5 w-3.5" /> License has
+                        expired
+                      </p>
+                    )}
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <DocThumb
+                        label="License — Front"
+                        url={customer.dl_front_url}
+                      />
+                      <DocThumb
+                        label="License — Back"
+                        url={customer.dl_back_url}
+                      />
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-3">
                       <Info
                         icon={CreditCard}
                         label="License #"
@@ -311,12 +356,12 @@ export default async function ReservationDetailPage({
                       />
                       <Info
                         icon={CreditCard}
-                        label="License State"
+                        label="State"
                         value={customer.dl_state || "—"}
                       />
                       <Info
                         icon={CalendarRange}
-                        label="License Expires"
+                        label="Expires"
                         value={
                           customer.dl_expiration
                             ? formatDate(customer.dl_expiration)
@@ -324,7 +369,62 @@ export default async function ReservationDetailPage({
                         }
                       />
                     </div>
-                  )}
+                  </div>
+
+                  {/* Insurance */}
+                  <div className="space-y-2 border-t border-slate-100 pt-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold text-slate-800">
+                        Proof of Insurance
+                      </p>
+                      <Badge
+                        tone={DOCUMENT_STATUS_TONE[customer.insurance_status]}
+                      >
+                        {DOCUMENT_STATUS_LABEL[customer.insurance_status]}
+                      </Badge>
+                    </div>
+                    {insExpired && (
+                      <p className="flex items-center gap-1.5 text-xs font-medium text-rose-600">
+                        <AlertTriangle className="h-3.5 w-3.5" /> Insurance has
+                        expired
+                      </p>
+                    )}
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <DocThumb
+                        label="Insurance Document"
+                        url={customer.insurance_doc_url}
+                      />
+                      <div className="grid content-start gap-3">
+                        <Info
+                          icon={FileText}
+                          label="Company"
+                          value={customer.insurance_company || "—"}
+                        />
+                        <Info
+                          icon={CreditCard}
+                          label="Policy #"
+                          value={customer.insurance_policy_no || "—"}
+                        />
+                        <Info
+                          icon={CalendarRange}
+                          label="Expires"
+                          value={
+                            customer.insurance_expiration
+                              ? formatDate(customer.insurance_expiration)
+                              : "—"
+                          }
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Per-reservation insurance requirement */}
+                  <div className="border-t border-slate-100 pt-4">
+                    <InsuranceRequiredToggle
+                      reservationId={r.id}
+                      required={r.insurance_required}
+                    />
+                  </div>
                 </>
               ) : (
                 <p className="text-sm text-slate-400">

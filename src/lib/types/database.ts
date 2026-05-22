@@ -25,6 +25,9 @@ export type PaymentRecordStatus =
 export type DepositStatus =
   | "pending" | "authorized" | "captured" | "partially_captured" | "released" | "refunded";
 export type InspectionType = "checkout" | "checkin";
+/** Verification state of a customer document (driver license / insurance). */
+export type DocumentStatus =
+  | "not_submitted" | "pending" | "verified" | "rejected";
 export type DamageSeverity = "minor" | "moderate" | "major";
 export type RepairStatus = "reported" | "in_repair" | "repaired" | "not_repaired";
 export type MaintenanceType =
@@ -108,6 +111,15 @@ export interface Customer {
   blacklist_reason: string | null;
   is_vip: boolean;
   documents_verified: boolean;
+  dl_status: DocumentStatus;
+  insurance_status: DocumentStatus;
+  dl_rejection_reason: string | null;
+  insurance_rejection_reason: string | null;
+  dl_verified_at: string | null;
+  insurance_verified_at: string | null;
+  insurance_expiration: string | null;
+  dl_verification_method: string | null;
+  stripe_verification_session_id: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -240,6 +252,7 @@ export interface Reservation {
   payment_status: PaymentStatus;
   status: ReservationStatus;
   source: ReservationSource;
+  insurance_required: boolean;
   notes: string | null;
   internal_notes: string | null;
   created_by: string | null;

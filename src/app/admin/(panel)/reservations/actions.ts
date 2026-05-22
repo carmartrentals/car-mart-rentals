@@ -317,3 +317,36 @@ export async function setReservationStatus(
   revalidatePath("/admin/reservations");
   revalidatePath(`/admin/reservations/${reservationId}`);
 }
+
+/**
+ * Toggle whether proof of insurance is required for a specific reservation.
+ * When required, check-out is blocked until the customer's insurance is verified.
+ */
+export async function setReservationInsuranceRequired(
+  reservationId: string,
+  required: boolean,
+): Promise<ActionState> {
+  const user = await getCurrentUser();
+  if (!user || !canWrite(user.role, "reservations")) {
+    return { ok: false, error: "You do not have permission to edit reservations." };
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("reservations")
+    .update({ insurance_required: required })
+    .eq("id", reservationId);
+  if (error) return { ok: false, error: error.message };
+
+  await logActivity({
+    userId: user.id,
+    action: required
+      ? "reservation.insurance_required_on"
+      : "reservation.insurance_required_off",
+    entityType: "reservation",
+    entityId: reservationId,
+  });
+
+  revalidatePath(`/admin/reservations/${reservationId}`);
+  return { ok: true };
+}
