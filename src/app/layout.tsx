@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
 import { COMPANY, SITE_URL } from "@/lib/constants";
 import "./globals.css";
@@ -47,6 +47,15 @@ export const metadata: Metadata = {
     title: `${COMPANY.name} — ${COMPANY.tagline}`,
     description: SITE_DESCRIPTION,
   },
+  appleWebApp: {
+    capable: true,
+    title: COMPANY.name,
+    statusBarStyle: "black-translucent",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0b0c11",
 };
 
 export default function RootLayout({
