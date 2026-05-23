@@ -6,7 +6,7 @@ import {
   LayoutDashboard, CalendarDays, ClipboardList, Car, Wrench,
   AlertTriangle, Users, FileText, CreditCard, BarChart3, Settings,
   ClipboardCheck, Wallet, Tag, UserPlus, Siren, Satellite,
-  MapPin, Mail, UserCog, Globe, Star, ShieldAlert, History, X, Sparkles,
+  MapPin, Mail, UserCog, Globe, Star, ShieldAlert, History, X, Sparkles, Gift,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BrandLogo } from "@/components/brand-logo";
@@ -45,6 +45,7 @@ const NAV: { section: string; items: NavItem[] }[] = [
       { href: "/admin/customers", label: "Customers", icon: Users },
       { href: "/admin/leads", label: "Leads", icon: UserPlus },
       { href: "/admin/reviews", label: "Reviews", icon: Star },
+      { href: "/admin/referrals", label: "Referrals", icon: Gift },
     ],
   },
   {

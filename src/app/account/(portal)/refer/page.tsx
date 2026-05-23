@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Gift, Share2, Users } from "lucide-react";
 import { getCurrentCustomer } from "@/lib/account";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getOrCreateReferralCode, REFERRAL_REWARD_TEXT } from "@/lib/referral";
+import { getOrCreateReferralCode, getReferralProgram } from "@/lib/referral";
 import { SITE_URL } from "@/lib/constants";
 import { CopyButton } from "@/components/account/copy-button";
 
@@ -12,6 +12,9 @@ export default async function ReferPage() {
   if (!customer) notFound();
 
   const admin = createAdminClient();
+  const program = await getReferralProgram();
+  if (!program.enabled) notFound();
+
   const code = await getOrCreateReferralCode(admin, customer.id);
   const { count } = await admin
     .from("referrals")
@@ -19,6 +22,7 @@ export default async function ReferPage() {
     .eq("referrer_id", customer.id);
   const referralCount = count ?? 0;
   const shareUrl = `${SITE_URL}/vehicles?ref=${code}`;
+  const REFERRAL_REWARD_TEXT = program.reward_label;
 
   const steps = [
     {

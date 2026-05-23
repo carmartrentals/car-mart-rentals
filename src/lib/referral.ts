@@ -1,9 +1,25 @@
 import type { createAdminClient } from "@/lib/supabase/admin";
+import { getSetting } from "@/lib/data/settings";
 
 type Admin = ReturnType<typeof createAdminClient>;
 
-/** What a successful referral earns — shown to customers. */
+/** Default reward text — overridden by the admin in Settings. */
 export const REFERRAL_REWARD_TEXT = "$25 off";
+
+export interface ReferralProgram {
+  enabled: boolean;
+  reward_amount: number;
+  reward_label: string;
+}
+
+/** Effective referral program settings — admin-configurable. */
+export async function getReferralProgram(): Promise<ReferralProgram> {
+  return getSetting<ReferralProgram>("referral_program", {
+    enabled: true,
+    reward_amount: 25,
+    reward_label: REFERRAL_REWARD_TEXT,
+  });
+}
 
 /** Generate a short, easy-to-read referral code (no ambiguous characters). */
 export function generateReferralCode(): string {
