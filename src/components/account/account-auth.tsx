@@ -136,6 +136,17 @@ export function AccountAuth({ mode }: { mode: "login" | "register" }) {
         {isRegister ? "Create Account" : "Sign In"}
       </button>
 
+      {!isRegister && (
+        <p className="text-center text-sm text-slate-400">
+          <Link
+            href="/account/forgot-password"
+            className="font-medium text-gold-300 hover:underline"
+          >
+            Forgot your password?
+          </Link>
+        </p>
+      )}
+
       <p className="text-center text-sm text-slate-400">
         {isRegister ? (
           <>
