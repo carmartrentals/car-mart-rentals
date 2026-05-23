@@ -191,13 +191,11 @@ export function VehicleForm({
         <CardBody className="grid gap-4">
           {/* Hidden inputs feed the existing server action — main image first, gallery after. */}
           <input type="hidden" name="main_image_url" value={mainImage} />
-          {!isEdit && (
-            <input
-              type="hidden"
-              name="gallery_urls"
-              value={gallery.join("\n")}
-            />
-          )}
+          <input
+            type="hidden"
+            name="gallery_urls"
+            value={gallery.join("\n")}
+          />
 
           <div>
             <PhotoUpload

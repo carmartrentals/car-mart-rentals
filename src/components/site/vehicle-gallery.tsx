@@ -11,9 +11,11 @@ const FALLBACK =
 
 export function VehicleGallery({
   images,
+  mainImageUrl,
   name,
 }: {
   images: VehicleImage[];
+  mainImageUrl?: string | null;
   name: string;
 }) {
   const sorted = [...images].sort(
@@ -21,7 +23,14 @@ export function VehicleGallery({
       Number(b.is_primary) - Number(a.is_primary) ||
       a.sort_order - b.sort_order,
   );
-  const urls = sorted.length ? sorted.map((i) => i.url) : [FALLBACK];
+  // Prefer the vehicle_images gallery; fall back to the main image; finally a
+  // stock placeholder. This guarantees customers never see a generic Porsche
+  // shot in place of the actual car.
+  const urls = sorted.length
+    ? sorted.map((i) => i.url)
+    : mainImageUrl
+      ? [mainImageUrl]
+      : [FALLBACK];
   const [active, setActive] = useState(0);
   const [lightbox, setLightbox] = useState(false);
   const multi = urls.length > 1;

@@ -16,6 +16,47 @@ function parseList(value: string): string[] {
     .filter(Boolean);
 }
 
+/**
+ * Replace this vehicle's photos in vehicle_images so the website gallery
+ * always matches what the admin uploaded. The main image is marked primary;
+ * gallery URLs follow in order.
+ */
+async function syncVehicleImages(
+  admin: ReturnType<typeof createAdminClient>,
+  vehicleId: string,
+  mainImageUrl: string | null | undefined,
+  galleryUrls: string[],
+): Promise<void> {
+  // Clean slate so we don't accumulate stale rows.
+  await admin.from("vehicle_images").delete().eq("vehicle_id", vehicleId);
+
+  const rows = [
+    ...(mainImageUrl
+      ? [
+          {
+            vehicle_id: vehicleId,
+            url: mainImageUrl,
+            is_primary: true,
+            sort_order: 0,
+          },
+        ]
+      : []),
+    ...galleryUrls.map((url, i) => ({
+      vehicle_id: vehicleId,
+      url,
+      is_primary: false,
+      sort_order: i + 1,
+    })),
+  ];
+  if (rows.length) {
+    const { error } = await admin.from("vehicle_images").insert(rows);
+    if (error) {
+      // Surface this in server logs so it's not silently swallowed again.
+      console.error("syncVehicleImages: insert failed", error.message);
+    }
+  }
+}
+
 function readVehicleForm(form: FormData) {
   return {
     year: fd(form, "year"),
@@ -136,20 +177,9 @@ export async function createVehicle(
     return { ok: false, error: error?.message ?? "Could not create vehicle." };
   }
 
-  // Gallery images
+  // Sync the photo gallery — main image first, then any uploaded extras.
   const gallery = parseList(fd(form, "gallery_urls"));
-  const images = [
-    ...(v.main_image_url
-      ? [{ vehicle_id: created.id, url: v.main_image_url, is_primary: true, sort_order: 0 }]
-      : []),
-    ...gallery.map((url, i) => ({
-      vehicle_id: created.id,
-      url,
-      is_primary: false,
-      sort_order: i + 1,
-    })),
-  ];
-  if (images.length) await admin.from("vehicle_images").insert(images);
+  await syncVehicleImages(admin, created.id, v.main_image_url, gallery);
 
   await logActivity({
     userId: user.id,
@@ -219,6 +249,10 @@ export async function updateVehicle(
     .eq("id", vehicleId);
 
   if (error) return { ok: false, error: error.message };
+
+  // Keep the public gallery in sync with the admin's photo selection.
+  const gallery = parseList(fd(form, "gallery_urls"));
+  await syncVehicleImages(admin, vehicleId, v.main_image_url, gallery);
 
   await logActivity({
     userId: user.id,

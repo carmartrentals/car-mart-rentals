@@ -113,7 +113,11 @@ export default async function VehicleDetailPage({
         <div className="mt-5 grid gap-8 lg:grid-cols-[1.6fr_1fr]">
           {/* ----------------------------------------------------------- MAIN */}
           <div>
-            <VehicleGallery images={vehicle.vehicle_images} name={name} />
+            <VehicleGallery
+              images={vehicle.vehicle_images}
+              mainImageUrl={vehicle.main_image_url}
+              name={name}
+            />
 
             <div className="mt-6 glass rounded-2xl p-6">
               <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-gold-300">

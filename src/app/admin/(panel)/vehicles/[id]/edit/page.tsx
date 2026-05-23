@@ -15,6 +15,7 @@ export default async function EditVehiclePage({
   const { id } = await params;
 
   let vehicle: Vehicle | null = null;
+  let galleryUrls: string[] = [];
   try {
     const admin = createAdminClient();
     const { data } = await admin
@@ -23,6 +24,19 @@ export default async function EditVehiclePage({
       .eq("id", id)
       .maybeSingle();
     vehicle = data as Vehicle | null;
+
+    if (vehicle) {
+      const { data: imgs } = await admin
+        .from("vehicle_images")
+        .select("url, is_primary, sort_order")
+        .eq("vehicle_id", id)
+        .order("sort_order");
+      galleryUrls = ((imgs as
+        | { url: string; is_primary: boolean; sort_order: number }[]
+        | null) ?? [])
+        .filter((i) => !i.is_primary)
+        .map((i) => i.url);
+    }
   } catch {
     notFound();
   }
@@ -42,7 +56,7 @@ export default async function EditVehiclePage({
         title={`Edit ${vehicle.year} ${vehicle.make} ${vehicle.model}`}
         subtitle="Update vehicle details, pricing and status."
       />
-      <VehicleForm action={action} vehicle={vehicle} />
+      <VehicleForm action={action} vehicle={vehicle} galleryUrls={galleryUrls} />
     </>
   );
 }
