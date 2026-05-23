@@ -1,13 +1,15 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
-import { Save } from "lucide-react";
+import { Save, Star, StarOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea, Select, Field } from "@/components/ui/field";
 import { Card, CardHeader, CardTitle, CardBody } from "@/components/ui/card";
 import { Alert } from "@/components/ui/misc";
 import { AiDescriptionField } from "@/components/admin/ai-description-field";
+import { PhotoUpload } from "@/components/admin/photo-upload";
 import { initialActionState, type ActionState } from "@/lib/form";
 import { VEHICLE_CATEGORIES, FUEL_TYPES, VEHICLE_STATUS } from "@/lib/constants";
 import type { Vehicle } from "@/lib/types/database";
@@ -26,6 +28,27 @@ export function VehicleForm({
   const [state, formAction, pending] = useActionState(action, initialActionState);
   const isEdit = !!vehicle;
   const err = (f: string) => state.fieldErrors?.[f]?.[0];
+
+  // Photo state — main image + gallery — uploaded as real files via PhotoUpload.
+  const [mainImage, setMainImage] = useState<string>(vehicle?.main_image_url ?? "");
+  const [gallery, setGallery] = useState<string[]>(galleryUrls ?? []);
+  // Combined list lets the user pick any uploaded shot as the main one.
+  const allPhotos = [mainImage, ...gallery].filter(Boolean);
+  function handlePhotoChange(next: string[]) {
+    if (next.length === 0) {
+      setMainImage("");
+      setGallery([]);
+      return;
+    }
+    // If the user removed the current main, promote the first remaining shot.
+    if (!next.includes(mainImage)) {
+      setMainImage(next[0]);
+      setGallery(next.slice(1));
+    } else {
+      setMainImage(mainImage || next[0]);
+      setGallery(next.filter((u) => u !== (mainImage || next[0])));
+    }
+  }
 
   return (
     <form action={formAction} className="space-y-6">
@@ -163,18 +186,78 @@ export function VehicleForm({
       {/* MEDIA & DETAILS */}
       <Card>
         <CardHeader>
-          <CardTitle>Media & Description</CardTitle>
+          <CardTitle>Photos & Description</CardTitle>
         </CardHeader>
         <CardBody className="grid gap-4">
-          <Field label="Main Image URL" error={err("main_image_url")}>
-            <Input name="main_image_url" defaultValue={vehicle?.main_image_url ?? ""}
-              placeholder="https://..." />
-          </Field>
+          {/* Hidden inputs feed the existing server action — main image first, gallery after. */}
+          <input type="hidden" name="main_image_url" value={mainImage} />
           {!isEdit && (
-            <Field label="Gallery Image URLs" hint="One URL per line">
-              <Textarea name="gallery_urls" rows={3} placeholder={"https://...\nhttps://..."} />
-            </Field>
+            <input
+              type="hidden"
+              name="gallery_urls"
+              value={gallery.join("\n")}
+            />
           )}
+
+          <div>
+            <PhotoUpload
+              label="Vehicle Photos"
+              bucket="vehicle-photos"
+              folder={vehicle?.id ? `${vehicle.id}` : "new"}
+              urls={allPhotos}
+              onChange={handlePhotoChange}
+              max={20}
+            />
+            {allPhotos.length > 0 && (
+              <p className="mt-2 text-xs text-slate-500">
+                The first photo is shown as the main image on the website. Click
+                a thumbnail below to make it the main image.
+              </p>
+            )}
+            {allPhotos.length > 1 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {allPhotos.map((url) => (
+                  <button
+                    key={url}
+                    type="button"
+                    onClick={() => {
+                      setMainImage(url);
+                      setGallery(allPhotos.filter((u) => u !== url));
+                    }}
+                    className={`relative h-14 w-20 overflow-hidden rounded-md border-2 transition-colors ${
+                      url === mainImage
+                        ? "border-gold-500"
+                        : "border-transparent opacity-70 hover:opacity-100"
+                    }`}
+                    title={
+                      url === mainImage ? "Main image" : "Make this the main image"
+                    }
+                  >
+                    <Image
+                      src={url}
+                      alt=""
+                      fill
+                      sizes="80px"
+                      className="object-cover"
+                    />
+                    <span className="absolute right-1 top-1 rounded-full bg-black/60 p-0.5 text-white">
+                      {url === mainImage ? (
+                        <Star className="h-3 w-3 fill-current" />
+                      ) : (
+                        <StarOff className="h-3 w-3" />
+                      )}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {state.fieldErrors?.main_image_url && (
+              <p className="mt-1.5 text-xs text-rose-600">
+                {state.fieldErrors.main_image_url[0]}
+              </p>
+            )}
+          </div>
+
           <Field label="Features" hint="One feature per line, or comma-separated">
             <Textarea name="features" rows={3}
               defaultValue={vehicle?.features.join("\n") ?? ""}
