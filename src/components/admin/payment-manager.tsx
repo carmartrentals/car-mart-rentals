@@ -39,6 +39,11 @@ export function PaymentManager({
   const [modal, setModal] = useState<"record" | "capture" | null>(null);
   const [linkUrl, setLinkUrl] = useState<string | null>(null);
 
+  // Refund modal — controlled separately because it carries per-payment context.
+  const [refundFor, setRefundFor] = useState<Payment | null>(null);
+  const [refundAmount, setRefundAmount] = useState("");
+  const [refundReason, setRefundReason] = useState("");
+
   // Record-payment form
   const [amount, setAmount] = useState(String(balanceDue || ""));
   const [method, setMethod] = useState<PaymentMethod>("cash");
@@ -116,7 +121,11 @@ export function PaymentManager({
                   <TD className="text-right">
                     {p.payment_type === "payment" && p.status === "succeeded" && (
                       <button
-                        onClick={() => run(() => refundPayment(p.id))}
+                        onClick={() => {
+                          setRefundFor(p);
+                          setRefundAmount(String(p.amount));
+                          setRefundReason("");
+                        }}
                         className="inline-flex items-center gap-1 text-xs font-medium text-slate-400 hover:text-rose-600"
                       >
                         <Undo2 className="h-3.5 w-3.5" /> Refund
@@ -289,6 +298,87 @@ export function PaymentManager({
             onChange={(e) => setCaptureAmount(e.target.value)}
           />
         </Field>
+      </Modal>
+
+      {/* Refund modal — partial or full */}
+      <Modal
+        open={refundFor !== null}
+        onClose={() => setRefundFor(null)}
+        title="Issue Refund"
+        description={
+          refundFor
+            ? `Refund all or part of the ${formatCurrency(refundFor.amount)} payment.`
+            : ""
+        }
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setRefundFor(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              loading={pending}
+              onClick={() =>
+                refundFor &&
+                run(() =>
+                  refundPayment(
+                    refundFor.id,
+                    Number(refundAmount),
+                    refundReason,
+                  ),
+                )
+              }
+            >
+              Refund {formatCurrency(Number(refundAmount) || 0)}
+            </Button>
+          </>
+        }
+      >
+        {refundFor && (
+          <div className="space-y-4">
+            <div>
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Quick amount
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {[25, 50, 75, 100].map((pct) => {
+                  const value = (refundFor.amount * pct) / 100;
+                  return (
+                    <button
+                      key={pct}
+                      type="button"
+                      onClick={() => setRefundAmount(value.toFixed(2))}
+                      className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:border-gold-400 hover:text-gold-700"
+                    >
+                      {pct}% · {formatCurrency(value)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <Field
+              label="Refund amount"
+              hint={`Max ${formatCurrency(refundFor.amount)}`}
+            >
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                max={refundFor.amount}
+                value={refundAmount}
+                onChange={(e) => setRefundAmount(e.target.value)}
+              />
+            </Field>
+            <Field label="Reason (optional)">
+              <Textarea
+                value={refundReason}
+                onChange={(e) => setRefundReason(e.target.value)}
+                placeholder="e.g. Cancelled trip · Goodwill · Service issue"
+                rows={2}
+              />
+            </Field>
+          </div>
+        )}
       </Modal>
 
       {/* Stripe link result modal */}

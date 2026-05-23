@@ -407,9 +407,13 @@ export async function releaseDeposit(depositId: string): Promise<ActionState> {
 }
 
 // ===========================================================================
-// Refund a recorded payment
+// Refund a recorded payment — fully or partially
 // ===========================================================================
-export async function refundPayment(paymentId: string): Promise<ActionState> {
+export async function refundPayment(
+  paymentId: string,
+  amount?: number,
+  reason?: string,
+): Promise<ActionState> {
   const user = await getCurrentUser();
   if (!user || !canWrite(user.role, "payments")) {
     return { ok: false, error: "You do not have permission to issue refunds." };
@@ -426,22 +430,56 @@ export async function refundPayment(paymentId: string): Promise<ActionState> {
     return { ok: false, error: "Only a successful payment can be refunded." };
   }
 
+  const originalAmount = Number(payment.amount);
+  // Default to a full refund; otherwise validate the requested partial amount.
+  let refundAmount = amount === undefined ? originalAmount : round2(amount);
+  if (!Number.isFinite(refundAmount) || refundAmount <= 0) {
+    return { ok: false, error: "Enter a valid refund amount." };
+  }
+  if (refundAmount > originalAmount + 0.005) {
+    return {
+      ok: false,
+      error: `Refund cannot exceed the original payment of $${originalAmount.toFixed(2)}.`,
+    };
+  }
+  // Cap to the original payment exactly so Stripe doesn't reject for rounding.
+  refundAmount = Math.min(refundAmount, originalAmount);
+
   try {
     if (payment.stripe_payment_intent_id) {
       const stripe = getStripe();
       await stripe.refunds.create({
         payment_intent: payment.stripe_payment_intent_id,
+        amount: toCents(refundAmount),
       });
     }
+    const noteParts = [
+      `Refund of payment ${paymentId.slice(0, 8)}`,
+      refundAmount < originalAmount
+        ? `(partial — $${refundAmount.toFixed(2)} of $${originalAmount.toFixed(2)})`
+        : null,
+      reason?.trim() ? `· ${reason.trim()}` : null,
+    ].filter(Boolean);
     await admin.from("payments").insert({
       reservation_id: payment.reservation_id,
-      amount: payment.amount,
+      amount: refundAmount,
       payment_type: "refund",
       method: payment.method,
       status: "succeeded",
-      notes: `Refund of payment ${paymentId.slice(0, 8)}`,
+      notes: noteParts.join(" "),
       processed_by: user.id,
     });
+
+    await logActivity({
+      userId: user.id,
+      action: "payment.refunded",
+      entityType: "reservation",
+      entityId: payment.reservation_id ?? paymentId,
+      description: `Refunded $${refundAmount.toFixed(2)} of $${originalAmount.toFixed(2)}${
+        reason?.trim() ? ` — ${reason.trim()}` : ""
+      }`,
+    });
+
     if (payment.reservation_id) {
       await recalcReservation(admin, payment.reservation_id);
       revalidatePath(`/admin/reservations/${payment.reservation_id}`);
