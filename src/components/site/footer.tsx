@@ -26,6 +26,7 @@ export async function Footer() {
             <li><Link href="/luxury-rentals" className="hover:text-gold-400">Luxury Rentals</Link></li>
             <li><Link href="/insurance-rentals" className="hover:text-gold-400">Insurance Rentals</Link></li>
             <li><Link href="/insurance-replacement" className="hover:text-gold-400">For Body Shops</Link></li>
+            <li><Link href="/how-it-works" className="hover:text-gold-400">How It Works</Link></li>
             <li><Link href="/offers" className="hover:text-gold-400">Special Offers</Link></li>
             <li><Link href="/reviews" className="hover:text-gold-400">Reviews</Link></li>
             <li><Link href="/faq" className="hover:text-gold-400">FAQ</Link></li>

@@ -8,20 +8,22 @@ export const dynamic = "force-dynamic";
 /** XML sitemap — lists every public page so search engines can crawl them. */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
+  // Static routes. /booking and /auth are intentionally excluded — they're
+  // transactional and marked noindex / disallowed in robots.txt.
   const staticPaths = [
     "",
     "/vehicles",
-    "/booking",
-    "/contact",
-    "/faq",
-    "/offers",
-    "/reviews",
-    "/about",
-    "/terms",
-    "/privacy",
     "/luxury-rentals",
     "/insurance-rentals",
     "/insurance-replacement",
+    "/how-it-works",
+    "/offers",
+    "/reviews",
+    "/faq",
+    "/contact",
+    "/about",
+    "/terms",
+    "/privacy",
   ];
 
   const entries: MetadataRoute.Sitemap = staticPaths.map((p) => ({
@@ -45,9 +47,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     for (const v of vehicles) {
       entries.push({
         url: `${SITE_URL}/vehicles/${v.slug}`,
-        lastModified: now,
+        // Real per-vehicle freshness signal — helps Google re-crawl when a
+        // price or photo actually changes instead of on a fixed schedule.
+        lastModified: v.updated_at ? new Date(v.updated_at) : now,
         changeFrequency: "weekly",
         priority: 0.8,
+        // Image discovery — Google Image Search indexes these.
+        ...(v.main_image_url ? { images: [v.main_image_url] } : {}),
       });
     }
   } catch {
