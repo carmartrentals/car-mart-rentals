@@ -4,9 +4,11 @@ import Link from "next/link";
 import { CheckCircle2, ArrowRight, Phone } from "lucide-react";
 import { PageHero } from "@/components/site/page-hero";
 import { VehicleCard } from "@/components/site/vehicle-card";
+import { JsonLd } from "@/components/seo/json-ld";
 import { getPublicVehicles } from "@/lib/data/vehicles";
 import { getCompanyProfile } from "@/lib/data/settings";
 import { SEO_LOCATIONS, getSeoLocation } from "@/lib/locations-seo";
+import { SITE_URL } from "@/lib/constants";
 
 export function generateStaticParams() {
   return SEO_LOCATIONS.map((l) => ({ area: l.slug }));
@@ -42,8 +44,47 @@ export default async function LocationPage({
   ]);
   const featured = vehicles.slice(0, 6);
 
+  // Per-city LocalBusiness — helps this page rank in the local pack for
+  // searches like "car rental in <area>".
+  const localBusinessLd = {
+    "@context": "https://schema.org",
+    "@type": "AutoRental",
+    name: `${company.name} — ${loc.area}`,
+    description: loc.intro,
+    url: `${SITE_URL}/car-rental/${loc.slug}`,
+    telephone: company.phone,
+    email: company.email,
+    image: company.logoUrl || `${SITE_URL}/og-image.png`,
+    priceRange: "$$$",
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: company.address,
+      addressLocality: "Van Nuys",
+      addressRegion: "CA",
+      postalCode: "91406",
+      addressCountry: "US",
+    },
+    areaServed: { "@type": "City", name: loc.area },
+    parentOrganization: { "@id": `${SITE_URL}/#business` },
+  };
+
+  const breadcrumbLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: `Car Rental in ${loc.area}`,
+      },
+    ],
+  };
+
   return (
     <>
+      <JsonLd data={localBusinessLd} />
+      <JsonLd data={breadcrumbLd} />
       <PageHero
         eyebrow={`Car Rental · ${loc.area}`}
         title={`Luxury Car Rental in ${loc.area}`}

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ChevronDown } from "lucide-react";
 import { PageHero } from "@/components/site/page-hero";
+import { JsonLd } from "@/components/seo/json-ld";
 import { getPageContent } from "@/lib/website-content";
 
 export const metadata: Metadata = {
@@ -13,8 +14,23 @@ export const metadata: Metadata = {
 export default async function FaqPage() {
   const content = await getPageContent("faq");
 
+  // FAQPage schema — Google often turns this into an expandable FAQ rich result.
+  const faqLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: content.sections.map((f) => ({
+      "@type": "Question",
+      name: f.title,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: f.body,
+      },
+    })),
+  };
+
   return (
     <>
+      <JsonLd data={faqLd} />
       <PageHero
         eyebrow="Help Center"
         title="Frequently Asked Questions"

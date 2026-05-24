@@ -4,7 +4,9 @@ import { MessageSquareQuote, ArrowRight } from "lucide-react";
 import { PageHero } from "@/components/site/page-hero";
 import { StarRating } from "@/components/site/star-rating";
 import { ReviewCard } from "@/components/site/review-card";
+import { JsonLd } from "@/components/seo/json-ld";
 import { getReviewSummary } from "@/lib/data/reviews";
+import { SITE_URL, COMPANY } from "@/lib/constants";
 
 export const metadata: Metadata = {
   title: "Customer Reviews & Ratings",
@@ -17,8 +19,41 @@ export const dynamic = "force-dynamic";
 export default async function ReviewsPage() {
   const { reviews, count, average } = await getReviewSummary();
 
+  // AggregateRating + Review schema — lets Google show stars next to the page
+  // in search results, and unlocks rich review snippets.
+  const reviewLd =
+    count > 0
+      ? {
+          "@context": "https://schema.org",
+          "@type": "LocalBusiness",
+          "@id": `${SITE_URL}/#business`,
+          name: COMPANY.name,
+          url: SITE_URL,
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: Number(average.toFixed(1)),
+            reviewCount: count,
+            bestRating: 5,
+            worstRating: 1,
+          },
+          review: reviews.slice(0, 20).map((r) => ({
+            "@type": "Review",
+            author: { "@type": "Person", name: r.reviewer_name || "Customer" },
+            datePublished: r.created_at,
+            reviewRating: {
+              "@type": "Rating",
+              ratingValue: r.rating,
+              bestRating: 5,
+              worstRating: 1,
+            },
+            ...(r.comment ? { reviewBody: r.comment } : {}),
+          })),
+        }
+      : null;
+
   return (
     <>
+      {reviewLd && <JsonLd data={reviewLd} />}
       <PageHero
         eyebrow="What Our Customers Say"
         title="Customer Reviews"

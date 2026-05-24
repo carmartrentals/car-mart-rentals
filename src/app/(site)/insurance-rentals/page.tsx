@@ -4,13 +4,28 @@ import { FileCheck2, PhoneCall, CarFront, Receipt, ArrowRight } from "lucide-rea
 import { PageHero } from "@/components/site/page-hero";
 import { VehicleCard } from "@/components/site/vehicle-card";
 import { BodyShopPartner } from "@/components/site/body-shop-partner";
+import { JsonLd } from "@/components/seo/json-ld";
 import { getPublicVehicles } from "@/lib/data/vehicles";
 import { getCompanyProfile } from "@/lib/data/settings";
+import { SITE_URL, COMPANY } from "@/lib/constants";
 
 export const metadata: Metadata = {
-  title: "Insurance Replacement Rentals",
+  title: "Insurance Replacement Rentals — Van Nuys, CA",
   description:
-    "Replacement rental vehicles for insurance claims and body shop customers. Direct billing available.",
+    "In an accident? Stay mobile with an insurance-replacement rental from Car Mart Rentals. Direct billing to your insurer, same-day pickup in Van Nuys.",
+  alternates: { canonical: "/insurance-rentals" },
+};
+
+const SERVICE_LD = {
+  "@context": "https://schema.org",
+  "@type": "Service",
+  serviceType: "Insurance Replacement Car Rental",
+  name: "Insurance Replacement Rentals",
+  description:
+    "Replacement rental vehicles for insurance claims. We bill your insurance company directly and coordinate with body shops.",
+  url: `${SITE_URL}/insurance-rentals`,
+  provider: { "@id": `${SITE_URL}/#business`, "@type": "AutoRental", name: COMPANY.name },
+  areaServed: { "@type": "State", name: "California" },
 };
 
 export default async function InsuranceRentalsPage() {
@@ -29,6 +44,7 @@ export default async function InsuranceRentalsPage() {
 
   return (
     <>
+      <JsonLd data={SERVICE_LD} />
       <PageHero
         eyebrow="For Claims & Body Shops"
         title="Insurance Replacement Rentals"

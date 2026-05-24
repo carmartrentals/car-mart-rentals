@@ -3,12 +3,34 @@ import Link from "next/link";
 import { Sparkles, Gem, Crown, Calendar, ArrowRight } from "lucide-react";
 import { PageHero } from "@/components/site/page-hero";
 import { VehicleCard } from "@/components/site/vehicle-card";
+import { JsonLd } from "@/components/seo/json-ld";
 import { getPublicVehicles } from "@/lib/data/vehicles";
+import { SITE_URL, COMPANY } from "@/lib/constants";
 
 export const metadata: Metadata = {
-  title: "Luxury Car Rentals",
+  title: "Luxury Car Rentals in Van Nuys & Los Angeles",
   description:
-    "Rent premium luxury and sports vehicles — Mercedes-AMG, Mercedes-Benz S-Class and more.",
+    "Rent premium luxury and sports vehicles — Mercedes-AMG, S-Class, BMW and more. Daily, weekly and monthly rates with pickup in Van Nuys, CA.",
+  alternates: { canonical: "/luxury-rentals" },
+};
+
+const SERVICE_LD = {
+  "@context": "https://schema.org",
+  "@type": "Service",
+  serviceType: "Luxury Car Rental",
+  name: "Luxury Car Rentals",
+  description:
+    "Premium and exotic vehicle rentals — Mercedes-AMG, S-Class and more — for weddings, business and special occasions.",
+  url: `${SITE_URL}/luxury-rentals`,
+  provider: { "@id": `${SITE_URL}/#business`, "@type": "AutoRental", name: COMPANY.name },
+  areaServed: [
+    { "@type": "City", name: "Van Nuys" },
+    { "@type": "City", name: "Los Angeles" },
+    { "@type": "City", name: "Sherman Oaks" },
+    { "@type": "City", name: "Encino" },
+    { "@type": "City", name: "Burbank" },
+    { "@type": "City", name: "Studio City" },
+  ],
 };
 
 export default async function LuxuryRentalsPage() {
@@ -17,6 +39,7 @@ export default async function LuxuryRentalsPage() {
 
   return (
     <>
+      <JsonLd data={SERVICE_LD} />
       <PageHero
         eyebrow="The Finer Things"
         title="Luxury Car Rentals"

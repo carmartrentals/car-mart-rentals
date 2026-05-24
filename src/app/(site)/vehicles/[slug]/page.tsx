@@ -26,9 +26,18 @@ export async function generateMetadata({
   const { slug } = await params;
   const vehicle = await getVehicleBySlug(slug);
   if (!vehicle) return { title: "Vehicle Not Found" };
+  const name = `${vehicle.year} ${vehicle.make} ${vehicle.model}`;
   return {
-    title: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
-    description: vehicle.description ?? undefined,
+    title: `${name} Rental in Van Nuys, CA`,
+    description:
+      vehicle.description ??
+      `Rent the ${name} from Car Mart Rentals in Van Nuys. Daily, weekly and monthly rates with transparent pricing and easy pickup.`,
+    alternates: { canonical: `/vehicles/${vehicle.slug}` },
+    openGraph: vehicle.main_image_url
+      ? {
+          images: [{ url: vehicle.main_image_url, width: 1200, height: 800 }],
+        }
+      : undefined,
   };
 }
 
@@ -90,18 +99,70 @@ export default async function VehicleDetailPage({
     brand: { "@type": "Brand", name: vehicle.make },
     model: vehicle.model,
     vehicleModelDate: String(vehicle.year),
+    ...(vehicle.color ? { color: vehicle.color } : {}),
+    vehicleSeatingCapacity: vehicle.seats,
+    numberOfDoors: vehicle.doors,
+    vehicleTransmission:
+      vehicle.transmission === "automatic" ? "Automatic" : "Manual",
+    fuelType: FUEL_TYPES[vehicle.fuel_type],
+    ...(vehicle.odometer
+      ? {
+          mileageFromOdometer: {
+            "@type": "QuantitativeValue",
+            value: vehicle.odometer,
+            unitCode: "SMI",
+          },
+        }
+      : {}),
     offers: {
       "@type": "Offer",
       price: vehicle.daily_rate,
       priceCurrency: "USD",
       availability: "https://schema.org/InStock",
       url: `${SITE_URL}/vehicles/${vehicle.slug}`,
+      priceSpecification: {
+        "@type": "UnitPriceSpecification",
+        price: vehicle.daily_rate,
+        priceCurrency: "USD",
+        unitText: "day",
+      },
+      seller: {
+        "@type": "AutoRental",
+        "@id": `${SITE_URL}/#business`,
+        name: "Car Mart Rentals",
+      },
     },
+  };
+
+  // BreadcrumbList — Home › Fleet › 2025 Toyota Camry SE.
+  const breadcrumbLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Home",
+        item: SITE_URL,
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Our Fleet",
+        item: `${SITE_URL}/vehicles`,
+      },
+      {
+        "@type": "ListItem",
+        position: 3,
+        name,
+      },
+    ],
   };
 
   return (
     <div className="bg-brand-950">
       <JsonLd data={vehicleLd} />
+      <JsonLd data={breadcrumbLd} />
       <div className="container-px py-8">
         <Link
           href="/vehicles"

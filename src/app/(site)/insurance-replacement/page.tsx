@@ -2,12 +2,30 @@ import type { Metadata } from "next";
 import { FileCheck2, Clock, CarFront } from "lucide-react";
 import { PageHero } from "@/components/site/page-hero";
 import { InsuranceIntakeForm } from "@/components/site/insurance-intake-form";
+import { JsonLd } from "@/components/seo/json-ld";
+import { SITE_URL, COMPANY } from "@/lib/constants";
 
 export const metadata: Metadata = {
   title: "Insurance-Replacement Rentals for Body Shops & Adjusters",
   description:
     "Body shops and insurance adjusters: submit a replacement-rental request for your client. Direct billing, fast turnaround, and a clean fleet.",
   alternates: { canonical: "/insurance-replacement" },
+};
+
+const SERVICE_LD = {
+  "@context": "https://schema.org",
+  "@type": "Service",
+  serviceType: "B2B Insurance Replacement Rental Partnership",
+  name: "Insurance-Replacement Rentals for Body Shops",
+  description:
+    "Body shop and adjuster partnership for insurance-replacement vehicles. Submit a request and we'll arrange the rental and direct-bill the insurer.",
+  url: `${SITE_URL}/insurance-replacement`,
+  provider: { "@id": `${SITE_URL}/#business`, "@type": "AutoRental", name: COMPANY.name },
+  audience: {
+    "@type": "BusinessAudience",
+    audienceType: "Body shops, collision centers, insurance adjusters",
+  },
+  areaServed: { "@type": "State", name: "California" },
 };
 
 const BENEFITS = [
@@ -31,6 +49,7 @@ const BENEFITS = [
 export default function InsuranceReplacementPage() {
   return (
     <>
+      <JsonLd data={SERVICE_LD} />
       <PageHero
         eyebrow="For Body Shops & Adjusters"
         title="Insurance-Replacement Rentals"
