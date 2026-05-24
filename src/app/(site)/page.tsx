@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -20,6 +21,13 @@ import { StarRating } from "@/components/site/star-rating";
 import { getCompanyProfile } from "@/lib/data/settings";
 import { getReviewSummary } from "@/lib/data/reviews";
 
+export const metadata: Metadata = {
+  title: "Luxury & Insurance Car Rentals in Van Nuys, CA",
+  description:
+    "Premium luxury car rentals and insurance-replacement vehicles in Van Nuys, Los Angeles. Mercedes-AMG, Tesla, BMW and more — direct insurance billing, transparent pricing, easy pickup.",
+  alternates: { canonical: "/" },
+};
+
 export default async function HomePage() {
   const [featured, company, reviewSummary] = await Promise.all([
     getFeaturedVehicles(6),
@@ -33,9 +41,10 @@ export default async function HomePage() {
       <section className="relative min-h-[88vh] overflow-hidden bg-brand-950">
         <Image
           src="https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=2000&q=80"
-          alt="Luxury car"
+          alt="Luxury sedan on a city street at dusk — Car Mart Rentals fleet in Van Nuys"
           fill
           priority
+          sizes="100vw"
           className="object-cover"
         />
         <div className="hero-overlay absolute inset-0" />

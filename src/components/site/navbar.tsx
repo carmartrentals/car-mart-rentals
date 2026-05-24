@@ -10,6 +10,7 @@ const LINKS = [
   { href: "/vehicles", label: "Our Fleet" },
   { href: "/luxury-rentals", label: "Luxury Rentals" },
   { href: "/insurance-rentals", label: "Insurance Rentals" },
+  { href: "/insurance-replacement", label: "For Body Shops" },
   { href: "/offers", label: "Offers" },
   { href: "/reviews", label: "Reviews" },
   { href: "/contact", label: "Contact" },

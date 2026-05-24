@@ -6,8 +6,10 @@ import { VehicleFilters as Filters } from "@/components/site/vehicle-filters";
 import type { VehicleCategory, FuelType } from "@/lib/types/database";
 
 export const metadata: Metadata = {
-  title: "Our Fleet",
-  description: "Browse the Car Mart Rentals fleet of luxury and everyday vehicles.",
+  title: "Our Fleet — Luxury & Insurance-Replacement Cars",
+  description:
+    "Browse the full Car Mart Rentals fleet — Mercedes-AMG, Tesla, BMW, Honda and more. Daily, weekly and monthly rates with pickup in Van Nuys, CA.",
+  alternates: { canonical: "/vehicles" },
 };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;

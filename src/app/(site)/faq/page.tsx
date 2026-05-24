@@ -3,7 +3,12 @@ import { ChevronDown } from "lucide-react";
 import { PageHero } from "@/components/site/page-hero";
 import { getPageContent } from "@/lib/website-content";
 
-export const metadata: Metadata = { title: "Frequently Asked Questions" };
+export const metadata: Metadata = {
+  title: "Frequently Asked Questions",
+  description:
+    "Answers to common questions about renting from Car Mart Rentals — driver requirements, insurance, deposits, deliveries and more.",
+  alternates: { canonical: "/faq" },
+};
 
 export default async function FaqPage() {
   const content = await getPageContent("faq");

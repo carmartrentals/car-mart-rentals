@@ -34,7 +34,8 @@ export const metadata: Metadata = {
     "car rental Los Angeles",
     "car rental Van Nuys",
   ],
-  alternates: { canonical: "/" },
+  // No site-wide canonical — each page sets its own via generateMetadata or
+  // page-level metadata. A blanket canonical here would point every page at /.
   openGraph: {
     type: "website",
     siteName: COMPANY.name,

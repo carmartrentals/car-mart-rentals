@@ -6,7 +6,12 @@ import { PromoCodeBox } from "@/components/site/promo-code-box";
 import { getActivePromoCodes } from "@/lib/data/promos";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
-export const metadata: Metadata = { title: "Special Offers & Deals" };
+export const metadata: Metadata = {
+  title: "Special Offers & Promo Codes",
+  description:
+    "Save on your next rental at Car Mart Rentals. Browse current promo codes and seasonal discounts on luxury and insurance-replacement vehicles in Van Nuys.",
+  alternates: { canonical: "/offers" },
+};
 export const dynamic = "force-dynamic";
 
 export default async function OffersPage() {

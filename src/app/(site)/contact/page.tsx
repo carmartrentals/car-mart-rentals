@@ -6,7 +6,12 @@ import { PageHero } from "@/components/site/page-hero";
 import { ContactForm } from "@/components/site/contact-form";
 import { getCompanyProfile } from "@/lib/data/settings";
 
-export const metadata: Metadata = { title: "Contact Us" };
+export const metadata: Metadata = {
+  title: "Contact Us",
+  description:
+    "Call, email or visit Car Mart Rentals in Van Nuys, CA. Open Mon–Sat for luxury rentals, insurance-replacement vehicles, and body-shop partnerships.",
+  alternates: { canonical: "/contact" },
+};
 export const dynamic = "force-dynamic";
 
 const HOURS = [

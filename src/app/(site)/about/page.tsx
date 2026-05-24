@@ -3,7 +3,12 @@ import { ShieldCheck, Award, Users, HeartHandshake } from "lucide-react";
 import { PageHero } from "@/components/site/page-hero";
 import { getPageContent } from "@/lib/website-content";
 
-export const metadata: Metadata = { title: "About Us" };
+export const metadata: Metadata = {
+  title: "About Car Mart Rentals",
+  description:
+    "Van Nuys&rsquo; trusted source for luxury and insurance-replacement car rentals. Learn about the team, our standards, and why drivers across Los Angeles choose Car Mart Rentals.",
+  alternates: { canonical: "/about" },
+};
 
 export default async function AboutPage() {
   const content = await getPageContent("about");

@@ -6,7 +6,12 @@ import { StarRating } from "@/components/site/star-rating";
 import { ReviewCard } from "@/components/site/review-card";
 import { getReviewSummary } from "@/lib/data/reviews";
 
-export const metadata: Metadata = { title: "Customer Reviews" };
+export const metadata: Metadata = {
+  title: "Customer Reviews & Ratings",
+  description:
+    "Real reviews from Car Mart Rentals customers across Van Nuys and Los Angeles. See why drivers trust us for luxury and insurance-replacement rentals.",
+  alternates: { canonical: "/reviews" },
+};
 export const dynamic = "force-dynamic";
 
 export default async function ReviewsPage() {

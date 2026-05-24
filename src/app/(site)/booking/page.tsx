@@ -8,6 +8,8 @@ import type { AddOn } from "@/lib/types/database";
 
 export const metadata: Metadata = {
   title: "Complete Your Reservation",
+  // Transactional page — exclude from search results but allow link following.
+  robots: { index: false, follow: true },
 };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
