@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 import { SITE_URL } from "@/lib/constants";
 import { getPublicVehicles } from "@/lib/data/vehicles";
 import { SEO_LOCATIONS } from "@/lib/locations-seo";
+import { CATEGORY_SEO } from "@/lib/vehicle-categories-seo";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: now,
       changeFrequency: "weekly",
       priority: 0.6,
+    });
+  }
+
+  for (const cat of CATEGORY_SEO) {
+    entries.push({
+      url: `${SITE_URL}/vehicles/category/${cat.slug}`,
+      lastModified: now,
+      changeFrequency: "weekly",
+      priority: 0.7,
     });
   }
 

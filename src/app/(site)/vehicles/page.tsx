@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Car } from "lucide-react";
 import { getPublicVehicles, type VehicleFilters } from "@/lib/data/vehicles";
 import { VehicleCard } from "@/components/site/vehicle-card";
 import { VehicleFilters as Filters } from "@/components/site/vehicle-filters";
+import { CATEGORY_SEO } from "@/lib/vehicle-categories-seo";
 import type { VehicleCategory, FuelType } from "@/lib/types/database";
 
 export const metadata: Metadata = {
@@ -46,6 +48,19 @@ export default async function VehiclesPage({
             From efficient hybrids to head-turning luxury — find the right
             vehicle for your journey.
           </p>
+
+          {/* Category quick-links — internal SEO + faster discovery for users */}
+          <div className="mt-7 flex flex-wrap gap-2">
+            {CATEGORY_SEO.map((c) => (
+              <Link
+                key={c.slug}
+                href={`/vehicles/category/${c.slug}`}
+                className="rounded-full border border-white/15 bg-white/[0.04] px-4 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:border-gold-400/40 hover:bg-white/[0.08] hover:text-gold-300"
+              >
+                {c.label}
+              </Link>
+            ))}
+          </div>
         </div>
       </section>
 
