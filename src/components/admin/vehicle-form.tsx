@@ -10,6 +10,7 @@ import { Card, CardHeader, CardTitle, CardBody } from "@/components/ui/card";
 import { Alert } from "@/components/ui/misc";
 import { AiDescriptionField } from "@/components/admin/ai-description-field";
 import { PhotoUpload } from "@/components/admin/photo-upload";
+import { VinDecoderButton } from "@/components/admin/vin-decoder-button";
 import { initialActionState, type ActionState } from "@/lib/form";
 import { VEHICLE_CATEGORIES, FUEL_TYPES, VEHICLE_STATUS } from "@/lib/constants";
 import type { Vehicle } from "@/lib/types/database";
@@ -76,8 +77,13 @@ export function VehicleForm({
           <Field label="Color" error={err("color")}>
             <Input name="color" defaultValue={vehicle?.color ?? ""} />
           </Field>
-          <Field label="VIN" error={err("vin")}>
+          <Field
+            label="VIN"
+            hint="Type or paste the 17-character VIN, then click Auto-fill to populate everything else."
+            error={err("vin")}
+          >
             <Input name="vin" defaultValue={vehicle?.vin ?? ""} />
+            <VinDecoderButton />
           </Field>
           <Field label="License Plate" error={err("license_plate")}>
             <Input name="license_plate" defaultValue={vehicle?.license_plate ?? ""} />
