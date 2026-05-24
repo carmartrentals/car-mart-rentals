@@ -6,8 +6,8 @@ import { ChevronLeft, ChevronRight, Expand, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { VehicleImage } from "@/lib/types/database";
 
-const FALLBACK =
-  "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1400&q=80";
+// Local placeholder served from /public — branded and instant, no external CDN.
+const FALLBACK = "/fleet-placeholder.jpg";
 
 export function VehicleGallery({
   images,
