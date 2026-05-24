@@ -51,12 +51,14 @@ export async function POST(req: NextRequest) {
   // Load the existing call row so we can append to its transcript.
   const { data: existing } = await admin
     .from("call_logs")
-    .select("transcript, sms_sent, transferred")
+    .select("transcript, sms_sent, transferred, prompt_tokens, completion_tokens")
     .eq("call_sid", callSid)
     .maybeSingle();
   const transcript: CallTranscriptEntry[] = Array.isArray(existing?.transcript)
     ? (existing!.transcript as CallTranscriptEntry[])
     : [];
+  const priorPromptTokens = Number(existing?.prompt_tokens ?? 0);
+  const priorCompletionTokens = Number(existing?.completion_tokens ?? 0);
 
   // If we got nothing back from speech recognition, re-prompt without
   // costing an OpenAI call.
@@ -91,6 +93,8 @@ export async function POST(req: NextRequest) {
   // Ask the AI for the next reply.
   let spoken = "";
   let action = { sendBookingLink: false, transfer: false, endCall: false };
+  let turnPromptTokens = 0;
+  let turnCompletionTokens = 0;
   try {
     const turn = await generateReceptionistTurn(transcript);
     spoken = turn.spoken;
@@ -99,6 +103,8 @@ export async function POST(req: NextRequest) {
       transfer: Boolean(turn.action.transfer),
       endCall: Boolean(turn.action.endCall),
     };
+    turnPromptTokens = turn.promptTokens;
+    turnCompletionTokens = turn.completionTokens;
   } catch {
     spoken =
       "I'm having a little trouble right now. Let me transfer you to a real person.";
@@ -129,7 +135,7 @@ export async function POST(req: NextRequest) {
 
   const transferred = Boolean(existing?.transferred) || action.transfer;
 
-  // Persist the updated transcript + flags.
+  // Persist the updated transcript + flags + accumulated token usage.
   try {
     await admin
       .from("call_logs")
@@ -137,6 +143,8 @@ export async function POST(req: NextRequest) {
         transcript,
         sms_sent: smsSent,
         transferred,
+        prompt_tokens: priorPromptTokens + turnPromptTokens,
+        completion_tokens: priorCompletionTokens + turnCompletionTokens,
       })
       .eq("call_sid", callSid);
   } catch {

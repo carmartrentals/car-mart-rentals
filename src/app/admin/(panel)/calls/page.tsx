@@ -1,12 +1,18 @@
 import Link from "next/link";
-import { PhoneCall, ArrowRight, MessageSquare, PhoneForwarded } from "lucide-react";
+import {
+  PhoneCall,
+  ArrowRight,
+  MessageSquare,
+  PhoneForwarded,
+  DollarSign,
+} from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/admin/page-header";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { EmptyState, Alert } from "@/components/ui/misc";
-import { formatDateTime } from "@/lib/utils";
+import { formatDateTime, formatCurrency } from "@/lib/utils";
 import { twilioConfigured } from "@/lib/twilio";
 import type { CallLog } from "@/lib/types/database";
 
@@ -28,6 +34,32 @@ function intentLabel(i: string | null) {
   return i.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
 }
 
+function SpendCard({
+  label,
+  value,
+  icon: Icon,
+}: {
+  label: string;
+  value: string;
+  icon: React.ComponentType<{ className?: string }>;
+}) {
+  return (
+    <Card>
+      <div className="flex items-center gap-3 p-4">
+        <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+          <Icon className="h-5 w-5" />
+        </span>
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+            {label}
+          </p>
+          <p className="text-2xl font-bold text-slate-900">{value}</p>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 function formatDuration(s: number | null): string {
   if (!s) return "—";
   const m = Math.floor(s / 60);
@@ -38,6 +70,10 @@ function formatDuration(s: number | null): string {
 export default async function CallsPage() {
   let calls: CallLog[] = [];
   let configError = false;
+  // Rolling 30-day spend window.
+  const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
+  let monthCount = 0;
+  let monthSpend = 0;
 
   try {
     const admin = createAdminClient();
@@ -47,6 +83,14 @@ export default async function CallsPage() {
       .order("started_at", { ascending: false })
       .limit(200);
     calls = (data as CallLog[]) ?? [];
+
+    const { data: monthData } = await admin
+      .from("call_logs")
+      .select("total_cost")
+      .gte("started_at", since);
+    const monthRows = (monthData as { total_cost: number | null }[] | null) ?? [];
+    monthCount = monthRows.length;
+    monthSpend = monthRows.reduce((s, r) => s + Number(r.total_cost ?? 0), 0);
   } catch {
     configError = true;
   }
@@ -73,8 +117,32 @@ export default async function CallsPage() {
       {configError && (
         <div className="mb-4">
           <Alert tone="warning">
-            Could not load calls. Confirm migration 0020 has run in Supabase.
+            Could not load calls. Confirm migrations 0020 and 0021 have run
+            in Supabase.
           </Alert>
+        </div>
+      )}
+
+      {/* 30-day spend summary */}
+      {calls.length > 0 && (
+        <div className="mb-5 grid gap-3 sm:grid-cols-3">
+          <SpendCard
+            label="Calls (30 days)"
+            value={monthCount.toString()}
+            icon={PhoneCall}
+          />
+          <SpendCard
+            label="AI receptionist spend"
+            value={formatCurrency(monthSpend)}
+            icon={DollarSign}
+          />
+          <SpendCard
+            label="Avg cost per call"
+            value={
+              monthCount > 0 ? formatCurrency(monthSpend / monthCount) : "$0.00"
+            }
+            icon={DollarSign}
+          />
         </div>
       )}
 
@@ -94,6 +162,7 @@ export default async function CallsPage() {
                 <TH>Intent</TH>
                 <TH>Summary</TH>
                 <TH>Duration</TH>
+                <TH className="text-right">Cost</TH>
                 <TH>Status</TH>
                 <TH className="text-right">Actions</TH>
               </TR>
@@ -141,6 +210,11 @@ export default async function CallsPage() {
                   </TD>
                   <TD className="text-slate-600">
                     {formatDuration(c.duration_seconds)}
+                  </TD>
+                  <TD className="text-right font-medium text-slate-700">
+                    {c.total_cost !== null && c.total_cost !== undefined
+                      ? formatCurrency(Number(c.total_cost))
+                      : "—"}
                   </TD>
                   <TD>
                     <Badge tone={c.status === "completed" ? "green" : "gray"}>

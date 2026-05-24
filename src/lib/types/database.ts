@@ -468,6 +468,13 @@ export interface CallLog {
   caller_name: string | null;
   transferred: boolean;
   sms_sent: boolean;
+  // Cost accounting (filled after the call ends).
+  prompt_tokens: number;
+  completion_tokens: number;
+  twilio_voice_cost: number | null;
+  twilio_speech_cost: number | null;
+  openai_cost: number | null;
+  total_cost: number | null;
   created_at: string;
 }
 

@@ -8,12 +8,13 @@ import {
   PhoneForwarded,
   Sparkles,
   User,
+  DollarSign,
 } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/admin/page-header";
 import { Card, CardHeader, CardTitle, CardBody } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatDateTime } from "@/lib/utils";
+import { formatDateTime, formatCurrency } from "@/lib/utils";
 import type { CallLog } from "@/lib/types/database";
 
 function formatDuration(s: number | null): string {
@@ -132,6 +133,38 @@ export default async function CallDetailPage({
               )}
             </CardBody>
           </Card>
+
+          {call.total_cost !== null && call.total_cost !== undefined && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Cost Breakdown</CardTitle>
+              </CardHeader>
+              <CardBody className="space-y-2 text-sm">
+                <Row label="Twilio voice" icon={DollarSign}>
+                  {formatCurrency(Number(call.twilio_voice_cost ?? 0))}
+                </Row>
+                <Row label="Twilio speech-to-text" icon={DollarSign}>
+                  {formatCurrency(Number(call.twilio_speech_cost ?? 0))}
+                </Row>
+                <Row label="OpenAI (AI brain)" icon={DollarSign}>
+                  {formatCurrency(Number(call.openai_cost ?? 0))}
+                </Row>
+                <div className="mt-2 flex items-center justify-between border-t border-slate-200 pt-2">
+                  <span className="text-sm font-semibold text-slate-700">
+                    Total
+                  </span>
+                  <span className="text-base font-bold text-slate-900">
+                    {formatCurrency(Number(call.total_cost ?? 0))}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-slate-400">
+                  Twilio costs are estimated from rates ($0.0085/min voice,
+                  $0.02/min speech). OpenAI is exact from tracked tokens
+                  ({call.prompt_tokens} input + {call.completion_tokens} output).
+                </p>
+              </CardBody>
+            </Card>
+          )}
 
           <Card>
             <CardHeader>

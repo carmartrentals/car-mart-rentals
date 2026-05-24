@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyTwilioSignature } from "@/lib/twilio";
-import { summarizeCall } from "@/lib/ai-receptionist";
+import { summarizeCall, computeCallCost } from "@/lib/ai-receptionist";
 import type { CallTranscriptEntry } from "@/lib/types/database";
 
 export const runtime = "nodejs";
@@ -47,27 +47,44 @@ export async function POST(req: NextRequest) {
     return new NextResponse("ok");
   }
 
-  // Terminal: load the transcript and summarize.
+  // Terminal: load the transcript + accumulated tokens and summarize.
   const { data: row } = await admin
     .from("call_logs")
-    .select("transcript")
+    .select("transcript, prompt_tokens, completion_tokens")
     .eq("call_sid", callSid)
     .maybeSingle();
   const transcript: CallTranscriptEntry[] = Array.isArray(row?.transcript)
     ? (row!.transcript as CallTranscriptEntry[])
     : [];
+  const accumulatedPrompt = Number(row?.prompt_tokens ?? 0);
+  const accumulatedCompletion = Number(row?.completion_tokens ?? 0);
 
   let summary = "";
   let intent = "general";
   let callerName: string | null = null;
+  let summaryPrompt = 0;
+  let summaryCompletion = 0;
   try {
     const r = await summarizeCall(transcript);
     summary = r.summary;
     intent = r.intent;
     callerName = r.callerName;
+    summaryPrompt = r.promptTokens;
+    summaryCompletion = r.completionTokens;
   } catch {
     /* summary is best-effort */
   }
+
+  // Final token counts include the summary call we just made.
+  const totalPrompt = accumulatedPrompt + summaryPrompt;
+  const totalCompletion = accumulatedCompletion + summaryCompletion;
+
+  // Compute the full cost breakdown from rates + duration + tokens.
+  const cost = computeCallCost({
+    durationSeconds: duration || 0,
+    promptTokens: totalPrompt,
+    completionTokens: totalCompletion,
+  });
 
   await admin
     .from("call_logs")
@@ -79,6 +96,12 @@ export async function POST(req: NextRequest) {
       ai_summary: summary || null,
       customer_intent: intent,
       caller_name: callerName,
+      prompt_tokens: totalPrompt,
+      completion_tokens: totalCompletion,
+      twilio_voice_cost: cost.twilioVoice,
+      twilio_speech_cost: cost.twilioSpeech,
+      openai_cost: cost.openai,
+      total_cost: cost.total,
     })
     .eq("call_sid", callSid);
 

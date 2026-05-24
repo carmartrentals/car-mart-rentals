@@ -26,6 +26,9 @@ export interface ReceptionistTurn {
   spoken: string;
   /** Actions parsed out of the reply for the route handler to execute. */
   action: ReceptionistAction;
+  /** OpenAI token usage for this turn — used to compute call cost. */
+  promptTokens: number;
+  completionTokens: number;
 }
 
 const HOURS_TEXT =
@@ -146,6 +149,8 @@ export async function generateReceptionistTurn(
     ],
   });
   const raw = completion.choices[0]?.message?.content?.trim() ?? "";
+  const promptTokens = completion.usage?.prompt_tokens ?? 0;
+  const completionTokens = completion.usage?.completion_tokens ?? 0;
 
   // Parse out action markers — strip them from spoken text.
   const action: ReceptionistAction = {};
@@ -168,7 +173,7 @@ export async function generateReceptionistTurn(
       "I'm sorry, could you repeat that? I want to make sure I help you with the right thing.";
   }
 
-  return { spoken, action };
+  return { spoken, action, promptTokens, completionTokens };
 }
 
 /**
@@ -177,9 +182,21 @@ export async function generateReceptionistTurn(
  */
 export async function summarizeCall(
   transcript: CallTranscriptEntry[],
-): Promise<{ summary: string; intent: string; callerName: string | null }> {
+): Promise<{
+  summary: string;
+  intent: string;
+  callerName: string | null;
+  promptTokens: number;
+  completionTokens: number;
+}> {
   if (transcript.length === 0) {
-    return { summary: "Call ended before any conversation.", intent: "no_answer", callerName: null };
+    return {
+      summary: "Call ended before any conversation.",
+      intent: "no_answer",
+      callerName: null,
+      promptTokens: 0,
+      completionTokens: 0,
+    };
   }
   try {
     const completion = await getOpenAI().chat.completions.create({
@@ -212,12 +229,62 @@ export async function summarizeCall(
       summary: String(parsed.summary ?? "").trim() || "(no summary)",
       intent: String(parsed.intent ?? "general").trim(),
       callerName: parsed.caller_name?.trim() || null,
+      promptTokens: completion.usage?.prompt_tokens ?? 0,
+      completionTokens: completion.usage?.completion_tokens ?? 0,
     };
   } catch {
     return {
       summary: `${transcript.length}-turn conversation.`,
       intent: "general",
       callerName: null,
+      promptTokens: 0,
+      completionTokens: 0,
     };
   }
+}
+
+/**
+ * Rates used to estimate per-call cost. Update if Twilio or OpenAI pricing
+ * changes — they're encoded here so we can compute totals without an extra
+ * API roundtrip per call.
+ */
+export const CALL_RATES = {
+  /** Twilio inbound voice — USD per minute, US local long-code. */
+  twilioVoicePerMin: 0.0085,
+  /** Twilio speech recognition (Google v2) — USD per minute. */
+  twilioSpeechPerMin: 0.02,
+  /** OpenAI gpt-4o-mini input — USD per million tokens. */
+  openaiInputPerMillion: 0.15,
+  /** OpenAI gpt-4o-mini output — USD per million tokens. */
+  openaiOutputPerMillion: 0.6,
+};
+
+export function computeCallCost(input: {
+  durationSeconds: number;
+  promptTokens: number;
+  completionTokens: number;
+}): {
+  twilioVoice: number;
+  twilioSpeech: number;
+  openai: number;
+  total: number;
+} {
+  const minutes = (input.durationSeconds || 0) / 60;
+  const twilioVoice = minutes * CALL_RATES.twilioVoicePerMin;
+  const twilioSpeech = minutes * CALL_RATES.twilioSpeechPerMin;
+  const openai =
+    (input.promptTokens * CALL_RATES.openaiInputPerMillion +
+      input.completionTokens * CALL_RATES.openaiOutputPerMillion) /
+    1_000_000;
+  const total = twilioVoice + twilioSpeech + openai;
+  return {
+    twilioVoice: round4(twilioVoice),
+    twilioSpeech: round4(twilioSpeech),
+    openai: round4(openai),
+    total: round4(total),
+  };
+}
+
+function round4(n: number): number {
+  return Math.round(n * 10_000) / 10_000;
 }
