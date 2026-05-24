@@ -7,6 +7,7 @@ import {
   AlertTriangle, Users, FileText, CreditCard, BarChart3, Settings,
   ClipboardCheck, Wallet, Tag, UserPlus, Siren, Satellite,
   MapPin, Mail, UserCog, Globe, Star, ShieldAlert, History, X, Sparkles, Gift,
+  PhoneCall,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BrandLogo } from "@/components/brand-logo";
@@ -26,6 +27,7 @@ const NAV: { section: string; items: NavItem[] }[] = [
       { href: "/admin/calendar", label: "Calendar", icon: CalendarDays },
       { href: "/admin/reservations", label: "Reservations", icon: ClipboardList },
       { href: "/admin/check", label: "Check-in / out", icon: ClipboardCheck },
+      { href: "/admin/calls", label: "Phone Calls", icon: PhoneCall },
     ],
   },
   {

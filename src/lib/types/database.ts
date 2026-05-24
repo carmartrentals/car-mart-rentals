@@ -446,6 +446,31 @@ export interface ActivityLog {
   created_at: string;
 }
 
+export interface CallTranscriptEntry {
+  role: "assistant" | "user";
+  content: string;
+  at: string;
+}
+
+export interface CallLog {
+  id: string;
+  call_sid: string;
+  from_number: string | null;
+  to_number: string | null;
+  started_at: string;
+  ended_at: string | null;
+  duration_seconds: number | null;
+  status: string;
+  transcript: CallTranscriptEntry[];
+  recording_url: string | null;
+  ai_summary: string | null;
+  customer_intent: string | null;
+  caller_name: string | null;
+  transferred: boolean;
+  sms_sent: boolean;
+  created_at: string;
+}
+
 export interface Setting {
   id: string;
   key: string;
