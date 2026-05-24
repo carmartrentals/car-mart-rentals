@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Send, CheckCircle2, Loader2 } from "lucide-react";
 import { submitInsuranceIntake } from "@/app/(site)/insurance-replacement/actions";
+import { trackEvent } from "@/lib/analytics";
 
 const EMPTY = {
   contactName: "",
@@ -36,6 +37,10 @@ export function InsuranceIntakeForm() {
     startTransition(async () => {
       const res = await submitInsuranceIntake(form);
       if (res.ok) {
+        trackEvent("insurance_intake_submitted", {
+          role: form.role,
+          has_claim: form.claimNumber ? "yes" : "no",
+        });
         setSent(true);
         setForm(EMPTY);
       } else {

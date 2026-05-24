@@ -7,6 +7,7 @@ import { CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
 import type { Vehicle, AddOn } from "@/lib/types/database";
 import { formatCurrency, formatDateTime, rentalDays, bestRate } from "@/lib/utils";
 import { saveBookingDraft } from "@/app/(site)/booking/actions";
+import { trackEvent } from "@/lib/analytics";
 
 const TAX_RATE = 0.095;
 
@@ -123,6 +124,16 @@ export function BookingForm({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Booking failed.");
+      // The big one — full conversion. Send value + vehicle context to GA4
+      // so revenue reports work without further configuration.
+      trackEvent("booking_completed", {
+        reservation_number: data.reservation_number,
+        vehicle: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
+        vehicle_id: vehicle.id,
+        days,
+        value: quote.total,
+        currency: "USD",
+      });
       setConfirmation(data.reservation_number);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");

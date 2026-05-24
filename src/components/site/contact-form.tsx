@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Send, CheckCircle2, Loader2 } from "lucide-react";
 import { submitContactForm } from "@/app/(site)/contact/actions";
+import { trackEvent } from "@/lib/analytics";
 
 const EMPTY = { name: "", email: "", phone: "", message: "" };
 
@@ -21,6 +22,9 @@ export function ContactForm() {
     startTransition(async () => {
       const res = await submitContactForm(form);
       if (res.ok) {
+        trackEvent("contact_form_submitted", {
+          has_phone: form.phone ? "yes" : "no",
+        });
         setSent(true);
         setForm(EMPTY);
       } else {

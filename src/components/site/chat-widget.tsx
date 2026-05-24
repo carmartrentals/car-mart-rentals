@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { MessageCircle, X, Send, Loader2, Sparkles } from "lucide-react";
+import { trackEvent } from "@/lib/analytics";
 
 interface Msg {
   role: "user" | "assistant";
@@ -149,7 +150,11 @@ export function ChatWidget({ companyName }: { companyName: string }) {
 
       {/* Toggle button */}
       <button
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          // Fire only on opening, not on closing.
+          if (!open) trackEvent("chat_opened");
+          setOpen((o) => !o);
+        }}
         aria-label={open ? "Close chat" : "Chat with us"}
         className="flex h-14 w-14 items-center justify-center rounded-full bg-gold-500 text-brand-950 shadow-xl transition-transform hover:scale-105"
       >

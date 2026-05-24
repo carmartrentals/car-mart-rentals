@@ -4,6 +4,7 @@ import { getVehicleBySlug } from "@/lib/data/vehicles";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentCustomer } from "@/lib/account";
 import { BookingForm } from "@/components/site/booking-form";
+import { BookingStartedTracker } from "@/components/site/booking-started-tracker";
 import type { AddOn } from "@/lib/types/database";
 
 export const metadata: Metadata = {
@@ -55,6 +56,10 @@ export default async function BookingPage({
 
   return (
     <div className="bg-brand-950">
+      <BookingStartedTracker
+        vehicleId={vehicle.id}
+        vehicleName={`${vehicle.year} ${vehicle.make} ${vehicle.model}`}
+      />
       <section className="relative overflow-hidden border-b border-white/10 bg-brand-950 py-12">
         <div className="glow-spot pointer-events-none absolute inset-x-0 top-0 h-48" />
         <div className="container-px relative">

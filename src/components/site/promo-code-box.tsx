@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Copy, Check } from "lucide-react";
+import { trackEvent } from "@/lib/analytics";
 
 /** Displays a promo code with a one-click copy button. */
 export function PromoCodeBox({ code }: { code: string }) {
@@ -10,6 +11,7 @@ export function PromoCodeBox({ code }: { code: string }) {
   function copy() {
     navigator.clipboard?.writeText(code).then(
       () => {
+        trackEvent("promo_code_copied", { code });
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       },
