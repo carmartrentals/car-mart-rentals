@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@next/third-parties": "^16.2.6",
     "@react-pdf/renderer": "^4.1.6",
     "@sentry/nextjs": "^10.53.1",
     "@supabase/ssr": "^0.6.1",

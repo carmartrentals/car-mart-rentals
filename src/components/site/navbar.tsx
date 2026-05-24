@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Menu, X, Phone, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BrandLogo } from "@/components/brand-logo";
+import { trackEvent } from "@/lib/analytics";
 
 const LINKS = [
   { href: "/vehicles", label: "Our Fleet" },
@@ -53,6 +54,7 @@ export function Navbar({
           </Link>
           <a
             href={phoneHref}
+            onClick={() => trackEvent("phone_click", { source: "navbar" })}
             className="flex items-center gap-1.5 text-sm font-medium text-slate-200 hover:text-gold-400"
           >
             <Phone className="h-4 w-4" />
@@ -60,6 +62,7 @@ export function Navbar({
           </a>
           <Link
             href="/vehicles"
+            onClick={() => trackEvent("reserve_now_click", { source: "navbar" })}
             className="rounded-lg bg-gold-500 px-4 py-2 text-sm font-semibold text-brand-950 transition-colors hover:bg-gold-400"
           >
             Reserve Now
@@ -104,13 +107,17 @@ export function Navbar({
           <div className="mt-2 flex flex-col gap-2 border-t border-white/10 pt-3">
             <a
               href={phoneHref}
+              onClick={() => trackEvent("phone_click", { source: "navbar_mobile" })}
               className="flex items-center gap-2 rounded-md px-2 py-2.5 text-sm font-medium text-slate-200"
             >
               <Phone className="h-4 w-4" /> {phone}
             </a>
             <Link
               href="/vehicles"
-              onClick={() => setOpen(false)}
+              onClick={() => {
+                setOpen(false);
+                trackEvent("reserve_now_click", { source: "navbar_mobile" });
+              }}
               className="rounded-lg bg-gold-500 px-4 py-2.5 text-center text-sm font-semibold text-brand-950"
             >
               Reserve Now

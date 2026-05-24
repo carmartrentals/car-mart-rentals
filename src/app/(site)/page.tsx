@@ -66,18 +66,24 @@ export default async function HomePage() {
           <div className="mt-9 flex flex-wrap gap-3 animate-rise-slow">
             <Link
               href="/vehicles"
+              data-ga="reserve_now_click"
+              data-ga-source="home_hero"
               className="inline-flex items-center gap-2 rounded-lg bg-gold-500 px-7 py-3.5 text-sm font-semibold text-brand-950 transition-colors hover:bg-white"
             >
               Reserve Now <ArrowRight className="h-4 w-4" />
             </Link>
             <a
               href={company.phoneHref}
+              data-ga="phone_click"
+              data-ga-source="home_hero"
               className="inline-flex items-center gap-2 rounded-lg border border-white/25 px-7 py-3.5 text-sm font-semibold text-white transition-colors hover:border-white/50 hover:bg-white/10"
             >
               <Phone className="h-4 w-4" /> Call Now
             </a>
             <Link
               href="/insurance-rentals"
+              data-ga="insurance_cta_click"
+              data-ga-source="home_hero"
               className="inline-flex items-center gap-2 rounded-lg border border-white/25 px-7 py-3.5 text-sm font-semibold text-white transition-colors hover:border-white/50 hover:bg-white/10"
             >
               <FileCheck2 className="h-4 w-4" /> Insurance Claim Rental
@@ -347,12 +353,16 @@ export default async function HomePage() {
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Link
               href="/vehicles"
+              data-ga="reserve_now_click"
+              data-ga-source="home_bottom_cta"
               className="inline-flex items-center gap-2 rounded-lg bg-gold-500 px-7 py-3.5 text-sm font-semibold text-brand-950 transition-colors hover:bg-white"
             >
               Reserve Now <ArrowRight className="h-4 w-4" />
             </Link>
             <a
               href={company.phoneHref}
+              data-ga="phone_click"
+              data-ga-source="home_bottom_cta"
               className="inline-flex items-center gap-2 rounded-lg border border-white/25 px-7 py-3.5 text-sm font-semibold text-white transition-colors hover:border-white/50 hover:bg-white/10"
             >
               <Phone className="h-4 w-4" /> {company.phone}

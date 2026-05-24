@@ -1,7 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
+import { GoogleAnalytics } from "@next/third-parties/google";
 import { COMPANY, SITE_URL } from "@/lib/constants";
 import "./globals.css";
+
+// GA4 measurement ID — set NEXT_PUBLIC_GA_ID on Vercel to enable analytics.
+// When unset (local dev, preview deploys), no script is loaded.
+const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
 
 const SITE_DESCRIPTION =
   "Premium luxury car rentals and insurance replacement vehicles. Reserve a Mercedes-AMG, Tesla, and more from Car Mart Rentals.";
@@ -77,6 +82,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${playfair.variable}`}>
       <body>{children}</body>
+      {GA_ID && <GoogleAnalytics gaId={GA_ID} />}
     </html>
   );
 }

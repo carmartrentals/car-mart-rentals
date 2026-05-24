@@ -53,7 +53,12 @@ export async function Footer() {
           <ul className="mt-4 space-y-3 text-sm">
             <li className="flex items-start gap-2.5">
               <Phone className="mt-0.5 h-4 w-4 text-gold-400" />
-              <a href={company.phoneHref} className="hover:text-gold-400">
+              <a
+                href={company.phoneHref}
+                data-ga="phone_click"
+                data-ga-source="footer"
+                className="hover:text-gold-400"
+              >
                 {company.phone}
               </a>
             </li>
