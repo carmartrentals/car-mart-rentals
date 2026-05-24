@@ -25,7 +25,7 @@ export const COMPANY = {
 
 /** Public site base URL — set NEXT_PUBLIC_SITE_URL on the host in production. */
 export const SITE_URL = (
-  process.env.NEXT_PUBLIC_SITE_URL || "https://car-mart-rentals.vercel.app"
+  process.env.NEXT_PUBLIC_SITE_URL || "https://carmartrentals.com"
 ).replace(/\/$/, "");
 
 /** Collision-repair / body-shop referral partner. */

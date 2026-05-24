@@ -73,8 +73,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         lastModified: v.updated_at ? new Date(v.updated_at) : now,
         changeFrequency: "weekly",
         priority: 0.8,
-        // Image discovery — Google Image Search indexes these.
-        ...(v.main_image_url ? { images: [v.main_image_url] } : {}),
+        // Image entries omitted: Next.js doesn't XML-escape <image:loc> URLs,
+        // so any image URL containing & (Unsplash, signed Supabase URLs) breaks
+        // the whole sitemap. Google still indexes images from the page HTML.
       });
     }
   } catch {
