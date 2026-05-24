@@ -39,6 +39,7 @@ export async function Footer() {
           </h4>
           <ul className="mt-4 space-y-2.5 text-sm">
             <li><Link href="/about" className="hover:text-gold-400">About Us</Link></li>
+            <li><Link href="/blog" className="hover:text-gold-400">Blog</Link></li>
             <li><Link href="/contact" className="hover:text-gold-400">Contact</Link></li>
             <li><Link href="/terms" className="hover:text-gold-400">Terms &amp; Conditions</Link></li>
             <li><Link href="/privacy" className="hover:text-gold-400">Privacy Policy</Link></li>

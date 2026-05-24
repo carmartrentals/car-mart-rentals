@@ -3,6 +3,7 @@ import { SITE_URL } from "@/lib/constants";
 import { getPublicVehicles } from "@/lib/data/vehicles";
 import { SEO_LOCATIONS } from "@/lib/locations-seo";
 import { CATEGORY_SEO } from "@/lib/vehicle-categories-seo";
+import { ARTICLES } from "@/lib/blog";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     "/insurance-rentals",
     "/insurance-replacement",
     "/how-it-works",
+    "/blog",
     "/offers",
     "/reviews",
     "/faq",
@@ -49,6 +51,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: now,
       changeFrequency: "weekly",
       priority: 0.7,
+    });
+  }
+
+  for (const a of ARTICLES) {
+    entries.push({
+      url: `${SITE_URL}/blog/${a.slug}`,
+      lastModified: new Date(a.updatedAt ?? a.publishedAt),
+      changeFrequency: "monthly",
+      priority: 0.6,
     });
   }
 
