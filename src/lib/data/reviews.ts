@@ -36,3 +36,30 @@ export async function getReviewSummary(limit?: number): Promise<ReviewSummary> {
     average,
   };
 }
+
+/** Published reviews for one specific vehicle plus aggregate stats. */
+export async function getVehicleReviewSummary(
+  vehicleId: string,
+  limit?: number,
+): Promise<ReviewSummary> {
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("reviews")
+      .select("*")
+      .eq("is_published", true)
+      .eq("vehicle_id", vehicleId)
+      .order("created_at", { ascending: false });
+    const all = (data as Review[]) ?? [];
+    const count = all.length;
+    const average =
+      count > 0 ? all.reduce((s, r) => s + r.rating, 0) / count : 0;
+    return {
+      reviews: limit ? all.slice(0, limit) : all,
+      count,
+      average,
+    };
+  } catch {
+    return { reviews: [], count: 0, average: 0 };
+  }
+}

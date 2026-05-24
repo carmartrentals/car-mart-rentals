@@ -13,8 +13,11 @@ import { VehicleGallery } from "@/components/site/vehicle-gallery";
 import { BookingWidget } from "@/components/site/booking-widget";
 import { AvailabilityCalendar } from "@/components/site/availability-calendar";
 import { VehicleCard } from "@/components/site/vehicle-card";
+import { ReviewCard } from "@/components/site/review-card";
+import { StarRating } from "@/components/site/star-rating";
 import { JsonLd } from "@/components/seo/json-ld";
 import { VEHICLE_CATEGORIES, FUEL_TYPES, SITE_URL } from "@/lib/constants";
+import { getVehicleReviewSummary } from "@/lib/data/reviews";
 import { formatCurrency } from "@/lib/utils";
 import type { AddOn } from "@/lib/types/database";
 
@@ -50,10 +53,11 @@ export default async function VehicleDetailPage({
   const vehicle = await getVehicleBySlug(slug);
   if (!vehicle) notFound();
 
-  const [similar, supabase, bookedRanges] = await Promise.all([
+  const [similar, supabase, bookedRanges, vehicleReviews] = await Promise.all([
     getSimilarVehicles(vehicle, 3),
     createClient(),
     getVehicleBookedRanges(vehicle.id),
+    getVehicleReviewSummary(vehicle.id, 6),
   ]);
   const { data: addOnsData } = await supabase
     .from("add_ons")
@@ -132,6 +136,30 @@ export default async function VehicleDetailPage({
         name: "Car Mart Rentals",
       },
     },
+    // Per-vehicle reviews — unlocks star ratings in search results.
+    ...(vehicleReviews.count > 0
+      ? {
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: Number(vehicleReviews.average.toFixed(1)),
+            reviewCount: vehicleReviews.count,
+            bestRating: 5,
+            worstRating: 1,
+          },
+          review: vehicleReviews.reviews.map((r) => ({
+            "@type": "Review",
+            author: { "@type": "Person", name: r.reviewer_name || "Customer" },
+            datePublished: r.created_at,
+            reviewRating: {
+              "@type": "Rating",
+              ratingValue: r.rating,
+              bestRating: 5,
+              worstRating: 1,
+            },
+            ...(r.comment ? { reviewBody: r.comment } : {}),
+          })),
+        }
+      : {}),
   };
 
   // BreadcrumbList — Home › Fleet › 2025 Toyota Camry SE.
@@ -288,6 +316,30 @@ export default async function VehicleDetailPage({
             <div className="mt-6">
               <AvailabilityCalendar bookedRanges={bookedRanges} />
             </div>
+
+            {/* Per-vehicle reviews */}
+            {vehicleReviews.count > 0 && (
+              <div className="mt-6 glass rounded-2xl p-6">
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                  <h2 className="text-base font-semibold text-white">
+                    What renters say about this {vehicle.make} {vehicle.model}
+                  </h2>
+                  <div className="flex items-center gap-2">
+                    <StarRating rating={vehicleReviews.average} size="sm" />
+                    <span className="text-sm text-slate-400">
+                      {vehicleReviews.average.toFixed(1)} ·{" "}
+                      {vehicleReviews.count} review
+                      {vehicleReviews.count === 1 ? "" : "s"}
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                  {vehicleReviews.reviews.map((r) => (
+                    <ReviewCard key={r.id} review={r} />
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Add-ons */}
             {addOns.length > 0 && (
