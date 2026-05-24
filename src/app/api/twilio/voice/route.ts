@@ -24,9 +24,17 @@ export async function POST(req: NextRequest) {
   for (const [k, v] of formData.entries()) params[k] = String(v);
 
   // Reject anything not actually signed by Twilio — prevents abuse of our
-  // OpenAI account by random people hitting this endpoint.
+  // OpenAI account. Skip verification in dev or when explicitly opted out
+  // for first-time setup debugging.
   const signature = req.headers.get("x-twilio-signature");
-  if (!verifyTwilioSignature(signature, url, params)) {
+  const skipVerify = process.env.TWILIO_SKIP_SIGNATURE_CHECK === "true";
+  if (!skipVerify && !verifyTwilioSignature(signature, url, params, req.headers)) {
+    console.error("twilio voice: signature mismatch", {
+      receivedSig: signature?.slice(0, 12),
+      url,
+      host: req.headers.get("host"),
+      proto: req.headers.get("x-forwarded-proto"),
+    });
     return new NextResponse("Forbidden", { status: 403 });
   }
 

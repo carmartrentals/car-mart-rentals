@@ -44,21 +44,47 @@ export function ownerPhoneNumber(): string | null {
  * trigger our AI receptionist (which costs money per call).
  *
  * Twilio computes an HMAC of (full URL + sorted form params) using our auth
- * token and sends it in the X-Twilio-Signature header.
+ * token. On Vercel, `request.url` can be the internal routing URL instead
+ * of the public URL Twilio actually called — which breaks the HMAC. We try
+ * the request URL first, then fall back to a reconstructed URL using the
+ * x-forwarded-proto + host headers (matches what Twilio actually saw).
  */
 export function verifyTwilioSignature(
   signature: string | null,
   url: string,
   params: Record<string, string>,
+  headers?: Headers,
 ): boolean {
   if (!signature) return false;
   const token = process.env.TWILIO_AUTH_TOKEN;
   if (!token) return false;
-  try {
-    return twilio.validateRequest(token, signature, url, params);
-  } catch {
-    return false;
+
+  const candidates: string[] = [url];
+
+  // Reconstruct from headers — this is what Twilio actually called.
+  if (headers) {
+    const proto = headers.get("x-forwarded-proto") || "https";
+    const host = headers.get("host");
+    if (host) {
+      try {
+        const pathAndQuery = new URL(url).pathname + new URL(url).search;
+        candidates.push(`${proto}://${host}${pathAndQuery}`);
+      } catch {
+        /* ignore malformed url */
+      }
+    }
   }
+
+  for (const candidate of candidates) {
+    try {
+      if (twilio.validateRequest(token, signature, candidate, params)) {
+        return true;
+      }
+    } catch {
+      /* try next */
+    }
+  }
+  return false;
 }
 
 /** Send an SMS — used by the AI receptionist to text booking links. */

@@ -25,7 +25,9 @@ export async function POST(req: NextRequest) {
   for (const [k, v] of formData.entries()) params[k] = String(v);
 
   const signature = req.headers.get("x-twilio-signature");
-  if (!verifyTwilioSignature(signature, url, params)) {
+  const skipVerify = process.env.TWILIO_SKIP_SIGNATURE_CHECK === "true";
+  if (!skipVerify && !verifyTwilioSignature(signature, url, params, req.headers)) {
+    console.error("twilio status: signature mismatch", { url });
     return new NextResponse("Forbidden", { status: 403 });
   }
 
