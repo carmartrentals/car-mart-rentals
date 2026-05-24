@@ -101,9 +101,20 @@ export default async function CallDetailPage({
                     )}
                   </span>
                   <div className="flex-1">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      {m.role === "user" ? "Caller" : "AI Assistant"}
-                    </p>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        {m.role === "user" ? "Caller" : "AI Assistant"}
+                      </p>
+                      {/* Per-turn cost — assistant turns only */}
+                      {m.role === "assistant" && m.cost !== undefined && (
+                        <span
+                          className="text-[11px] font-medium text-slate-400"
+                          title={`${m.prompt_tokens ?? 0} input + ${m.completion_tokens ?? 0} output tokens`}
+                        >
+                          {formatCurrency(Number(m.cost))}
+                        </span>
+                      )}
+                    </div>
                     <p className="mt-1 whitespace-pre-line text-sm text-slate-700">
                       {m.content}
                     </p>

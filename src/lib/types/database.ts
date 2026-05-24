@@ -450,6 +450,11 @@ export interface CallTranscriptEntry {
   role: "assistant" | "user";
   content: string;
   at: string;
+  // Per-turn cost (assistant turns only). Lets the admin see exactly which
+  // AI reply cost what — useful for tuning prompt length.
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  cost?: number;
 }
 
 export interface CallLog {

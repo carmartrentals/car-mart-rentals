@@ -6,7 +6,7 @@ import {
   ownerPhoneNumber,
   sendSms,
 } from "@/lib/twilio";
-import { generateReceptionistTurn } from "@/lib/ai-receptionist";
+import { generateReceptionistTurn, CALL_RATES } from "@/lib/ai-receptionist";
 import { SITE_URL } from "@/lib/constants";
 import type { CallTranscriptEntry } from "@/lib/types/database";
 
@@ -111,11 +111,20 @@ export async function POST(req: NextRequest) {
     action.transfer = true;
   }
 
-  // Append the assistant's turn.
+  // Per-turn OpenAI cost — lets the admin see which replies were expensive.
+  const turnCost =
+    (turnPromptTokens * CALL_RATES.openaiInputPerMillion +
+      turnCompletionTokens * CALL_RATES.openaiOutputPerMillion) /
+    1_000_000;
+
+  // Append the assistant's turn with its own token + cost stamp.
   transcript.push({
     role: "assistant",
     content: spoken,
     at: new Date().toISOString(),
+    prompt_tokens: turnPromptTokens,
+    completion_tokens: turnCompletionTokens,
+    cost: Math.round(turnCost * 10_000) / 10_000,
   });
 
   // Execute the SMS-booking-link action if requested.
