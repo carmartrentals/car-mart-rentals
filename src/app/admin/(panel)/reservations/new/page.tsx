@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/admin/page-header";
-import { ReservationForm } from "@/components/admin/reservation-form";
+import { ReservationWizard } from "@/components/admin/reservation-wizard";
 import { Alert } from "@/components/ui/misc";
 import { getTaxRate } from "@/lib/data/settings";
 import { createReservation } from "../actions";
@@ -41,7 +41,7 @@ export default async function NewReservationPage() {
       </Link>
       <PageHeader
         title="New Reservation"
-        subtitle="Create a reservation, quote or booking."
+        subtitle="Step-by-step booking wizard — each step explains what to fill in."
       />
 
       {configError ? (
@@ -57,7 +57,7 @@ export default async function NewReservationPage() {
           .
         </Alert>
       ) : (
-        <ReservationForm
+        <ReservationWizard
           action={createReservation}
           customers={customers}
           vehicles={vehicles}
