@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getVehicleBySlug } from "@/lib/data/vehicles";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentCustomer } from "@/lib/account";
+import { getTaxRate } from "@/lib/data/settings";
 import { BookingForm } from "@/components/site/booking-form";
 import { BookingStartedTracker } from "@/components/site/booking-started-tracker";
 import type { AddOn } from "@/lib/types/database";
@@ -58,6 +59,10 @@ export default async function BookingPage({
     .order("sort_order");
   const addOns = (data as AddOn[]) ?? [];
 
+  // Pulled from Settings -> Tax. Passed into the client form below so the
+  // quote shown to the customer matches what the server actually charges.
+  const taxRate = await getTaxRate();
+
   // Customer's profile prefills the form (they're guaranteed signed in here).
   const prefill = {
     first_name: customer.first_name ?? "",
@@ -92,6 +97,7 @@ export default async function BookingPage({
           ret={ret as string}
           prefill={prefill}
           refCode={str(sp.ref) ?? null}
+          taxRate={taxRate}
         />
       </div>
     </div>

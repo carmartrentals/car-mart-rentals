@@ -9,6 +9,7 @@ import {
   getVehicleBySlug, getSimilarVehicles, getVehicleBookedRanges,
 } from "@/lib/data/vehicles";
 import { createClient } from "@/lib/supabase/server";
+import { getTaxRate } from "@/lib/data/settings";
 import { VehicleGallery } from "@/components/site/vehicle-gallery";
 import { BookingWidget } from "@/components/site/booking-widget";
 import { AvailabilityCalendar } from "@/components/site/availability-calendar";
@@ -65,6 +66,10 @@ export default async function VehicleDetailPage({
     .eq("is_active", true)
     .order("sort_order");
   const addOns = (addOnsData as AddOn[]) ?? [];
+  // Live tax rate from Settings — passed to BookingWidget so the preview
+  // matches the checkout. Read on every render via getTaxRate() so Settings
+  // changes propagate site-wide.
+  const taxRate = await getTaxRate();
 
   const name = `${vehicle.year} ${vehicle.make} ${vehicle.model}`;
   const specs = [
@@ -378,7 +383,11 @@ export default async function VehicleDetailPage({
 
           {/* -------------------------------------------------------- SIDEBAR */}
           <div className="lg:sticky lg:top-24 lg:self-start">
-            <BookingWidget vehicle={vehicle} bookedRanges={bookedRanges} />
+            <BookingWidget
+              vehicle={vehicle}
+              bookedRanges={bookedRanges}
+              taxRate={taxRate}
+            />
           </div>
         </div>
 

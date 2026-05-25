@@ -23,9 +23,14 @@ function defaults() {
 export function BookingWidget({
   vehicle,
   bookedRanges = [],
+  taxRate,
 }: {
   vehicle: Vehicle;
   bookedRanges?: BookedRange[];
+  /** Effective tax rate as a percentage (e.g. 9.75). Read from admin
+   *  Settings on the server and passed in so this preview matches the
+   *  final checkout total. */
+  taxRate: number;
 }) {
   const router = useRouter();
   const init = defaults();
@@ -37,8 +42,7 @@ export function BookingWidget({
     const days = rentalDays(pickup, ret);
     const rate = bestRate(vehicle, days);
     const subtotal = rate.total;
-    const taxRate = 0.095;
-    const tax = subtotal * taxRate;
+    const tax = subtotal * (taxRate / 100);
     return {
       days,
       rateType: rate.rateType,
@@ -47,7 +51,7 @@ export function BookingWidget({
       tax,
       total: subtotal + tax,
     };
-  }, [pickup, ret, vehicle]);
+  }, [pickup, ret, vehicle, taxRate]);
 
   // Real-time availability — does the chosen window overlap a booking?
   const conflict = useMemo(() => {
@@ -117,7 +121,7 @@ export function BookingWidget({
             }`}
             value={formatCurrency(quote.subtotal)}
           />
-          <Row label="Estimated tax (9.5%)" value={formatCurrency(quote.tax)} />
+          <Row label={`Estimated tax (${taxRate}%)`} value={formatCurrency(quote.tax)} />
           <div className="flex justify-between border-t border-white/10 pt-2 text-base font-bold text-white">
             <span>Estimated Total</span>
             <span>{formatCurrency(quote.total)}</span>

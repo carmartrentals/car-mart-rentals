@@ -9,8 +9,6 @@ import { formatCurrency, formatDateTime, rentalDays, bestRate } from "@/lib/util
 import { saveBookingDraft, validatePromoCode } from "@/app/(site)/booking/actions";
 import { trackEvent } from "@/lib/analytics";
 
-const TAX_RATE = 0.095;
-
 const INPUT_CLASS =
   "h-10 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-white " +
   "placeholder:text-slate-500 focus:border-gold-400 focus:outline-none " +
@@ -32,6 +30,7 @@ export function BookingForm({
   ret,
   prefill,
   refCode,
+  taxRate,
 }: {
   vehicle: Vehicle;
   addOns: AddOn[];
@@ -39,6 +38,11 @@ export function BookingForm({
   ret: string;
   prefill?: Prefill | null;
   refCode?: string | null;
+  /** Effective tax rate as a percentage (e.g. 9.75). Read from admin
+   *  Settings on the server and passed in — never hardcoded here, so a
+   *  Settings change propagates to the customer-facing checkout without
+   *  a code release. */
+  taxRate: number;
 }) {
   const [selectedAddOns, setSelectedAddOns] = useState<string[]>([]);
   const [form, setForm] = useState({
@@ -83,7 +87,7 @@ export function BookingForm({
     const preDiscountSubtotal = rate.total + addonsTotal;
     const discount = promo ? Math.min(preDiscountSubtotal, promo.discountAmount) : 0;
     const subtotal = Math.max(0, preDiscountSubtotal - discount);
-    const tax = subtotal * TAX_RATE;
+    const tax = subtotal * (taxRate / 100);
     return {
       rate,
       addonsTotal,
@@ -94,7 +98,7 @@ export function BookingForm({
       total: subtotal + tax,
       deposit: vehicle.security_deposit,
     };
-  }, [vehicle, addOns, selectedAddOns, days, promo]);
+  }, [vehicle, addOns, selectedAddOns, days, promo, taxRate]);
 
   function applyPromo() {
     setPromoError(null);
@@ -471,7 +475,7 @@ export function BookingForm({
                 </span>
               </div>
             )}
-            <Row label="Tax (9.5%)" value={formatCurrency(quote.tax)} />
+            <Row label={`Tax (${taxRate}%)`} value={formatCurrency(quote.tax)} />
             <div className="flex justify-between border-t border-white/10 pt-2 text-base font-bold text-white">
               <span>Total</span>
               <span>{formatCurrency(quote.total)}</span>
