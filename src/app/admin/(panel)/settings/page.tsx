@@ -4,11 +4,35 @@ import {
   getSetting,
   getAiVoiceSettings,
   getCancellationPolicy,
+  getBusinessHours,
+  getDriverRequirements,
+  getLateReturnPolicy,
+  getFuelPolicy,
+  getDeliveryOptions,
+  getAutoEmailPreferences,
+  getOwnerNotifications,
+  getVerificationGates,
+  getSocialLinks,
+  getDisplayTimezone,
+  getTollPassthrough,
 } from "@/lib/data/settings";
 import { COMPANY } from "@/lib/constants";
 import { SettingsForm } from "@/components/admin/settings-form";
 import { AiVoiceSettingsForm } from "@/components/admin/ai-voice-settings-form";
 import { CancellationPolicyForm } from "@/components/admin/cancellation-policy-form";
+import {
+  BusinessHoursForm,
+  DriverRequirementsForm,
+  LateReturnPolicyForm,
+  FuelPolicyForm,
+  DeliveryOptionsForm,
+  AutoEmailPreferencesForm,
+  OwnerNotificationsForm,
+  VerificationGatesForm,
+  SocialLinksForm,
+  DisplaySettingsForm,
+  TollPassthroughForm,
+} from "@/components/admin/operations-settings-forms";
 import { CatalogManager } from "@/components/admin/catalog-manager";
 import { AgreementEditor } from "@/components/admin/agreement-editor";
 import { Alert } from "@/components/ui/misc";
@@ -20,6 +44,31 @@ export default async function SettingsPage() {
   const rules = await getSetting<Record<string, unknown>>("booking_rules", {});
   const voice = await getAiVoiceSettings();
   const cancellation = await getCancellationPolicy();
+  const [
+    businessHours,
+    driverReqs,
+    lateReturn,
+    fuel,
+    delivery,
+    autoEmails,
+    ownerNotifs,
+    verification,
+    social,
+    timezone,
+    tollPassthrough,
+  ] = await Promise.all([
+    getBusinessHours(),
+    getDriverRequirements(),
+    getLateReturnPolicy(),
+    getFuelPolicy(),
+    getDeliveryOptions(),
+    getAutoEmailPreferences(),
+    getOwnerNotifications(),
+    getVerificationGates(),
+    getSocialLinks(),
+    getDisplayTimezone(),
+    getTollPassthrough(),
+  ]);
 
   const companyValue = {
     name: String(company.name ?? COMPANY.name),
@@ -88,6 +137,24 @@ export default async function SettingsPage() {
         />
         <AiVoiceSettingsForm initial={voice} />
         <CancellationPolicyForm initial={cancellation} />
+
+        {/* --- Operations policies (new in this commit) --- */}
+        <BusinessHoursForm initial={businessHours} />
+        <DriverRequirementsForm initial={driverReqs} />
+        <LateReturnPolicyForm initial={lateReturn} />
+        <FuelPolicyForm initial={fuel} />
+        <DeliveryOptionsForm initial={delivery} />
+        <VerificationGatesForm initial={verification} />
+        <TollPassthroughForm initial={tollPassthrough} />
+
+        {/* --- Notifications --- */}
+        <AutoEmailPreferencesForm initial={autoEmails} />
+        <OwnerNotificationsForm initial={ownerNotifs} />
+
+        {/* --- Display & branding --- */}
+        <SocialLinksForm initial={social} />
+        <DisplaySettingsForm initial={{ timezone }} />
+
         <CatalogManager addOns={addOns} fees={fees} />
         <AgreementEditor
           templateId={template?.id ?? null}

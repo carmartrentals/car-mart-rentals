@@ -51,6 +51,275 @@ export async function saveGeneralSettings(input: {
   return { ok: true };
 }
 
+// --- Generic settings saver (used by the new operations cards) -------------
+// Same pattern as the individual save functions but takes any key+value and
+// is gated by Super Admin. Keeps boilerplate down for the 11 new cards.
+async function upsertSetting(args: {
+  user: { id: string };
+  key: string;
+  value: Record<string, unknown>;
+  category: string;
+  activityDescription: string;
+}): Promise<ActionState> {
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("settings")
+    .upsert(
+      { key: args.key, value: args.value, category: args.category } as never,
+      { onConflict: "key" },
+    );
+  if (error) return { ok: false, error: error.message };
+
+  await logActivity({
+    userId: args.user.id,
+    action: `settings.${args.key}_updated`,
+    entityType: "settings",
+    description: args.activityDescription,
+  });
+  revalidatePath("/admin/settings");
+  // Revalidate the whole tree so customer-facing copy that reads these
+  // settings re-renders on the next request without waiting for the
+  // route's static cache to expire.
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+export async function saveBusinessHours(
+  value: Record<string, { open: string; close: string }>,
+): Promise<ActionState> {
+  const user = await requireSettingsAccess();
+  if (!user)
+    return { ok: false, error: "Only a Super Admin can change settings." };
+  return upsertSetting({
+    user,
+    key: "business_hours",
+    value,
+    category: "operations",
+    activityDescription: "Updated business hours",
+  });
+}
+
+export async function saveDriverRequirements(value: {
+  min_years_licensed: number;
+  accept_international: boolean;
+  accept_permit: boolean;
+  young_driver_surcharge: number;
+  young_driver_age_threshold: number;
+}): Promise<ActionState> {
+  const user = await requireSettingsAccess();
+  if (!user)
+    return { ok: false, error: "Only a Super Admin can change settings." };
+  return upsertSetting({
+    user,
+    key: "driver_requirements",
+    value: {
+      min_years_licensed: Math.max(0, Math.round(value.min_years_licensed || 0)),
+      accept_international: !!value.accept_international,
+      accept_permit: !!value.accept_permit,
+      young_driver_surcharge: Math.max(0, Number(value.young_driver_surcharge) || 0),
+      young_driver_age_threshold: Math.max(
+        16,
+        Math.round(value.young_driver_age_threshold || 25),
+      ),
+    },
+    category: "booking",
+    activityDescription: `Min ${value.min_years_licensed}y licensed, intl=${value.accept_international}`,
+  });
+}
+
+export async function saveLateReturnPolicy(value: {
+  grace_minutes: number;
+  hourly_rate: number;
+  full_day_after_hours: number;
+}): Promise<ActionState> {
+  const user = await requireSettingsAccess();
+  if (!user)
+    return { ok: false, error: "Only a Super Admin can change settings." };
+  return upsertSetting({
+    user,
+    key: "late_return_policy",
+    value: {
+      grace_minutes: Math.max(0, Math.round(value.grace_minutes || 0)),
+      hourly_rate: Math.max(0, Number(value.hourly_rate) || 0),
+      full_day_after_hours: Math.max(0, Math.round(value.full_day_after_hours || 0)),
+    },
+    category: "operations",
+    activityDescription: `Grace ${value.grace_minutes}min · $${value.hourly_rate}/hr`,
+  });
+}
+
+export async function saveFuelPolicy(value: {
+  refuel_service_fee: number;
+  per_gallon_markup: number;
+}): Promise<ActionState> {
+  const user = await requireSettingsAccess();
+  if (!user)
+    return { ok: false, error: "Only a Super Admin can change settings." };
+  return upsertSetting({
+    user,
+    key: "fuel_policy",
+    value: {
+      refuel_service_fee: Math.max(0, Number(value.refuel_service_fee) || 0),
+      per_gallon_markup: Math.max(0, Number(value.per_gallon_markup) || 0),
+    },
+    category: "operations",
+    activityDescription: `Refuel $${value.refuel_service_fee} · markup $${value.per_gallon_markup}/gal`,
+  });
+}
+
+export async function saveDeliveryOptions(value: {
+  in_house_enabled: boolean;
+  local_enabled: boolean;
+  local_free_miles: number;
+  local_per_mile_fee: number;
+  airport_enabled: boolean;
+  airport_flat_fee: number;
+}): Promise<ActionState> {
+  const user = await requireSettingsAccess();
+  if (!user)
+    return { ok: false, error: "Only a Super Admin can change settings." };
+  return upsertSetting({
+    user,
+    key: "delivery_options",
+    value: {
+      in_house_enabled: !!value.in_house_enabled,
+      local_enabled: !!value.local_enabled,
+      local_free_miles: Math.max(0, Math.round(value.local_free_miles || 0)),
+      local_per_mile_fee: Math.max(0, Number(value.local_per_mile_fee) || 0),
+      airport_enabled: !!value.airport_enabled,
+      airport_flat_fee: Math.max(0, Number(value.airport_flat_fee) || 0),
+    },
+    category: "operations",
+    activityDescription: `Delivery options updated`,
+  });
+}
+
+export async function saveAutoEmailPreferences(value: {
+  precheckin_hours_before: number;
+  thanks_hours_after_return: number;
+  unpaid_reminder_days: number;
+  insurance_expiry_nudge_days: number;
+}): Promise<ActionState> {
+  const user = await requireSettingsAccess();
+  if (!user)
+    return { ok: false, error: "Only a Super Admin can change settings." };
+  return upsertSetting({
+    user,
+    key: "auto_email_prefs",
+    value: {
+      precheckin_hours_before: Math.max(0, Math.round(value.precheckin_hours_before || 0)),
+      thanks_hours_after_return: Math.max(0, Math.round(value.thanks_hours_after_return || 0)),
+      unpaid_reminder_days: Math.max(0, Math.round(value.unpaid_reminder_days || 0)),
+      insurance_expiry_nudge_days: Math.max(0, Math.round(value.insurance_expiry_nudge_days || 0)),
+    },
+    category: "notifications",
+    activityDescription: `Auto-email preferences updated`,
+  });
+}
+
+export async function saveOwnerNotifications(value: {
+  on_new_booking: boolean;
+  on_cancellation: boolean;
+  on_high_risk_booking: boolean;
+  on_damage_detected: boolean;
+  on_failed_payment: boolean;
+  on_late_return: boolean;
+  on_ai_call_completed: boolean;
+}): Promise<ActionState> {
+  const user = await requireSettingsAccess();
+  if (!user)
+    return { ok: false, error: "Only a Super Admin can change settings." };
+  return upsertSetting({
+    user,
+    key: "owner_notifications",
+    value: { ...value },
+    category: "notifications",
+    activityDescription: `Owner notification triggers updated`,
+  });
+}
+
+export async function saveVerificationGates(value: {
+  license_level: "ai" | "ai_dmv" | "stripe";
+  insurance_level: "off" | "required" | "ai_pass";
+  insurance_min_score: number;
+  block_checkout_on_fail: boolean;
+}): Promise<ActionState> {
+  const user = await requireSettingsAccess();
+  if (!user)
+    return { ok: false, error: "Only a Super Admin can change settings." };
+  return upsertSetting({
+    user,
+    key: "verification_gates",
+    value: {
+      license_level: value.license_level,
+      insurance_level: value.insurance_level,
+      insurance_min_score: Math.max(0, Math.min(100, Math.round(value.insurance_min_score || 0))),
+      block_checkout_on_fail: !!value.block_checkout_on_fail,
+    },
+    category: "operations",
+    activityDescription: `Gates: license=${value.license_level} · insurance=${value.insurance_level}`,
+  });
+}
+
+export async function saveSocialLinks(value: {
+  instagram: string;
+  facebook: string;
+  tiktok: string;
+  yelp: string;
+  google_reviews: string;
+  twitter: string;
+  youtube: string;
+}): Promise<ActionState> {
+  const user = await requireSettingsAccess();
+  if (!user)
+    return { ok: false, error: "Only a Super Admin can change settings." };
+  // Light validation — must look like a URL (or empty).
+  const ok = (u: string) => !u || /^https?:\/\//i.test(u);
+  if (!Object.values(value).every(ok))
+    return { ok: false, error: "Social links must start with http:// or https://" };
+  return upsertSetting({
+    user,
+    key: "social_links",
+    value: { ...value },
+    category: "display",
+    activityDescription: `Social media links updated`,
+  });
+}
+
+export async function saveDisplaySettings(value: {
+  timezone: string;
+}): Promise<ActionState> {
+  const user = await requireSettingsAccess();
+  if (!user)
+    return { ok: false, error: "Only a Super Admin can change settings." };
+  return upsertSetting({
+    user,
+    key: "display",
+    value: { timezone: value.timezone },
+    category: "display",
+    activityDescription: `Display timezone: ${value.timezone}`,
+  });
+}
+
+export async function saveTollPassthrough(value: {
+  flat_markup: number;
+  percent_markup: number;
+}): Promise<ActionState> {
+  const user = await requireSettingsAccess();
+  if (!user)
+    return { ok: false, error: "Only a Super Admin can change settings." };
+  return upsertSetting({
+    user,
+    key: "toll_passthrough",
+    value: {
+      flat_markup: Math.max(0, Number(value.flat_markup) || 0),
+      percent_markup: Math.max(0, Math.min(100, Number(value.percent_markup) || 0)),
+    },
+    category: "operations",
+    activityDescription: `Toll markup $${value.flat_markup} + ${value.percent_markup}%`,
+  });
+}
+
 // --- Cancellation policy ----------------------------------------------------
 export async function saveCancellationPolicy(input: {
   window_hours: number;
