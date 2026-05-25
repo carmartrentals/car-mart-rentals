@@ -81,7 +81,7 @@ export async function submitCheckout(
   const { data: resRow } = await admin
     .from("reservations")
     .select(
-      "*, vehicle:vehicles(*), customer:customers(dl_status,insurance_status,dl_expiration,insurance_expiration)",
+      "*, vehicle:vehicles(*), customer:customers(dl_status,insurance_status,dl_expiration,insurance_expiration,license_risk_level,dl_dmv_check_status)",
     )
     .eq("id", reservationId)
     .maybeSingle();
@@ -93,6 +93,8 @@ export async function submitCheckout(
           insurance_status: string;
           dl_expiration: string | null;
           insurance_expiration: string | null;
+          license_risk_level: string | null;
+          dl_dmv_check_status: string | null;
         } | null;
       })
     | null;
@@ -120,6 +122,24 @@ export async function submitCheckout(
         ok: false,
         error:
           "The customer's driver license has expired. A valid license is required before check-out.",
+      };
+    }
+    // Enhanced license verification (migration 0024) — hard block on the
+    // aggregate risk level or a suspended/revoked DMV status.
+    if (cust.license_risk_level === "block") {
+      return {
+        ok: false,
+        error:
+          "License verification flagged this driver as a block — review the License Verification card on the customer page before checking out.",
+      };
+    }
+    if (
+      cust.dl_dmv_check_status === "suspended" ||
+      cust.dl_dmv_check_status === "revoked"
+    ) {
+      return {
+        ok: false,
+        error: `The customer's license came back ${cust.dl_dmv_check_status} from the DMV check. Cannot rent.`,
       };
     }
     if (reservation.insurance_required) {

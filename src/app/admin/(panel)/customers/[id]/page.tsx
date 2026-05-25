@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { DeleteButton } from "@/components/admin/delete-button";
 import { CustomerDocuments } from "@/components/admin/customer-documents";
+import { LicenseVerificationCard } from "@/components/admin/license-verification-card";
 import { getIdentitySummary, type IdentitySummary } from "@/lib/identity";
 import { RESERVATION_STATUS } from "@/lib/constants";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -157,6 +158,14 @@ export default async function CustomerDetailPage({
 
         {/* Activity */}
         <div className="space-y-6 lg:col-span-2">
+          <LicenseVerificationCard
+            customer={c}
+            dmvLookupUrl={
+              c.dl_state === "CA"
+                ? "https://dmvportal.dmv.ca.gov/wps/portal/dmvevsec/"
+                : undefined
+            }
+          />
           <CustomerDocuments customer={c} identity={identity} />
 
           <div className="grid gap-4 sm:grid-cols-3">
