@@ -239,7 +239,7 @@ export default async function ReservationDetailPage({
           <Card>
             <CardHeader>
               <CardTitle>Status & Workflow</CardTitle>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Badge tone={RESERVATION_STATUS[r.status].tone}>
                   {RESERVATION_STATUS[r.status].label}
                 </Badge>

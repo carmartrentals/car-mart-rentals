@@ -22,7 +22,10 @@ export function CardHeader({
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4",
+        // flex-wrap lets the right-side badge/button drop below the title
+        // on narrow phones instead of squashing the title into a 1-letter
+        // column. min-w-0 on children isn't needed since wrap handles overflow.
+        "flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-slate-100 px-5 py-4",
         className,
       )}
       {...props}
