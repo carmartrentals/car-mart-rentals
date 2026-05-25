@@ -733,6 +733,17 @@ export interface MarketingCampaign {
   failed_count: number;
   created_by: string | null;
   created_at: string;
+  // Recurring campaign fields (migration 0030)
+  /** 0 = one-off (default). >0 = the schedule fires every N months. */
+  recurrence_months: number;
+  /** For recurring templates: when the next automated fire should happen. */
+  next_send_at: string | null;
+  /** For child campaigns: which recurring template they came from. */
+  recurring_parent_id: string | null;
+  /** True when this row is a recurrence rule, not a real send. */
+  is_template: boolean;
+  /** Lets the operator pause a recurring campaign without deleting it. */
+  is_active: boolean;
 }
 
 export interface MarketingRecipient {

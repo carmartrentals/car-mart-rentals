@@ -1,12 +1,23 @@
 import Link from "next/link";
-import { Plus, Mail, MailCheck, AlertCircle, Eye, Send } from "lucide-react";
+import {
+  Plus,
+  Mail,
+  MailCheck,
+  AlertCircle,
+  Eye,
+  Send,
+  Repeat,
+  Pause,
+  Play,
+} from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/admin/page-header";
 import { Button } from "@/components/ui/button";
-import { Card, CardBody } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardBody } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Alert } from "@/components/ui/misc";
+import { RecurringPauseToggle } from "@/components/admin/recurring-pause-toggle";
 import { formatDateTime } from "@/lib/utils";
 import { upcomingHolidays } from "@/lib/holidays";
 import { HolidaySuggestions } from "@/components/admin/holiday-suggestions";
@@ -31,7 +42,7 @@ export default async function MarketingPage() {
         .from("marketing_campaigns")
         .select("*")
         .order("created_at", { ascending: false })
-        .limit(100),
+        .limit(200),
       admin
         .from("customers")
         .select("id", { count: "exact", head: true })
@@ -45,8 +56,14 @@ export default async function MarketingPage() {
     configError = true;
   }
 
-  const totalSent = campaigns.reduce((s, c) => s + (c.sent_count ?? 0), 0);
-  const totalOpens = campaigns.reduce((s, c) => s + (c.opened_count ?? 0), 0);
+  // Split recurring templates from one-off sends so they get their own
+  // section. Templates never themselves count toward the "sends" stats —
+  // each automated fire creates a separate child campaign that does.
+  const templates = campaigns.filter((c) => c.is_template);
+  const sends = campaigns.filter((c) => !c.is_template);
+
+  const totalSent = sends.reduce((s, c) => s + (c.sent_count ?? 0), 0);
+  const totalOpens = sends.reduce((s, c) => s + (c.opened_count ?? 0), 0);
   const openRate =
     totalSent > 0 ? Math.round((totalOpens / totalSent) * 100) : 0;
 
@@ -117,8 +134,70 @@ export default async function MarketingPage() {
         />
       </div>
 
+      {/* Recurring schedules — templates that fire automatically every N
+          months. Shown above the regular send history so the operator
+          can see what's running on autopilot. */}
+      {templates.length > 0 && (
+        <Card className="mb-6 border-blue-200">
+          <CardHeader>
+            <CardTitle>
+              <span className="inline-flex items-center gap-2">
+                <Repeat className="h-4 w-4 text-blue-600" />
+                Recurring Schedules
+              </span>
+            </CardTitle>
+            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+              {templates.filter((t) => t.is_active).length} active
+            </span>
+          </CardHeader>
+          <Table>
+            <THead>
+              <TR>
+                <TH>Name</TH>
+                <TH>Audience</TH>
+                <TH>Frequency</TH>
+                <TH>Next send</TH>
+                <TH>Status</TH>
+                <TH></TH>
+              </TR>
+            </THead>
+            <TBody>
+              {templates.map((t) => (
+                <TR key={t.id}>
+                  <TD className="font-medium text-slate-800">
+                    <Link
+                      href={`/admin/marketing/${t.id}`}
+                      className="hover:text-gold-700 hover:underline"
+                    >
+                      {t.name}
+                    </Link>
+                  </TD>
+                  <TD className="text-xs text-slate-600">{t.audience}</TD>
+                  <TD className="text-xs text-slate-600">
+                    Every {t.recurrence_months} mo
+                  </TD>
+                  <TD className="text-xs text-slate-500">
+                    {t.next_send_at
+                      ? formatDateTime(t.next_send_at)
+                      : "—"}
+                  </TD>
+                  <TD>
+                    <Badge tone={t.is_active ? "green" : "gray"}>
+                      {t.is_active ? "Active" : "Paused"}
+                    </Badge>
+                  </TD>
+                  <TD className="text-right">
+                    <RecurringPauseToggle id={t.id} isActive={t.is_active} />
+                  </TD>
+                </TR>
+              ))}
+            </TBody>
+          </Table>
+        </Card>
+      )}
+
       <Card>
-        {campaigns.length === 0 ? (
+        {sends.length === 0 ? (
           <CardBody>
             <div className="flex flex-col items-center gap-3 py-10 text-center text-sm text-slate-500">
               <AlertCircle className="h-6 w-6 text-slate-400" />
@@ -144,7 +223,7 @@ export default async function MarketingPage() {
               </TR>
             </THead>
             <TBody>
-              {campaigns.map((c) => {
+              {sends.map((c) => {
                 const pct =
                   c.sent_count > 0
                     ? Math.round((c.opened_count / c.sent_count) * 100)

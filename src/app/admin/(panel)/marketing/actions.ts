@@ -25,6 +25,9 @@ interface CampaignDraft {
   /** When set, this campaign is a resend that only goes to recipients of
    *  the named original campaign who didn't open it. */
   resend_of_campaign_id?: string | null;
+  /** When >0, save as a recurring template that fires every N months
+   *  instead of sending right now. */
+  recurrence_months?: number;
 }
 
 async function requireMarketingAccess() {
@@ -57,6 +60,60 @@ export async function createAndSendCampaign(
 
   const admin = createAdminClient();
   const audience: MarketingAudience = input.audience ?? "all";
+  const recurrenceMonths = Math.max(
+    0,
+    Math.round(Number(input.recurrence_months) || 0),
+  );
+
+  // RECURRING TEMPLATE PATH — save as a recurring rule and bail. The cron
+  // creates a child campaign + sends it on each scheduled fire. We do NOT
+  // send anything right now.
+  if (recurrenceMonths > 0) {
+    const next = new Date();
+    next.setUTCMonth(next.getUTCMonth() + recurrenceMonths);
+    const { data: parent, error: pErr } = await admin
+      .from("marketing_campaigns")
+      .insert({
+        name: input.name.trim(),
+        subject: input.subject.trim(),
+        preheader: input.preheader.trim() || null,
+        body: input.body.trim(),
+        cta_label: input.cta_label.trim() || null,
+        cta_url: input.cta_url.trim() || null,
+        promo_code_id: input.promo_code_id || null,
+        audience,
+        status: "draft",
+        created_by: user.id,
+        recurrence_months: recurrenceMonths,
+        next_send_at: next.toISOString(),
+        is_template: true,
+        is_active: true,
+      })
+      .select("id")
+      .single();
+    if (pErr || !parent) {
+      return {
+        ok: false,
+        error: pErr?.message ?? "Could not save recurring campaign.",
+      };
+    }
+    await logActivity({
+      userId: user.id,
+      action: "marketing.recurring_created",
+      entityType: "marketing_campaign",
+      entityId: (parent as { id: string }).id,
+      description: `${input.name.trim()} · every ${recurrenceMonths}mo · next ${next.toISOString().slice(0, 10)}`,
+    });
+    revalidatePath("/admin/marketing");
+    return {
+      ok: true,
+      data: {
+        campaignId: (parent as { id: string }).id,
+        recurring: true,
+        nextSendAt: next.toISOString(),
+      },
+    };
+  }
 
   // 1) Create the campaign row in "sending" status.
   const { data: created, error: cErr } = await admin
@@ -486,6 +543,247 @@ function escapeHtml(s: string): string {
 }
 function escapeAttr(s: string): string {
   return escapeHtml(s);
+}
+
+/** Toggle a recurring campaign's active flag (pause / resume). */
+export async function setRecurringCampaignActive(
+  id: string,
+  active: boolean,
+): Promise<ActionState> {
+  const user = await requireMarketingAccess();
+  if (!user) return { ok: false, error: "Permission denied." };
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("marketing_campaigns")
+    .update({ is_active: active })
+    .eq("id", id)
+    .eq("is_template", true);
+  if (error) return { ok: false, error: error.message };
+  await logActivity({
+    userId: user.id,
+    action: active
+      ? "marketing.recurring_resumed"
+      : "marketing.recurring_paused",
+    entityType: "marketing_campaign",
+    entityId: id,
+    description: active ? "Recurring resumed" : "Recurring paused",
+  });
+  revalidatePath("/admin/marketing");
+  return { ok: true };
+}
+
+/**
+ * Process all recurring templates whose next_send_at has come due. Called
+ * from the daily cron. For each due template:
+ *   1. Clone the template into a real one-off campaign linked back via
+ *      recurring_parent_id
+ *   2. Send it (reuses the standard createAndSendCampaign path by
+ *      replaying the underlying logic — but since we need to skip the
+ *      auth gate we call the internal flow directly)
+ *   3. Advance the parent's next_send_at by recurrence_months
+ *
+ * Returns the number of recurring sends fired this run.
+ */
+export async function processDueRecurringCampaigns(): Promise<number> {
+  const admin = createAdminClient();
+  const now = new Date().toISOString();
+  const { data: due } = await admin
+    .from("marketing_campaigns")
+    .select("*")
+    .eq("is_template", true)
+    .eq("is_active", true)
+    .lte("next_send_at", now);
+  const parents = (due as MarketingCampaignFromDb[] | null) ?? [];
+  let fired = 0;
+  for (const parent of parents) {
+    try {
+      await fireRecurringCampaign(admin, parent);
+      // Advance the next-send pointer.
+      const next = new Date();
+      next.setUTCMonth(
+        next.getUTCMonth() + (Number(parent.recurrence_months) || 1),
+      );
+      await admin
+        .from("marketing_campaigns")
+        .update({ next_send_at: next.toISOString() })
+        .eq("id", parent.id);
+      fired++;
+    } catch (e) {
+      console.error("recurring fire failed for parent", parent.id, e);
+    }
+  }
+  return fired;
+}
+
+type MarketingCampaignFromDb = {
+  id: string;
+  name: string;
+  subject: string;
+  preheader: string | null;
+  body: string;
+  cta_label: string | null;
+  cta_url: string | null;
+  promo_code_id: string | null;
+  audience: MarketingAudience;
+  recurrence_months: number;
+  created_by: string | null;
+};
+
+/**
+ * Clone a recurring template into a real campaign + send it. Mirrors the
+ * core of createAndSendCampaign but skips the auth check (this is called
+ * from the cron, no user context) and tags the child with recurring_parent_id.
+ */
+async function fireRecurringCampaign(
+  admin: Admin,
+  parent: MarketingCampaignFromDb,
+): Promise<void> {
+  const { data: childRow, error: cErr } = await admin
+    .from("marketing_campaigns")
+    .insert({
+      name: `${parent.name} (auto · ${new Date().toISOString().slice(0, 10)})`,
+      subject: parent.subject,
+      preheader: parent.preheader,
+      body: parent.body,
+      cta_label: parent.cta_label,
+      cta_url: parent.cta_url,
+      promo_code_id: parent.promo_code_id,
+      audience: parent.audience,
+      status: "sending",
+      created_by: parent.created_by,
+      recurring_parent_id: parent.id,
+      is_template: false,
+    })
+    .select("id")
+    .single();
+  if (cErr || !childRow) {
+    throw new Error(cErr?.message ?? "Could not create recurring child.");
+  }
+  const campaignId = (childRow as { id: string }).id;
+
+  const recipients = await loadAudience(admin, parent.audience, {
+    resendOfCampaignId: null,
+  });
+  const seen = new Set<string>();
+  const unique = recipients.filter((r) => {
+    if (!r.email) return false;
+    const key = r.email.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  if (unique.length === 0) {
+    await admin
+      .from("marketing_campaigns")
+      .update({ status: "failed", failed_count: 0 })
+      .eq("id", campaignId);
+    return;
+  }
+
+  let promo: PromoCode | null = null;
+  if (parent.promo_code_id) {
+    const { data } = await admin
+      .from("promo_codes")
+      .select("*")
+      .eq("id", parent.promo_code_id)
+      .maybeSingle();
+    promo = (data as PromoCode | null) ?? null;
+  }
+  const company = await getCompanyProfile();
+
+  const recipientRows = unique.map((r) => ({
+    campaign_id: campaignId,
+    customer_id: r.id,
+    email: r.email!,
+  }));
+  const { data: insertedRows } = await admin
+    .from("marketing_recipients")
+    .insert(recipientRows)
+    .select("id, customer_id, email");
+  if (!insertedRows) return;
+
+  const byCustomerId = new Map(
+    unique.map((u) => [
+      u.id,
+      { first_name: u.first_name, referral_code: u.referral_code ?? "" },
+    ]),
+  );
+  const sendList = insertedRows.map((row) => {
+    const r = row as { id: string; customer_id: string | null; email: string };
+    const info = byCustomerId.get(r.customer_id ?? "") ?? {
+      first_name: "",
+      referral_code: "",
+    };
+    return { ...r, ...info };
+  });
+
+  let sent = 0;
+  let failed = 0;
+  const BATCH = 5;
+  for (let i = 0; i < sendList.length; i += BATCH) {
+    const slice = sendList.slice(i, i + BATCH);
+    const results = await Promise.allSettled(
+      slice.map(async (r) => {
+        const personalizedBody = substituteTokens(parent.body, {
+          first_name: r.first_name || "there",
+          referral_code: r.referral_code || "",
+        });
+        const html = buildCampaignHtml({
+          recipientId: r.id,
+          firstName: r.first_name || "there",
+          subject: parent.subject,
+          preheader: parent.preheader ?? "",
+          body: personalizedBody,
+          ctaLabel: parent.cta_label ?? "",
+          ctaUrl: substituteTokens(parent.cta_url ?? "", {
+            first_name: r.first_name || "",
+            referral_code: r.referral_code || "",
+          }),
+          promo,
+          companyName: company.name,
+          companyAddress: company.address,
+        });
+        const result = await sendEmail({
+          to: r.email,
+          subject: parent.subject,
+          html,
+        });
+        if (!result.ok) throw new Error(result.error || "Send failed.");
+      }),
+    );
+    const updates = slice.map((r, idx) => {
+      const s = results[idx];
+      if (s.status === "fulfilled") {
+        sent++;
+        return admin
+          .from("marketing_recipients")
+          .update({ sent_at: new Date().toISOString() })
+          .eq("id", r.id);
+      }
+      failed++;
+      const reason =
+        s.status === "rejected"
+          ? s.reason instanceof Error
+            ? s.reason.message
+            : String(s.reason)
+          : "unknown error";
+      return admin
+        .from("marketing_recipients")
+        .update({ send_error: reason })
+        .eq("id", r.id);
+    });
+    await Promise.allSettled(updates);
+  }
+
+  await admin
+    .from("marketing_campaigns")
+    .update({
+      status: failed === sendList.length ? "failed" : "sent",
+      sent_at: new Date().toISOString(),
+      sent_count: sent,
+      failed_count: failed,
+    })
+    .eq("id", campaignId);
 }
 
 /** Delete a campaign + cascade its recipients. Used from the admin list. */

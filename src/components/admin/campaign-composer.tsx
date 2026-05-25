@@ -15,6 +15,7 @@ import {
   Activity,
   Moon,
   Gift,
+  Repeat,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardBody } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -95,12 +96,15 @@ export function CampaignComposer({
     initial?.audience ?? "all",
   );
   const resendOfCampaignId = initial?.resend_of_campaign_id ?? null;
+  const [recurrenceMonths, setRecurrenceMonths] = useState(0);
   const [confirming, setConfirming] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<{ sent: number; failed: number } | null>(
-    null,
-  );
+  const [success, setSuccess] = useState<
+    | { sent: number; failed: number; recurring?: false }
+    | { recurring: true; nextSendAt: string }
+    | null
+  >(null);
 
   const selectedPromo = promos.find((p) => p.id === promoId);
 
@@ -118,13 +122,25 @@ export function CampaignComposer({
         promo_code_id: promoId || null,
         audience,
         resend_of_campaign_id: resendOfCampaignId,
+        recurrence_months: recurrenceMonths,
       });
       if (res.ok) {
-        const data = (res as { data?: { sent: number; failed: number } }).data;
-        setSuccess({ sent: data?.sent ?? 0, failed: data?.failed ?? 0 });
+        const data = (
+          res as {
+            data?: {
+              sent?: number;
+              failed?: number;
+              recurring?: boolean;
+              nextSendAt?: string;
+            };
+          }
+        ).data;
+        if (data?.recurring && data.nextSendAt) {
+          setSuccess({ recurring: true, nextSendAt: data.nextSendAt });
+        } else {
+          setSuccess({ sent: data?.sent ?? 0, failed: data?.failed ?? 0 });
+        }
         setConfirming(false);
-        // Redirect to the campaign list after a short pause so the operator
-        // sees the result confirmation.
         setTimeout(() => router.push("/admin/marketing"), 2500);
       } else {
         setError(res.error ?? "Could not send the campaign.");
@@ -145,23 +161,45 @@ export function CampaignComposer({
         <CardBody>
           <div className="flex flex-col items-center gap-3 py-10 text-center">
             <CheckCircle2 className="h-10 w-10 text-emerald-500" />
-            <h2 className="text-lg font-semibold text-slate-900">
-              Campaign sent!
-            </h2>
-            <p className="text-sm text-slate-600">
-              Delivered to{" "}
-              <strong className="text-slate-900">{success.sent}</strong>{" "}
-              recipient(s).
-              {success.failed > 0 && (
-                <>
-                  {" "}
-                  <span className="text-amber-700">
-                    {success.failed} failed
-                  </span>{" "}
-                  — check the campaign detail page.
-                </>
-              )}
-            </p>
+            {success.recurring ? (
+              <>
+                <h2 className="text-lg font-semibold text-slate-900">
+                  Recurring campaign scheduled!
+                </h2>
+                <p className="text-sm text-slate-600">
+                  First automated send:{" "}
+                  <strong className="text-slate-900">
+                    {new Date(success.nextSendAt).toLocaleDateString("en-US", {
+                      weekday: "long",
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
+                  </strong>
+                  . Nothing has been sent yet.
+                </p>
+              </>
+            ) : (
+              <>
+                <h2 className="text-lg font-semibold text-slate-900">
+                  Campaign sent!
+                </h2>
+                <p className="text-sm text-slate-600">
+                  Delivered to{" "}
+                  <strong className="text-slate-900">{success.sent}</strong>{" "}
+                  recipient(s).
+                  {success.failed > 0 && (
+                    <>
+                      {" "}
+                      <span className="text-amber-700">
+                        {success.failed} failed
+                      </span>{" "}
+                      — check the campaign detail page.
+                    </>
+                  )}
+                </p>
+              </>
+            )}
             <p className="text-xs text-slate-400">
               Redirecting to the campaign list...
             </p>
@@ -342,7 +380,54 @@ Use code MEMORIAL20 at checkout. See you on the road!`}
 
         <Card>
           <CardHeader>
-            <CardTitle>5 · Promo code (optional)</CardTitle>
+            <CardTitle>5 · Recurrence (optional)</CardTitle>
+          </CardHeader>
+          <CardBody className="space-y-3">
+            <p className="text-xs text-slate-500">
+              Send this same email automatically on a schedule. Common picks:
+              referral nudge every 3 months, "we miss you" every 6 months,
+              VIP exclusive every 2 months. Set to <strong>0</strong> for a
+              one-off send (default).
+            </p>
+            <div className="flex items-end gap-2">
+              <Field
+                label="Send every"
+                hint={
+                  recurrenceMonths > 0
+                    ? `Next fire will be in ${recurrenceMonths} month${recurrenceMonths === 1 ? "" : "s"}, then every ${recurrenceMonths} after that until you pause it.`
+                    : "0 = send once now (no recurrence)."
+                }
+              >
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min="0"
+                    max="24"
+                    value={recurrenceMonths}
+                    onChange={(e) =>
+                      setRecurrenceMonths(Number(e.target.value))
+                    }
+                    className="w-24"
+                  />
+                  <span className="text-sm text-slate-600">months</span>
+                </div>
+              </Field>
+            </div>
+            {recurrenceMonths > 0 && (
+              <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 text-xs text-blue-900">
+                <Repeat className="mr-1 inline h-3.5 w-3.5" />
+                <strong>Recurring mode:</strong> saving will register this
+                as a template — nothing sends right now. The first
+                automated fire happens in {recurrenceMonths} month
+                {recurrenceMonths === 1 ? "" : "s"}.
+              </div>
+            )}
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>6 · Promo code (optional)</CardTitle>
           </CardHeader>
           <CardBody>
             {promos.length === 0 ? (
@@ -435,12 +520,22 @@ Use code MEMORIAL20 at checkout. See you on the road!`}
                 onClick={() => setConfirming(true)}
                 disabled={!canSend || pending}
               >
-                <Send className="h-4 w-4" /> Send Campaign
+                {recurrenceMonths > 0 ? (
+                  <>
+                    <Repeat className="h-4 w-4" /> Schedule Recurring Campaign
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4" /> Send Campaign
+                  </>
+                )}
               </Button>
             ) : (
               <div className="space-y-2">
                 <p className="text-center text-sm font-medium text-slate-700">
-                  Send this campaign to your selected audience — are you sure?
+                  {recurrenceMonths > 0
+                    ? `Schedule this email to send every ${recurrenceMonths} month${recurrenceMonths === 1 ? "" : "s"} — are you sure?`
+                    : "Send this campaign to your selected audience — are you sure?"}
                 </p>
                 <div className="flex gap-2">
                   <Button

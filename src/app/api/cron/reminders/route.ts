@@ -5,6 +5,7 @@ import {
   getBirthdayCampaignSettings,
   birthdayLeadDays,
 } from "@/lib/data/settings";
+import { processDueRecurringCampaigns } from "@/app/admin/(panel)/marketing/actions";
 import { formatDateTime, formatCurrency } from "@/lib/utils";
 import type { ReservationWithRelations } from "@/lib/types/database";
 
@@ -52,6 +53,7 @@ export async function GET(request: Request) {
     deposit_expiring: 0,
     recovery: 0,
     birthday: 0,
+    recurring: 0,
   };
 
   async function alreadySent(type: string, reservationId: string) {
@@ -472,6 +474,15 @@ export async function GET(request: Request) {
       }
     } catch (e) {
       console.error("birthday loop failed", e);
+    }
+
+    // 9. Recurring marketing campaigns — find templates whose next_send_at
+    //    has come due, clone each into a real one-off campaign, send it,
+    //    advance the parent's next_send_at by recurrence_months.
+    try {
+      counts.recurring = await processDueRecurringCampaigns();
+    } catch (e) {
+      console.error("recurring campaigns loop failed", e);
     }
   } catch (err) {
     return NextResponse.json(
