@@ -88,8 +88,12 @@ export function verifyTwilioSignature(
 }
 
 /** Send an SMS — used by the AI receptionist to text booking links. */
-export async function sendSms(to: string, body: string): Promise<void> {
+export async function sendSms(
+  to: string,
+  body: string,
+): Promise<{ sid: string; status: string }> {
   const from = twilioPhoneNumber();
   if (!from) throw new Error("TWILIO_PHONE_NUMBER is not set.");
-  await getTwilio().messages.create({ to, from, body });
+  const result = await getTwilio().messages.create({ to, from, body });
+  return { sid: result.sid, status: result.status };
 }

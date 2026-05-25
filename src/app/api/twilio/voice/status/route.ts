@@ -86,7 +86,9 @@ export async function POST(req: NextRequest) {
     completionTokens: totalCompletion,
   });
 
-  await admin
+  // Update core fields first — these columns exist from migration 0020 and
+  // must always succeed so the call doesn't get stuck in 'in-progress'.
+  const coreUpdate = await admin
     .from("call_logs")
     .update({
       status,
@@ -96,6 +98,17 @@ export async function POST(req: NextRequest) {
       ai_summary: summary || null,
       customer_intent: intent,
       caller_name: callerName,
+    })
+    .eq("call_sid", callSid);
+  if (coreUpdate.error) {
+    console.error("twilio status: core update failed", coreUpdate.error.message);
+  }
+
+  // Cost fields are in migration 0021 — if that hasn't been run yet, the
+  // update fails but doesn't take down the core status update above.
+  const costUpdate = await admin
+    .from("call_logs")
+    .update({
       prompt_tokens: totalPrompt,
       completion_tokens: totalCompletion,
       twilio_voice_cost: cost.twilioVoice,
@@ -104,6 +117,12 @@ export async function POST(req: NextRequest) {
       total_cost: cost.total,
     })
     .eq("call_sid", callSid);
+  if (costUpdate.error) {
+    console.error(
+      "twilio status: cost update failed (run migration 0021):",
+      costUpdate.error.message,
+    );
+  }
 
   return new NextResponse("ok");
 }

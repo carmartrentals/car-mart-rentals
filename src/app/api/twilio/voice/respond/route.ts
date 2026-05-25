@@ -131,14 +131,27 @@ export async function POST(req: NextRequest) {
   let smsSent = Boolean(existing?.sms_sent);
   if (action.sendBookingLink && caller) {
     try {
-      await sendSms(
+      const result = await sendSms(
         caller,
         `Thanks for calling Car Mart Rentals! Here's the link to browse our fleet and book: ${SITE_URL}/vehicles — reply STOP to opt out.`,
       );
       smsSent = true;
-    } catch {
-      // If SMS fails (e.g. invalid number, A2P not registered yet), the AI
-      // still claimed it was sent. Log it; we'll surface in the call detail.
+      // Twilio accepts the API call and returns 'queued'/'sending' even when
+      // the carrier later drops it (A2P 10DLC). Log the SID + status so we
+      // can correlate with Twilio's Messaging Logs.
+      console.log("twilio sms queued", {
+        callSid,
+        to: caller,
+        sid: result.sid,
+        status: result.status,
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("twilio sms send failed", {
+        callSid,
+        to: caller,
+        error: msg,
+      });
     }
   }
 
