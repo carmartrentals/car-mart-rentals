@@ -4,7 +4,7 @@ import {
 } from "lucide-react";
 import { PageHero } from "@/components/site/page-hero";
 import { ContactForm } from "@/components/site/contact-form";
-import { getCompanyProfile } from "@/lib/data/settings";
+import { getCompanyProfile, getBusinessHours, type DayKey } from "@/lib/data/settings";
 
 export const metadata: Metadata = {
   title: "Contact Us",
@@ -14,11 +14,25 @@ export const metadata: Metadata = {
 };
 export const dynamic = "force-dynamic";
 
-const HOURS = [
-  { day: "Monday – Friday", time: "8:00 AM – 7:00 PM" },
-  { day: "Saturday", time: "9:00 AM – 5:00 PM" },
-  { day: "Sunday", time: "Closed" },
-];
+const DAY_LABELS: Record<DayKey, string> = {
+  mon: "Monday",
+  tue: "Tuesday",
+  wed: "Wednesday",
+  thu: "Thursday",
+  fri: "Friday",
+  sat: "Saturday",
+  sun: "Sunday",
+};
+
+function fmtTime(t: string): string {
+  if (!t) return "";
+  const [h, m] = t.split(":").map(Number);
+  const ampm = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return m === 0
+    ? `${h12}:00 ${ampm}`
+    : `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
+}
 
 const TRUST = [
   { icon: ShieldCheck, label: "Licensed & Insured" },
@@ -29,6 +43,14 @@ const TRUST = [
 
 export default async function ContactPage() {
   const company = await getCompanyProfile();
+  const hours = await getBusinessHours();
+  const HOURS = (Object.keys(DAY_LABELS) as DayKey[]).map((d) => ({
+    day: DAY_LABELS[d],
+    time:
+      !hours[d].open || !hours[d].close
+        ? "Closed"
+        : `${fmtTime(hours[d].open)} – ${fmtTime(hours[d].close)}`,
+  }));
   const mapSrc = `https://www.google.com/maps?q=${encodeURIComponent(
     company.address,
   )}&output=embed`;

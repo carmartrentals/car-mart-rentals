@@ -15,10 +15,30 @@ import type {
 
 type Admin = ReturnType<typeof createAdminClient>;
 
-/** Default handling-fee markup added to each toll passed back to the renter. */
-async function defaultHandlingFee(): Promise<number> {
-  const s = await getSetting<{ fee: number }>("toll_passthrough", { fee: 5 });
+/** Default handling-fee markup added to each toll passed back to the renter.
+ *  Reads from admin Settings -> Toll Passthrough Markup. Supports both the
+ *  legacy {fee} shape and the new {flat_markup, percent_markup} shape so
+ *  upgrading the Settings card doesn't break existing data. */
+async function computeMarkup(tollAmount: number): Promise<number> {
+  const s = await getSetting<{
+    fee?: number;
+    flat_markup?: number;
+    percent_markup?: number;
+  }>("toll_passthrough", {});
+  // New shape if either new field is present, otherwise fall back to legacy.
+  if (s.flat_markup !== undefined || s.percent_markup !== undefined) {
+    const flat = Number(s.flat_markup ?? 0);
+    const pct = Number(s.percent_markup ?? 0);
+    return Math.round((flat + (tollAmount * pct) / 100) * 100) / 100;
+  }
+  // Legacy {fee} shape.
   return Number(s.fee ?? 5);
+}
+
+/** Wrapper kept for callers that don't have a toll amount yet (e.g. when a
+ *  fee is recorded at toll-creation time before passthrough). */
+async function defaultHandlingFee(): Promise<number> {
+  return computeMarkup(0);
 }
 
 /**
@@ -190,11 +210,14 @@ export async function chargeViolationToCustomer(
     return { ok: false, error: "Matched reservation could not be loaded." };
   }
 
+  const tollAmount = Number(violation.amount);
+  // Markup: explicit override > stored handling_fee > live computeMarkup(toll).
+  // computeMarkup applies both flat + percent components from the new Settings
+  // shape, so a percent-based markup scales correctly with the toll amount.
   const fee =
     overrideHandlingFee !== undefined
       ? Number(overrideHandlingFee)
-      : Number(violation.handling_fee) || 0;
-  const tollAmount = Number(violation.amount);
+      : Number(violation.handling_fee) || (await computeMarkup(tollAmount));
   const total = Math.round((tollAmount + fee) * 100) / 100;
 
   // 1. Add a charge line item.

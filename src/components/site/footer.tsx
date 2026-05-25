@@ -1,11 +1,48 @@
 import Link from "next/link";
-import { Phone, Mail, MapPin } from "lucide-react";
-import { getCompanyProfile } from "@/lib/data/settings";
+import {
+  Phone,
+  Mail,
+  MapPin,
+  Instagram,
+  Facebook,
+  Music2,
+  Star,
+  MapPinned,
+  Twitter,
+  Youtube,
+} from "lucide-react";
+import { getCompanyProfile, getSocialLinks } from "@/lib/data/settings";
 import { SEO_LOCATIONS } from "@/lib/locations-seo";
 import { BrandLogo } from "@/components/brand-logo";
 
+// Social icons render only when the corresponding URL is set in admin
+// Settings — leave a field empty to hide that network. Each pulls its
+// own appropriate icon from lucide so the footer looks consistent.
+const SOCIAL_ICONS: Array<{
+  key:
+    | "instagram"
+    | "facebook"
+    | "tiktok"
+    | "yelp"
+    | "google_reviews"
+    | "twitter"
+    | "youtube";
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}> = [
+  { key: "instagram", label: "Instagram", icon: Instagram },
+  { key: "facebook", label: "Facebook", icon: Facebook },
+  { key: "tiktok", label: "TikTok", icon: Music2 },
+  { key: "yelp", label: "Yelp", icon: Star },
+  { key: "google_reviews", label: "Google Reviews", icon: MapPinned },
+  { key: "twitter", label: "X / Twitter", icon: Twitter },
+  { key: "youtube", label: "YouTube", icon: Youtube },
+];
+
 export async function Footer() {
   const company = await getCompanyProfile();
+  const social = await getSocialLinks();
+  const socialEntries = SOCIAL_ICONS.filter(({ key }) => social[key]);
   return (
     <footer className="bg-brand-950 text-slate-300">
       <div className="container-px grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-4">
@@ -73,6 +110,30 @@ export async function Footer() {
               <span>{company.address}</span>
             </li>
           </ul>
+
+          {socialEntries.length > 0 && (
+            <>
+              <h4 className="mt-6 text-sm font-semibold uppercase tracking-wide text-white">
+                Follow Us
+              </h4>
+              <ul className="mt-3 flex flex-wrap gap-2.5">
+                {socialEntries.map(({ key, label, icon: Icon }) => (
+                  <li key={key}>
+                    <a
+                      href={social[key]}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={label}
+                      title={label}
+                      className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-slate-300 transition-colors hover:border-gold-400/50 hover:bg-gold-500/10 hover:text-gold-300"
+                    >
+                      <Icon className="h-4 w-4" />
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </div>
       </div>
 

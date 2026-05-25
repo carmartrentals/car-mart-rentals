@@ -1,5 +1,9 @@
 import { getOpenAI } from "@/lib/ai";
-import { getCompanyProfile } from "@/lib/data/settings";
+import {
+  getCompanyProfile,
+  getBusinessHours,
+  formatBusinessHours,
+} from "@/lib/data/settings";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SITE_URL } from "@/lib/constants";
 import { formatCurrency } from "@/lib/utils";
@@ -33,7 +37,10 @@ export interface ReceptionistTurn {
   completionTokens: number;
 }
 
-const HOURS_TEXT =
+// Default fallback if Settings haven't been seeded. The live receptionist
+// reads from getBusinessHours() so the operator can edit hours without a
+// deploy — this constant is only used as a safety net.
+const HOURS_TEXT_FALLBACK =
   "Mon–Fri 8:00 AM to 7:00 PM, Saturday 9:00 AM to 5:00 PM, closed Sunday";
 
 /** Pull the public fleet so the AI can quote real cars and real prices. */
@@ -65,8 +72,18 @@ async function loadFleetContext(): Promise<string> {
 }
 
 async function buildSystemPrompt(): Promise<string> {
-  const company = await getCompanyProfile();
-  const fleet = await loadFleetContext();
+  const [company, fleet, hours] = await Promise.all([
+    getCompanyProfile(),
+    loadFleetContext(),
+    getBusinessHours(),
+  ]);
+  const hoursText = (() => {
+    try {
+      return formatBusinessHours(hours);
+    } catch {
+      return HOURS_TEXT_FALLBACK;
+    }
+  })();
 
   return `You are the AI phone assistant for ${company.name}, a luxury and insurance-replacement car rental company in Van Nuys, California.
 
@@ -86,7 +103,7 @@ Address: ${company.address}
 Phone: ${company.phone}
 Website: ${SITE_URL}
 Email: ${company.email}
-Hours: ${HOURS_TEXT}
+Hours: ${hoursText}
 
 # Current fleet (live from the system)
 ${fleet}
@@ -158,8 +175,18 @@ export async function buildRealtimeSessionConfig(): Promise<{
     parameters: Record<string, unknown>;
   }>;
 }> {
-  const company = await getCompanyProfile();
-  const fleet = await loadFleetContext();
+  const [company, fleet, hours] = await Promise.all([
+    getCompanyProfile(),
+    loadFleetContext(),
+    getBusinessHours(),
+  ]);
+  const hoursText = (() => {
+    try {
+      return formatBusinessHours(hours);
+    } catch {
+      return HOURS_TEXT_FALLBACK;
+    }
+  })();
 
   const systemPrompt = `You are the AI phone assistant for ${company.name}, a luxury and insurance-replacement car rental company in Van Nuys, California.
 
@@ -179,7 +206,7 @@ Address: ${company.address}
 Phone: ${company.phone}
 Website: ${SITE_URL}
 Email: ${company.email}
-Hours: ${HOURS_TEXT}
+Hours: ${hoursText}
 
 # Current fleet (live from the system)
 ${fleet}
