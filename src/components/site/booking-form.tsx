@@ -541,7 +541,7 @@ export function BookingForm({
             </li>
             <li className="flex items-center gap-1.5">
               <Clock className="h-3.5 w-3.5 shrink-0 text-gold-300" />
-              Free cancellation up to 24 hours before pickup
+              Free cancellation up to 48 hours before pickup
             </li>
           </ul>
         </div>
