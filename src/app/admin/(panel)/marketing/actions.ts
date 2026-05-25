@@ -7,7 +7,11 @@ import { sendEmail } from "@/lib/email";
 import { getCompanyProfile } from "@/lib/data/settings";
 import { SITE_URL } from "@/lib/constants";
 import type { ActionState } from "@/lib/form";
-import type { Customer, PromoCode } from "@/lib/types/database";
+import type {
+  Customer,
+  PromoCode,
+  MarketingAudience,
+} from "@/lib/types/database";
 
 interface CampaignDraft {
   name: string;
@@ -17,6 +21,10 @@ interface CampaignDraft {
   cta_label: string;
   cta_url: string;
   promo_code_id: string | null;
+  audience?: MarketingAudience;
+  /** When set, this campaign is a resend that only goes to recipients of
+   *  the named original campaign who didn't open it. */
+  resend_of_campaign_id?: string | null;
 }
 
 async function requireMarketingAccess() {
@@ -48,6 +56,7 @@ export async function createAndSendCampaign(
   }
 
   const admin = createAdminClient();
+  const audience: MarketingAudience = input.audience ?? "all";
 
   // 1) Create the campaign row in "sending" status.
   const { data: created, error: cErr } = await admin
@@ -60,6 +69,8 @@ export async function createAndSendCampaign(
       cta_label: input.cta_label.trim() || null,
       cta_url: input.cta_url.trim() || null,
       promo_code_id: input.promo_code_id || null,
+      audience,
+      resend_of_campaign_id: input.resend_of_campaign_id || null,
       status: "sending",
       created_by: user.id,
     })
@@ -70,17 +81,10 @@ export async function createAndSendCampaign(
   }
   const campaignId = (created as { id: string }).id;
 
-  // 2) Load eligible recipients.
-  const { data: customersData } = await admin
-    .from("customers")
-    .select("id, first_name, email, marketing_opted_out, is_blacklisted")
-    .not("email", "is", null)
-    .eq("marketing_opted_out", false)
-    .eq("is_blacklisted", false);
-  const recipients = (customersData ?? []) as Pick<
-    Customer,
-    "id" | "first_name" | "email" | "marketing_opted_out" | "is_blacklisted"
-  >[];
+  // 2) Load eligible recipients — filter by audience segment.
+  const recipients = await loadAudience(admin, audience, {
+    resendOfCampaignId: input.resend_of_campaign_id ?? null,
+  });
 
   // Dedupe by lowercased email so we don't double-send to the same address
   // if there happen to be two customer rows sharing one inbox.
@@ -139,16 +143,28 @@ export async function createAndSendCampaign(
     };
   }
 
-  // Stitch first_name back to each inserted row for personalization.
-  const byCustomerId = new Map(unique.map((u) => [u.id, u.first_name]));
-  const sendList = insertedRows.map((row) => ({
-    id: (row as { id: string }).id,
-    customer_id: (row as { customer_id: string | null }).customer_id,
-    email: (row as { email: string }).email,
-    first_name:
-      byCustomerId.get((row as { customer_id: string | null }).customer_id ?? "") ??
-      "",
-  }));
+  // Stitch first_name + referral_code back so we can do per-recipient
+  // token substitution ({{first_name}}, {{referral_code}}) inside the body.
+  const byCustomerId = new Map(
+    unique.map((u) => [
+      u.id,
+      { first_name: u.first_name, referral_code: u.referral_code ?? "" },
+    ]),
+  );
+  const sendList = insertedRows.map((row) => {
+    const r = row as { id: string; customer_id: string | null; email: string };
+    const info = byCustomerId.get(r.customer_id ?? "") ?? {
+      first_name: "",
+      referral_code: "",
+    };
+    return {
+      id: r.id,
+      customer_id: r.customer_id,
+      email: r.email,
+      first_name: info.first_name,
+      referral_code: info.referral_code,
+    };
+  });
 
   // 5) Send in small concurrent batches so a slow recipient doesn't block
   //    the rest and Resend rate limits stay happy.
@@ -159,14 +175,23 @@ export async function createAndSendCampaign(
     const slice = sendList.slice(i, i + BATCH);
     const results = await Promise.allSettled(
       slice.map(async (r) => {
+        // Per-recipient token substitution. Supports {{first_name}} and
+        // {{referral_code}} in the body — used by the referral template.
+        const personalizedBody = substituteTokens(input.body, {
+          first_name: r.first_name || "there",
+          referral_code: r.referral_code || "",
+        });
         const html = buildCampaignHtml({
           recipientId: r.id,
           firstName: r.first_name || "there",
           subject: input.subject,
           preheader: input.preheader,
-          body: input.body,
+          body: personalizedBody,
           ctaLabel: input.cta_label,
-          ctaUrl: input.cta_url,
+          ctaUrl: substituteTokens(input.cta_url, {
+            first_name: r.first_name || "",
+            referral_code: r.referral_code || "",
+          }),
           promo,
           companyName: company.name,
           companyAddress: company.address,
@@ -228,6 +253,107 @@ export async function createAndSendCampaign(
 
   revalidatePath("/admin/marketing");
   return { ok: true, data: { campaignId, sent, failed } };
+}
+
+// ----- Audience loader ------------------------------------------------------
+// Resolves an audience key into the actual list of customers to email,
+// applying the universal eligibility filters (has email, not opted out,
+// not blacklisted) on top of the segment-specific predicate.
+
+type Admin = ReturnType<typeof createAdminClient>;
+type Recipient = Pick<
+  Customer,
+  | "id"
+  | "first_name"
+  | "email"
+  | "marketing_opted_out"
+  | "is_blacklisted"
+  | "referral_code"
+>;
+
+async function loadAudience(
+  admin: Admin,
+  audience: MarketingAudience,
+  opts: { resendOfCampaignId: string | null },
+): Promise<Recipient[]> {
+  // RESEND-TO-NON-OPENERS — pull from the original campaign's recipient
+  // list, keep only the ones who never opened, then join back to the
+  // customers table so we have name + referral code etc.
+  if (audience === "non_openers" && opts.resendOfCampaignId) {
+    const { data: rec } = await admin
+      .from("marketing_recipients")
+      .select("customer_id, email")
+      .eq("campaign_id", opts.resendOfCampaignId)
+      .is("opened_at", null);
+    const ids = (rec ?? [])
+      .map((r) => (r as { customer_id: string | null }).customer_id)
+      .filter((id): id is string => !!id);
+    if (ids.length === 0) return [];
+    const { data: customers } = await admin
+      .from("customers")
+      .select(
+        "id, first_name, email, marketing_opted_out, is_blacklisted, referral_code",
+      )
+      .in("id", ids)
+      .not("email", "is", null)
+      .eq("marketing_opted_out", false)
+      .eq("is_blacklisted", false);
+    return (customers as Recipient[] | null) ?? [];
+  }
+
+  // VIPs only.
+  if (audience === "vip") {
+    const { data } = await admin
+      .from("customers")
+      .select(
+        "id, first_name, email, marketing_opted_out, is_blacklisted, referral_code",
+      )
+      .eq("is_vip", true)
+      .not("email", "is", null)
+      .eq("marketing_opted_out", false)
+      .eq("is_blacklisted", false);
+    return (data as Recipient[] | null) ?? [];
+  }
+
+  // ACTIVE / LAPSED — join through reservations to find when the customer
+  // last had any completed or active rental. Done in 2 queries because
+  // PostgREST doesn't do aggregate filters cleanly.
+  if (audience === "active_90d" || audience === "lapsed_90d") {
+    const cutoff = new Date(Date.now() - 90 * 86_400_000).toISOString();
+    const { data: recentRes } = await admin
+      .from("reservations")
+      .select("customer_id, pickup_at, status")
+      .in("status", ["completed", "active"])
+      .gte("pickup_at", cutoff);
+    const activeIds = new Set(
+      (recentRes ?? [])
+        .map((r) => (r as { customer_id: string | null }).customer_id)
+        .filter((id): id is string => !!id),
+    );
+    const { data: customers } = await admin
+      .from("customers")
+      .select(
+        "id, first_name, email, marketing_opted_out, is_blacklisted, referral_code",
+      )
+      .not("email", "is", null)
+      .eq("marketing_opted_out", false)
+      .eq("is_blacklisted", false);
+    const all = (customers as Recipient[] | null) ?? [];
+    return audience === "active_90d"
+      ? all.filter((c) => activeIds.has(c.id))
+      : all.filter((c) => !activeIds.has(c.id));
+  }
+
+  // Default "all" — every eligible customer.
+  const { data } = await admin
+    .from("customers")
+    .select(
+      "id, first_name, email, marketing_opted_out, is_blacklisted, referral_code",
+    )
+    .not("email", "is", null)
+    .eq("marketing_opted_out", false)
+    .eq("is_blacklisted", false);
+  return (data as Recipient[] | null) ?? [];
 }
 
 // ----- Email HTML builder ---------------------------------------------------
@@ -339,6 +465,15 @@ function buildCampaignHtml(args: {
   </table>
 </body>
 </html>`;
+}
+
+/** Replace {{token}} placeholders in a string with per-recipient values. */
+function substituteTokens(s: string, vars: Record<string, string>): string {
+  if (!s) return s;
+  return s.replace(/\{\{\s*([a-z_]+)\s*\}\}/gi, (_, key: string) => {
+    const v = vars[key.toLowerCase()];
+    return v !== undefined ? v : `{{${key}}}`;
+  });
 }
 
 function escapeHtml(s: string): string {

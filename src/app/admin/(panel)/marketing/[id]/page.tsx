@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Eye, Send, AlertTriangle, Mail } from "lucide-react";
+import { ArrowLeft, Eye, Send, AlertTriangle, Mail, Repeat } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/admin/page-header";
 import { Card, CardHeader, CardTitle, CardBody } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { DeleteButton } from "@/components/admin/delete-button";
 import { formatDateTime } from "@/lib/utils";
@@ -71,6 +72,31 @@ export default async function CampaignDetailPage({
         actions={
           <>
             <Badge tone={STATUS_TONE[c.status] ?? "gray"}>{c.status}</Badge>
+            {/* Resend to non-openers: link into the composer with the
+                original campaign id stashed in the URL so the composer
+                can target only the people who didn't open. Pre-fills
+                the subject with "Did you see this? — <original>" as a
+                sensible default the operator can edit. */}
+            {c.status === "sent" &&
+              c.sent_count > c.opened_count &&
+              (() => {
+                const nonOpens = c.sent_count - c.opened_count;
+                const q = new URLSearchParams({
+                  name: `${c.name} — Resend to non-openers`,
+                  subject: `Did you see this? ${c.subject}`,
+                  preheader: c.preheader ?? "",
+                  body: c.body,
+                  resend_of: c.id,
+                });
+                return (
+                  <Link href={`/admin/marketing/new?${q.toString()}`}>
+                    <Button variant="outline">
+                      <Repeat className="h-4 w-4" />
+                      Resend to {nonOpens} non-opener{nonOpens === 1 ? "" : "s"}
+                    </Button>
+                  </Link>
+                );
+              })()}
             <DeleteButton
               action={async () => {
                 "use server";

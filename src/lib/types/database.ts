@@ -708,6 +708,13 @@ export interface ReservationRequest {
 // --- Marketing campaigns (migration 0028) ----------------------------------
 export type MarketingCampaignStatus = "draft" | "sending" | "sent" | "failed";
 
+export type MarketingAudience =
+  | "all"
+  | "vip"
+  | "active_90d"
+  | "lapsed_90d"
+  | "non_openers";
+
 export interface MarketingCampaign {
   id: string;
   name: string;
@@ -717,6 +724,8 @@ export interface MarketingCampaign {
   cta_label: string | null;
   cta_url: string | null;
   promo_code_id: string | null;
+  audience: MarketingAudience;
+  resend_of_campaign_id: string | null;
   status: MarketingCampaignStatus;
   sent_at: string | null;
   sent_count: number;

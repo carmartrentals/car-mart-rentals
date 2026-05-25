@@ -52,8 +52,12 @@ export default async function NewCampaignPage({
     suggested_promo_code: str(sp.promo_code),
     suggested_discount_percent: Number(str(sp.discount_percent)) || 0,
     holiday: str(sp.holiday),
+    /** If present, this New Campaign page is a resend flow. The composer
+     *  locks the audience to "non_openers" and stores the linkage. */
+    resend_of: str(sp.resend_of),
   };
   const isPrefilled = Boolean(prefill.subject && prefill.body);
+  const isResend = Boolean(prefill.resend_of);
 
   // If the AI suggested a promo code that matches one of our active codes,
   // pre-select it. Otherwise leave the dropdown empty — the operator can
@@ -139,6 +143,8 @@ export default async function NewCampaignPage({
             preheader: prefill.preheader,
             body: prefill.body,
             promo_code_id: matchingPromo?.id ?? "",
+            audience: isResend ? "non_openers" : undefined,
+            resend_of_campaign_id: prefill.resend_of || undefined,
           }}
         />
       )}

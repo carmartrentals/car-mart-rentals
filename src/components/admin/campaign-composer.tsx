@@ -11,13 +11,60 @@ import {
   CheckCircle2,
   AlertCircle,
   ExternalLink,
+  Crown,
+  Activity,
+  Moon,
+  Gift,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardBody } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { Alert } from "@/components/ui/misc";
 import { createAndSendCampaign } from "@/app/admin/(panel)/marketing/actions";
-import type { PromoCode } from "@/lib/types/database";
+import type { PromoCode, MarketingAudience } from "@/lib/types/database";
+
+// The 4 audience options shown in the composer's segment picker.
+const AUDIENCE_OPTIONS: Array<{
+  value: MarketingAudience;
+  label: string;
+  description: string;
+  icon: React.ComponentType<{ className?: string }>;
+}> = [
+  {
+    value: "all",
+    label: "All customers",
+    description: "Every eligible customer.",
+    icon: Users,
+  },
+  {
+    value: "vip",
+    label: "VIP only",
+    description: "Customers marked as VIP on their profile.",
+    icon: Crown,
+  },
+  {
+    value: "active_90d",
+    label: "Active (90 days)",
+    description: "Booked within the last 90 days — loyalty / cross-sell.",
+    icon: Activity,
+  },
+  {
+    value: "lapsed_90d",
+    label: "Lapsed (90+ days)",
+    description: "Haven't booked in 90+ days — win-back territory.",
+    icon: Moon,
+  },
+];
+
+const REFERRAL_TEMPLATE = {
+  subject: "Give $25, get $25 — share your referral code",
+  preheader: "Your personal code is inside. One use per friend.",
+  body: `Loved your last rental? Share the keys with a friend.
+
+Your personal referral code is {{referral_code}} — your friend gets $25 off their first booking, and you get a $25 credit on your next rental when they redeem it. No limits, use it as often as you like.
+
+Just send them your code or have them paste it at checkout.`,
+};
 
 export function CampaignComposer({
   promos,
@@ -32,6 +79,8 @@ export function CampaignComposer({
     preheader?: string;
     body?: string;
     promo_code_id?: string;
+    audience?: MarketingAudience;
+    resend_of_campaign_id?: string;
   };
 }) {
   const router = useRouter();
@@ -42,6 +91,10 @@ export function CampaignComposer({
   const [ctaLabel, setCtaLabel] = useState("Browse the Fleet");
   const [ctaUrl, setCtaUrl] = useState("https://www.carmartrentals.com/vehicles");
   const [promoId, setPromoId] = useState<string>(initial?.promo_code_id ?? "");
+  const [audience, setAudience] = useState<MarketingAudience>(
+    initial?.audience ?? "all",
+  );
+  const resendOfCampaignId = initial?.resend_of_campaign_id ?? null;
   const [confirming, setConfirming] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -63,6 +116,8 @@ export function CampaignComposer({
         cta_label: ctaLabel.trim(),
         cta_url: ctaUrl.trim(),
         promo_code_id: promoId || null,
+        audience,
+        resend_of_campaign_id: resendOfCampaignId,
       });
       if (res.ok) {
         const data = (res as { data?: { sent: number; failed: number } }).data;
@@ -141,7 +196,73 @@ export function CampaignComposer({
 
         <Card>
           <CardHeader>
-            <CardTitle>2 · Email content</CardTitle>
+            <CardTitle>2 · Audience</CardTitle>
+          </CardHeader>
+          <CardBody>
+            <p className="mb-3 text-xs text-slate-500">
+              Pick who gets this email. Segments are evaluated when you hit
+              Send — final count appears in the sidebar.
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {AUDIENCE_OPTIONS.map((opt) => {
+                const selected = audience === opt.value;
+                const OptIcon = opt.icon;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setAudience(opt.value)}
+                    className={`flex items-start gap-3 rounded-lg border p-3 text-left transition ${
+                      selected
+                        ? "border-gold-500 bg-gold-50/60 ring-2 ring-gold-500/20"
+                        : "border-slate-200 bg-white hover:border-slate-300"
+                    }`}
+                  >
+                    <span
+                      className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+                        selected
+                          ? "bg-gold-500 text-white"
+                          : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      <OptIcon className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <p
+                        className={`text-sm font-medium ${
+                          selected ? "text-gold-900" : "text-slate-800"
+                        }`}
+                      >
+                        {opt.label}
+                      </p>
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        {opt.description}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>3 · Email content</CardTitle>
+            <button
+              type="button"
+              onClick={() => {
+                setSubject(REFERRAL_TEMPLATE.subject);
+                setPreheader(REFERRAL_TEMPLATE.preheader);
+                setBody(REFERRAL_TEMPLATE.body);
+                if (!name.trim()) setName("Referral Program Nudge");
+              }}
+              className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+              title="Load a pre-written referral email template"
+            >
+              <Gift className="h-3.5 w-3.5 text-gold-600" />
+              Use Referral Template
+            </button>
           </CardHeader>
           <CardBody className="space-y-4">
             <Field
@@ -181,9 +302,13 @@ Whether it's a road trip in our Mercedes-AMG GLE 53, or a smooth ride to the air
 Use code MEMORIAL20 at checkout. See you on the road!`}
               />
               <p className="mt-1.5 text-xs text-slate-400">
-                Tip: don&apos;t literally type {"{{first_name}}"} — the system
-                inserts the customer&apos;s first name automatically in the
-                greeting line at the top of the email.
+                Tip: the greeting line (<em>Hi [first name],</em>) is
+                added automatically. You can also drop{" "}
+                <code className="rounded bg-slate-100 px-1 py-0.5 font-mono">
+                  {"{{referral_code}}"}
+                </code>{" "}
+                anywhere in the body — it gets replaced with each
+                recipient&apos;s personal referral code at send time.
               </p>
             </Field>
           </CardBody>
@@ -191,7 +316,7 @@ Use code MEMORIAL20 at checkout. See you on the road!`}
 
         <Card>
           <CardHeader>
-            <CardTitle>3 · Call-to-action button</CardTitle>
+            <CardTitle>4 · Call-to-action button</CardTitle>
           </CardHeader>
           <CardBody className="grid gap-4 sm:grid-cols-2">
             <Field
@@ -217,7 +342,7 @@ Use code MEMORIAL20 at checkout. See you on the road!`}
 
         <Card>
           <CardHeader>
-            <CardTitle>4 · Promo code (optional)</CardTitle>
+            <CardTitle>5 · Promo code (optional)</CardTitle>
           </CardHeader>
           <CardBody>
             {promos.length === 0 ? (
@@ -276,7 +401,15 @@ Use code MEMORIAL20 at checkout. See you on the road!`}
           <CardBody className="space-y-3 text-sm">
             <SummaryRow
               icon={Users}
-              label="Recipients"
+              label="Audience"
+              value={
+                AUDIENCE_OPTIONS.find((o) => o.value === audience)?.label ??
+                "All customers"
+              }
+            />
+            <SummaryRow
+              icon={Mail}
+              label="Eligible total"
               value={`${eligibleCount} customer${eligibleCount === 1 ? "" : "s"}`}
             />
             <SummaryRow
@@ -302,12 +435,12 @@ Use code MEMORIAL20 at checkout. See you on the road!`}
                 onClick={() => setConfirming(true)}
                 disabled={!canSend || pending}
               >
-                <Send className="h-4 w-4" /> Send to {eligibleCount} Customers
+                <Send className="h-4 w-4" /> Send Campaign
               </Button>
             ) : (
               <div className="space-y-2">
                 <p className="text-center text-sm font-medium text-slate-700">
-                  Send to {eligibleCount} customers — are you sure?
+                  Send this campaign to your selected audience — are you sure?
                 </p>
                 <div className="flex gap-2">
                   <Button
