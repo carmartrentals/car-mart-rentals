@@ -1,8 +1,16 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Save, CheckCircle2, Phone, Sparkles } from "lucide-react";
+import {
+  Save,
+  CheckCircle2,
+  Phone,
+  Sparkles,
+  Play,
+  Loader2,
+  Square,
+} from "lucide-react";
 import { Card, CardHeader, CardTitle, CardBody } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Field, Select } from "@/components/ui/field";
@@ -46,6 +54,47 @@ export function AiVoiceSettingsForm({ initial }: { initial: VoiceValue }) {
   const [v, setV] = useState<VoiceValue>(initial);
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  // Preview-audio plumbing. One <Audio> element is reused for every voice
+  // sample so playing a new sample interrupts the previous one cleanly.
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [previewing, setPreviewing] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+
+  function stopPreview() {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    setPreviewing(null);
+  }
+
+  async function playRealtimePreview(voice: string) {
+    if (previewing === voice) {
+      stopPreview();
+      return;
+    }
+    setPreviewError(null);
+    stopPreview();
+    setPreviewing(voice);
+    try {
+      const audio = new Audio(
+        `/api/admin/voice-preview?voice=${encodeURIComponent(voice)}`,
+      );
+      audioRef.current = audio;
+      audio.onended = () => setPreviewing(null);
+      audio.onerror = () => {
+        setPreviewing(null);
+        setPreviewError(
+          "Could not load the sample. Make sure OPENAI_API_KEY is set on Vercel.",
+        );
+      };
+      await audio.play();
+    } catch {
+      setPreviewing(null);
+      setPreviewError("Browser blocked autoplay — click the play button again.");
+    }
+  }
 
   function save() {
     setResult(null);
@@ -120,7 +169,7 @@ export function AiVoiceSettingsForm({ initial }: { initial: VoiceValue }) {
 
         <Field
           label="Polly Voice"
-          hint="Used when mode = Polly. Free, included in the Twilio voice rate."
+          hint="Used when mode = Polly. Free, included in the Twilio voice rate. Polly voices are synthesized by Amazon at call time — to preview, save the setting and call your number."
         >
           <Select
             value={v.voice}
@@ -136,19 +185,90 @@ export function AiVoiceSettingsForm({ initial }: { initial: VoiceValue }) {
 
         <Field
           label="Realtime Voice"
-          hint="Used when mode = Realtime. OpenAI's most human-sounding voices."
+          hint="Used when mode = Realtime. OpenAI's most human-sounding voices. Tap play to hear a sample before saving."
         >
-          <Select
-            value={v.realtime_voice}
-            onChange={(e) => setV({ ...v, realtime_voice: e.target.value })}
-          >
-            {REALTIME_VOICES.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </Select>
+          <div className="flex items-stretch gap-2">
+            <div className="flex-1">
+              <Select
+                value={v.realtime_voice}
+                onChange={(e) =>
+                  setV({ ...v, realtime_voice: e.target.value })
+                }
+              >
+                {REALTIME_VOICES.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <button
+              type="button"
+              onClick={() => playRealtimePreview(v.realtime_voice)}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              aria-label={
+                previewing === v.realtime_voice
+                  ? "Stop preview"
+                  : "Play voice sample"
+              }
+            >
+              {previewing === v.realtime_voice ? (
+                <>
+                  <Square className="h-4 w-4" />
+                  Stop
+                </>
+              ) : (
+                <>
+                  <Play className="h-4 w-4" />
+                  Preview
+                </>
+              )}
+            </button>
+          </div>
+          {previewError && (
+            <p className="mt-2 text-xs text-rose-600">{previewError}</p>
+          )}
         </Field>
+
+        {/* Quick-scan voice grid — one play button per Realtime voice so
+            the operator can A/B every option without re-picking from the
+            dropdown each time. */}
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Compare All Realtime Voices
+          </p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-5">
+            {REALTIME_VOICES.map((opt) => {
+              const active = previewing === opt.value;
+              const selected = v.realtime_voice === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => playRealtimePreview(opt.value)}
+                  className={`flex items-center justify-between gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition ${
+                    selected
+                      ? "border-gold-500 bg-gold-50 text-gold-800"
+                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                  }`}
+                  title={opt.label}
+                >
+                  <span className="truncate capitalize">{opt.value}</span>
+                  {active ? (
+                    <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
+                  ) : (
+                    <Play className="h-3 w-3 shrink-0" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <p className="mt-1.5 text-xs text-slate-400">
+            Pick a favorite from this grid, then switch the dropdown above
+            and save. Sample audio is generated by OpenAI&apos;s TTS using
+            the exact same voice as the live call.
+          </p>
+        </div>
 
         <div className="flex justify-end">
           <Button onClick={save} loading={pending}>
