@@ -74,3 +74,49 @@ export async function togglePromoCode(
   revalidatePath("/admin/promo-codes");
   return { ok: true };
 }
+
+/**
+ * Permanently delete a promo code. Refuses if the code has already been
+ * used at least once on a real reservation — those rows reference the
+ * code by name in their description, and deleting the master row would
+ * make audit / refund flows confusing. Operator can deactivate instead.
+ */
+export async function deletePromoCode(id: string): Promise<ActionState> {
+  const user = await getCurrentUser();
+  if (!user || !canWrite(user.role, "settings")) {
+    return { ok: false, error: "Only a Super Admin can manage promo codes." };
+  }
+  const admin = createAdminClient();
+
+  // Fetch usage so we can refuse + give the operator a clear next step.
+  const { data: existing } = await admin
+    .from("promo_codes")
+    .select("code, times_used")
+    .eq("id", id)
+    .maybeSingle();
+  const row = existing as { code: string; times_used: number } | null;
+  if (!row) {
+    return { ok: false, error: "Promo code not found." };
+  }
+  if ((row.times_used ?? 0) > 0) {
+    return {
+      ok: false,
+      error: `This code has been used ${row.times_used} time(s) on real bookings — deleting would orphan those records. Deactivate it instead.`,
+    };
+  }
+
+  const { error } = await admin.from("promo_codes").delete().eq("id", id);
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+
+  await logActivity({
+    userId: user.id,
+    action: "promo_code.deleted",
+    entityType: "promo_code",
+    entityId: id,
+    description: `Deleted promo code ${row.code}`,
+  });
+  revalidatePath("/admin/promo-codes");
+  return { ok: true };
+}

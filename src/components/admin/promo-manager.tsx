@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Pencil, Tag } from "lucide-react";
+import { Plus, Pencil, Tag, Trash2, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
@@ -11,7 +11,11 @@ import { Badge } from "@/components/ui/badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { EmptyState, Alert } from "@/components/ui/misc";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { savePromoCode, togglePromoCode } from "@/app/admin/(panel)/promo-codes/actions";
+import {
+  savePromoCode,
+  togglePromoCode,
+  deletePromoCode,
+} from "@/app/admin/(panel)/promo-codes/actions";
 import type { PromoCode, DiscountType } from "@/lib/types/database";
 
 const EMPTY = {
@@ -33,6 +37,8 @@ export function PromoManager({ codes }: { codes: PromoCode[] }) {
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   function set<K extends keyof typeof form>(k: K, v: (typeof form)[K]) {
     setForm((f) => ({ ...f, [k]: v }));
@@ -92,6 +98,27 @@ export function PromoManager({ codes }: { codes: PromoCode[] }) {
     });
   }
 
+  function confirmDelete(c: PromoCode) {
+    setDeleteError(null);
+    if (
+      !window.confirm(
+        `Delete promo code ${c.code}? This permanently removes it from the database.`,
+      )
+    ) {
+      return;
+    }
+    setDeletingId(c.id);
+    startTransition(async () => {
+      const res = await deletePromoCode(c.id);
+      setDeletingId(null);
+      if (res.ok) {
+        router.refresh();
+      } else {
+        setDeleteError(res.error ?? "Could not delete the promo code.");
+      }
+    });
+  }
+
   return (
     <Card>
       <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
@@ -102,6 +129,12 @@ export function PromoManager({ codes }: { codes: PromoCode[] }) {
           <Plus className="h-4 w-4" /> New Promo Code
         </Button>
       </div>
+
+      {deleteError && (
+        <div className="border-b border-slate-100 px-5 py-3">
+          <Alert tone="error">{deleteError}</Alert>
+        </div>
+      )}
 
       {codes.length === 0 ? (
         <EmptyState
@@ -147,12 +180,35 @@ export function PromoManager({ codes }: { codes: PromoCode[] }) {
                   </button>
                 </TD>
                 <TD className="text-right">
-                  <button
-                    onClick={() => openEdit(c)}
-                    className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-gold-600"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </button>
+                  <div className="flex justify-end gap-0.5">
+                    <button
+                      type="button"
+                      onClick={() => openEdit(c)}
+                      className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-gold-600"
+                      title="Edit promo code"
+                      aria-label="Edit promo code"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => confirmDelete(c)}
+                      disabled={pending && deletingId === c.id}
+                      className="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
+                      title={
+                        c.times_used > 0
+                          ? "Code has been used — deactivate instead of deleting"
+                          : "Delete promo code"
+                      }
+                      aria-label="Delete promo code"
+                    >
+                      {pending && deletingId === c.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
                 </TD>
               </TR>
             ))}
