@@ -36,17 +36,20 @@ const POLLY_VOICES = [
   { value: "Polly.Olivia-Neural", label: "Olivia (Australian female · warm)" },
 ];
 
+// Realtime-supported voices ONLY. The legacy TTS voices (Alloy, Echo,
+// Nova, Onyx, Fable) are not available on the GA Realtime API — using
+// them makes session.update silently fail and Twilio plays back the
+// fallback PCM16 audio as garbled noise. Marin and Cedar are the newer
+// GA-specific voices, generally the highest quality.
 const REALTIME_VOICES = [
-  { value: "coral", label: "Coral (female · warm, recommended)" },
+  { value: "marin", label: "Marin (female · premium GA voice)" },
+  { value: "cedar", label: "Cedar (male · premium GA voice)" },
+  { value: "coral", label: "Coral (female · warm, tested working)" },
   { value: "shimmer", label: "Shimmer (female · bright)" },
-  { value: "nova", label: "Nova (female · energetic)" },
-  { value: "alloy", label: "Alloy (neutral)" },
   { value: "verse", label: "Verse (neutral · expressive)" },
   { value: "ash", label: "Ash (male · grounded)" },
   { value: "ballad", label: "Ballad (male · smooth)" },
   { value: "sage", label: "Sage (male · calm)" },
-  { value: "echo", label: "Echo (male · professional)" },
-  { value: "onyx", label: "Onyx (male · deep)" },
 ];
 
 export function AiVoiceSettingsForm({ initial }: { initial: VoiceValue }) {

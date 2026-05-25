@@ -14,19 +14,30 @@ export const dynamic = "force-dynamic";
  * Returns an MP3 stream. The settings UI plays it via a regular <Audio>.
  */
 
-// Realtime voice ids that are valid for OpenAI TTS too.
+// Voices the preview supports. Includes both the GA Realtime-only voices
+// (marin, cedar) and the cross-product voices (coral, ash, ballad, sage,
+// shimmer, verse). For the Realtime-only voices we have to use a similar-
+// sounding TTS voice as the preview fallback since TTS doesn't expose
+// marin/cedar yet — see PREVIEW_TTS_MAP below.
 const VALID_VOICES = new Set([
-  "alloy",
+  "marin",
+  "cedar",
+  "coral",
   "ash",
   "ballad",
-  "coral",
-  "echo",
-  "nova",
-  "onyx",
   "sage",
   "shimmer",
   "verse",
 ]);
+
+// Marin and Cedar are exclusive to the GA Realtime API and aren't exposed
+// through gpt-4o-mini-tts. Map them to the closest-sounding TTS voice so
+// the operator gets a reasonable preview. (The live call will still use
+// the actual Marin/Cedar voice — only the preview is approximate.)
+const PREVIEW_TTS_MAP: Record<string, string> = {
+  marin: "coral",
+  cedar: "ash",
+};
 
 const SAMPLE_TEXT =
   "Thanks for calling Car Mart Rentals. I'm the AI assistant — how can I help today?";
@@ -46,10 +57,13 @@ export async function GET(req: NextRequest) {
     return new NextResponse(`Unknown voice "${voice}".`, { status: 400 });
   }
 
+  // Marin/Cedar aren't on TTS — use the closest sound-alike for the preview.
+  const ttsVoice = PREVIEW_TTS_MAP[voice] ?? voice;
+
   try {
     const speech = await getOpenAI().audio.speech.create({
       model: "gpt-4o-mini-tts",
-      voice: voice as "alloy",
+      voice: ttsVoice as "alloy",
       input: SAMPLE_TEXT,
       response_format: "mp3",
     });

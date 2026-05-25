@@ -149,8 +149,33 @@ export class RealtimeSession {
     });
   }
 
+  // GA Realtime API voice allowlist. Voices outside this set silently
+  // make session.update fail and OpenAI falls back to PCM16 24 kHz audio,
+  // which Twilio plays as garbled high-pitched noise. We swap unknown
+  // voices for coral (known-good) before sending session.update so an
+  // operator setting still produces a usable call.
+  private static REALTIME_VOICES = new Set([
+    "marin",
+    "cedar",
+    "coral",
+    "ash",
+    "ballad",
+    "sage",
+    "shimmer",
+    "verse",
+  ]);
+
   private sendSessionUpdate() {
     if (!this.openaiWs || !this.sessionConfig) return;
+    const requested = this.sessionConfig.voice;
+    const voice = RealtimeSession.REALTIME_VOICES.has(requested)
+      ? requested
+      : "coral";
+    if (voice !== requested) {
+      console.warn(
+        `[bridge] voice "${requested}" is not supported by Realtime — falling back to "coral"`,
+      );
+    }
     // GA Realtime API schema (May 2026+):
     //  - session.type is required ("realtime" for speech-to-speech)
     //  - audio config is nested under audio.input / audio.output
@@ -185,7 +210,7 @@ export class RealtimeSession {
             },
             output: {
               format: { type: "audio/pcmu" },
-              voice: this.sessionConfig.voice,
+              voice,
             },
           },
           tools: this.sessionConfig.tools,
