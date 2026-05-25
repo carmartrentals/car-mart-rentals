@@ -47,6 +47,7 @@ export async function GET(request: Request) {
     deposit: 0,
     deposit_expiring: 0,
     recovery: 0,
+    birthday: 0,
   };
 
   async function alreadySent(type: string, reservationId: string) {
@@ -383,6 +384,77 @@ export async function GET(request: Request) {
         .update({ status: "recovered" })
         .eq("id", d.id);
       counts.recovery++;
+    }
+
+    // 8. Birthday greetings — send each customer a "Happy birthday" email
+    //    with a discount code on the day before their birthday, once per
+    //    year. Deduped via the last_birthday_email_year column on the
+    //    customer row so re-running the cron the same day is a no-op.
+    const todayUtc = new Date();
+    const tomorrowUtc = new Date(todayUtc);
+    tomorrowUtc.setUTCDate(tomorrowUtc.getUTCDate() + 1);
+    const tMonth = tomorrowUtc.getUTCMonth() + 1; // 1-12
+    const tDay = tomorrowUtc.getUTCDate();
+    const currentYear = todayUtc.getUTCFullYear();
+
+    try {
+      // Pull customers whose stored DOB month/day matches tomorrow and
+      // who haven't yet received a birthday email this calendar year.
+      // PostgREST can't filter on EXTRACT(month FROM date_of_birth)
+      // server-side, so we fetch eligible candidates and filter in JS.
+      const { data: bdayCandidates } = await admin
+        .from("customers")
+        .select(
+          "id, first_name, email, date_of_birth, last_birthday_email_year, marketing_opted_out, is_blacklisted",
+        )
+        .not("email", "is", null)
+        .not("date_of_birth", "is", null)
+        .eq("marketing_opted_out", false)
+        .eq("is_blacklisted", false);
+
+      type BdayRow = {
+        id: string;
+        first_name: string;
+        email: string;
+        date_of_birth: string;
+        last_birthday_email_year: number | null;
+      };
+      const matches = ((bdayCandidates ?? []) as BdayRow[]).filter((c) => {
+        if (!c.date_of_birth) return false;
+        if (c.last_birthday_email_year === currentYear) return false;
+        const dob = new Date(c.date_of_birth + "T00:00:00Z");
+        return (
+          dob.getUTCMonth() + 1 === tMonth && dob.getUTCDate() === tDay
+        );
+      });
+
+      for (const c of matches) {
+        try {
+          await notifyCustomer({
+            type: "birthday_greeting",
+            to: c.email,
+            subject: `Happy birthday, ${c.first_name || "friend"} 🎂`,
+            heading: "A little birthday gift",
+            intro: `Wishing you the happiest birthday from all of us! As a small thank-you for being a customer, here's a token of appreciation — 15% off your next rental, valid through the rest of this month. Use code BIRTHDAY15 at checkout.`,
+            rows: [
+              { label: "Discount", value: "15% off any rental" },
+              { label: "Code", value: "BIRTHDAY15" },
+              { label: "Valid through", value: "End of this month" },
+            ],
+            cta: { label: "Browse the Fleet", path: "/vehicles" },
+          });
+          await admin
+            .from("customers")
+            .update({ last_birthday_email_year: currentYear })
+            .eq("id", c.id);
+          counts.birthday++;
+        } catch (e) {
+          // Log + move on so one bad address doesn't kill the whole loop.
+          console.error("birthday email failed for", c.email, e);
+        }
+      }
+    } catch (e) {
+      console.error("birthday loop failed", e);
     }
   } catch (err) {
     return NextResponse.json(
