@@ -126,11 +126,12 @@ export class RealtimeSession {
       return;
     }
 
+    // GA Realtime API endpoint. No more OpenAI-Beta header — that header
+    // now triggers a "beta_api_shape_disabled" error.
     const url = `wss://api.openai.com/v1/realtime?model=${config.realtimeModel}`;
     this.openaiWs = new WebSocket(url, {
       headers: {
         Authorization: `Bearer ${config.openaiApiKey}`,
-        "OpenAI-Beta": "realtime=v1",
       },
     });
 
@@ -150,26 +151,41 @@ export class RealtimeSession {
 
   private sendSessionUpdate() {
     if (!this.openaiWs || !this.sessionConfig) return;
+    // GA Realtime API schema (May 2026+):
+    //  - session.type is required ("realtime" for speech-to-speech)
+    //  - audio config is nested under audio.input / audio.output
+    //  - G.711 μ-law for Twilio = { type: "audio/pcmu", rate: 8000 }
+    //  - voice moved to audio.output.voice
+    //  - turn_detection moved to audio.input.turn_detection
+    //  - input_audio_transcription renamed to transcription, under audio.input
+    //  - modalities renamed to output_modalities (audio-only is fine — we get
+    //    the transcript via response.output_audio_transcript events)
     this.openaiWs.send(
       JSON.stringify({
         type: "session.update",
         session: {
-          modalities: ["text", "audio"],
+          type: "realtime",
+          model: config.realtimeModel,
+          output_modalities: ["audio"],
           instructions: this.sessionConfig.systemPrompt,
-          voice: this.sessionConfig.voice,
-          input_audio_format: "g711_ulaw",
-          output_audio_format: "g711_ulaw",
-          input_audio_transcription: { model: "whisper-1" },
-          turn_detection: {
-            type: "server_vad",
-            threshold: 0.5,
-            prefix_padding_ms: 300,
-            silence_duration_ms: 500,
+          audio: {
+            input: {
+              format: { type: "audio/pcmu", rate: 8000 },
+              transcription: { model: "whisper-1" },
+              turn_detection: {
+                type: "server_vad",
+                threshold: 0.5,
+                prefix_padding_ms: 300,
+                silence_duration_ms: 500,
+              },
+            },
+            output: {
+              format: { type: "audio/pcmu" },
+              voice: this.sessionConfig.voice,
+            },
           },
           tools: this.sessionConfig.tools,
           tool_choice: "auto",
-          temperature: 0.7,
-          max_response_output_tokens: 200,
         },
       }),
     );
@@ -177,22 +193,15 @@ export class RealtimeSession {
 
   private sendInitialGreeting() {
     if (!this.openaiWs || !this.sessionConfig) return;
-    // Seed the conversation with our greeting so the AI says it first.
-    this.openaiWs.send(
-      JSON.stringify({
-        type: "conversation.item.create",
-        item: {
-          type: "message",
-          role: "assistant",
-          content: [{ type: "text", text: this.sessionConfig.greeting }],
-        },
-      }),
-    );
-    // Tell the model to actually speak the greeting it was given.
+    // Ask the model to open the call with our exact greeting. Cleaner than
+    // pre-seeding a conversation item (which now needs the GA "output_text"
+    // content type for assistant messages).
     this.openaiWs.send(
       JSON.stringify({
         type: "response.create",
-        response: { modalities: ["audio", "text"] },
+        response: {
+          instructions: `Start the call by saying exactly this, in a warm friendly tone: "${this.sessionConfig.greeting}"`,
+        },
       }),
     );
     this.transcript.push({
@@ -212,7 +221,8 @@ export class RealtimeSession {
     const type = String(data.type || "");
 
     // Audio delta — forward to Twilio as a media frame.
-    if (type === "response.audio.delta") {
+    // (GA renamed from response.audio.delta to response.output_audio.delta)
+    if (type === "response.output_audio.delta") {
       const delta = String(data.delta || "");
       if (delta && this.streamSid && this.twilioWs.readyState === WebSocket.OPEN) {
         this.twilioWs.send(
@@ -248,9 +258,10 @@ export class RealtimeSession {
       }
     }
     // Assistant streamed text — accumulate so we can log the final reply.
-    else if (type === "response.audio_transcript.delta") {
+    // (GA renamed audio_transcript → output_audio_transcript)
+    else if (type === "response.output_audio_transcript.delta") {
       this.currentAssistantText += String(data.delta || "");
-    } else if (type === "response.audio_transcript.done") {
+    } else if (type === "response.output_audio_transcript.done") {
       const txt = (data.transcript ?? this.currentAssistantText)
         .toString()
         .trim();

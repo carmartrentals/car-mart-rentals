@@ -24,8 +24,9 @@ export const config = {
   /** Shared secret between bridge and Vercel app — every callback sends it. */
   bridgeSecret: required("BRIDGE_SECRET"),
 
-  /** Realtime model id. Mini is the cheap, fast tier — recommended default. */
+  /** Realtime model id. Mini is the cheap, fast tier — recommended default.
+   *  GA models (May 2026+): gpt-realtime-mini (cheap), gpt-realtime (premium),
+   *  gpt-realtime-2 (premium reasoning). The "preview" beta models are gone. */
   realtimeModel:
-    process.env.OPENAI_REALTIME_MODEL ||
-    "gpt-4o-mini-realtime-preview-2024-12-17",
+    process.env.OPENAI_REALTIME_MODEL || "gpt-realtime-mini",
 };
