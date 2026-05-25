@@ -611,6 +611,12 @@ export interface PromoCode {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  // Per-customer scoping (migration 0031). When customer_id is set,
+  // ONLY that customer can redeem the code. Used by birthday cron,
+  // future referral bonuses, goodwill credits, etc.
+  customer_id: string | null;
+  auto_generated: boolean;
+  generated_by_event: string | null;
 }
 
 // --- Operations expansion (migration 0008) ----------------------------------

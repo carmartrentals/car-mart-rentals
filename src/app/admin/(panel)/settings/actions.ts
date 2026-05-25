@@ -357,7 +357,7 @@ export async function saveBirthdayCampaign(value: {
   lead_unit: "days" | "weeks" | "months";
   lead_amount: number;
   discount_percent: number;
-  promo_code: string;
+  promo_code_prefix: string;
   subject_template: string;
   intro_template: string;
 }): Promise<ActionState> {
@@ -378,10 +378,11 @@ export async function saveBirthdayCampaign(value: {
         0,
         Math.min(100, Math.round(Number(value.discount_percent) || 15)),
       ),
-      promo_code: String(value.promo_code || "BIRTHDAY15")
-        .replace(/[^A-Z0-9]/gi, "")
-        .toUpperCase()
-        .slice(0, 24),
+      promo_code_prefix:
+        String(value.promo_code_prefix || "BDAY")
+          .replace(/[^A-Z0-9]/gi, "")
+          .toUpperCase()
+          .slice(0, 12) || "BDAY",
       subject_template: String(value.subject_template || "").slice(0, 200),
       intro_template: String(value.intro_template || "").slice(0, 1500),
     },

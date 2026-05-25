@@ -1,6 +1,7 @@
 "use server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getCurrentCustomer } from "@/lib/account";
 import type { PromoCode } from "@/lib/types/database";
 
 export interface PromoValidation {
@@ -38,6 +39,27 @@ export async function validatePromoCode(input: {
 
     if (!promo) return { ok: false, error: "That code isn't valid." };
     if (!promo.is_active) return { ok: false, error: "That code is no longer active." };
+
+    // CUSTOMER SCOPING — when promo.customer_id is set, only that
+    // specific signed-in customer may redeem. Prevents a leaked
+    // BIRTHDAY15-style code from being used by anyone who guesses it.
+    if (promo.customer_id) {
+      const signedInCustomer = await getCurrentCustomer();
+      if (!signedInCustomer) {
+        return {
+          ok: false,
+          error: "That code is personal — sign in with the account that received it.",
+        };
+      }
+      if (signedInCustomer.id !== promo.customer_id) {
+        // Deliberately vague — don't confirm whether the code exists,
+        // just say it's not for this account.
+        return {
+          ok: false,
+          error: "That code isn't valid for this account.",
+        };
+      }
+    }
 
     const now = new Date();
     if (promo.valid_from && new Date(promo.valid_from) > now) {

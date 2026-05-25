@@ -442,8 +442,57 @@ export async function GET(request: Request) {
               String(bday.discount_percent),
             );
 
+        // Per-customer unique-code generator. Generates a short random
+        // alphanumeric suffix so the full code is e.g. "BDAY-X7K9P3M2".
+        // 8 chars from a 32-character alphabet = ~10^12 possible codes,
+        // way more than we'd ever mint in a year — no collisions in
+        // practice. The unique constraint on promo_codes.code is the
+        // belt-and-suspenders if one slips through.
+        const ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"; // omit 0/O/1/I
+        function randomSuffix(len = 8): string {
+          let s = "";
+          for (let i = 0; i < len; i++) {
+            s += ALPHABET[Math.floor(Math.random() * ALPHABET.length)];
+          }
+          return s;
+        }
+
+        // 30-day validity from the SEND date — gives the customer some
+        // breathing room without the code being usable forever.
+        const validFrom = new Date();
+        const validUntil = new Date();
+        validUntil.setUTCDate(validUntil.getUTCDate() + 30);
+
         for (const c of matches) {
           try {
+            // Mint a unique per-customer promo code.
+            const codeStr = `${(bday.promo_code_prefix || "BDAY").toUpperCase()}-${randomSuffix()}`;
+            const { error: codeErr } = await admin
+              .from("promo_codes")
+              .insert({
+                code: codeStr,
+                description: `Birthday gift — ${bday.discount_percent}% off`,
+                discount_type: "percentage",
+                discount_value: bday.discount_percent,
+                min_rental_days: 0,
+                max_uses: 1, // single use
+                times_used: 0,
+                valid_from: validFrom.toISOString(),
+                valid_until: validUntil.toISOString(),
+                is_active: true,
+                customer_id: c.id, // scope to this customer ONLY
+                auto_generated: true,
+                generated_by_event: "birthday",
+              });
+            if (codeErr) {
+              console.error(
+                "could not mint birthday code for",
+                c.email,
+                codeErr.message,
+              );
+              continue;
+            }
+
             const subject = fill(bday.subject_template, c.first_name);
             const intro = fill(bday.intro_template, c.first_name);
             await notifyCustomer({
@@ -457,8 +506,11 @@ export async function GET(request: Request) {
                   label: "Discount",
                   value: `${bday.discount_percent}% off any rental`,
                 },
-                { label: "Code", value: bday.promo_code },
-                { label: "Valid through", value: "End of this month" },
+                { label: "Your personal code", value: codeStr },
+                {
+                  label: "Valid for",
+                  value: "30 days, single use, your account only",
+                },
               ],
               cta: { label: "Browse the Fleet", path: "/vehicles" },
             });

@@ -120,7 +120,7 @@ export function BirthdayCampaignForm({
         <div className="grid gap-4 sm:grid-cols-2">
           <Field
             label="Discount %"
-            hint="Shown in the email and matched to the promo code below."
+            hint="Applied automatically by the personal code minted for each recipient."
           >
             <Input
               type="number"
@@ -133,17 +133,31 @@ export function BirthdayCampaignForm({
             />
           </Field>
           <Field
-            label="Promo code"
-            hint="Featured in the email. Create the matching code in /admin/promo-codes."
+            label="Code prefix"
+            hint="Each customer gets a unique code like BDAY-X7K9P3M2 — only they can redeem it. No need to create promo codes manually."
           >
             <Input
-              value={v.promo_code}
+              value={v.promo_code_prefix}
               onChange={(e) =>
-                setV({ ...v, promo_code: e.target.value.toUpperCase() })
+                setV({
+                  ...v,
+                  promo_code_prefix: e.target.value
+                    .replace(/[^a-z0-9]/gi, "")
+                    .toUpperCase(),
+                })
               }
-              placeholder="BIRTHDAY15"
+              placeholder="BDAY"
+              maxLength={12}
             />
           </Field>
+        </div>
+
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900">
+          <strong>How redemption works (secure by design):</strong> the cron
+          mints a brand-new unique code per recipient like{" "}
+          <code className="font-mono">{v.promo_code_prefix}-X7K9P3M2</code>,
+          scoped to that customer&apos;s account. Single-use, valid 30 days.
+          Even if a code leaks online, no one else can redeem it.
         </div>
 
         <Field

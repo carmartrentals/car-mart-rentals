@@ -137,9 +137,25 @@ export async function POST(request: Request) {
       .maybeSingle();
     const p = pRow as PromoCode | null;
     const now = new Date();
+    // Customer-scoped codes (birthday, referral, goodwill) only redeem
+    // for the customer they were minted for. Look up by email since the
+    // customer row may or may not yet exist when this code path runs.
+    let customerScopeOk = true;
+    if (p?.customer_id) {
+      const lookupEmail = input.customer.email.toLowerCase();
+      const { data: cs } = await admin
+        .from("customers")
+        .select("id")
+        .ilike("email", lookupEmail)
+        .order("created_at", { ascending: true })
+        .limit(1);
+      const matchedId = cs?.[0]?.id as string | undefined;
+      customerScopeOk = !!matchedId && matchedId === p.customer_id;
+    }
     const eligible =
       p &&
       p.is_active &&
+      customerScopeOk &&
       (!p.valid_from || new Date(p.valid_from) <= now) &&
       (!p.valid_until || new Date(p.valid_until) >= now) &&
       (p.max_uses === null ||
