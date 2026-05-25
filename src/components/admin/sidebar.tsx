@@ -7,7 +7,7 @@ import {
   AlertTriangle, Users, FileText, CreditCard, BarChart3, Settings,
   ClipboardCheck, Wallet, Tag, UserPlus, Siren, Satellite,
   MapPin, Mail, UserCog, Globe, Star, ShieldAlert, History, X, Sparkles, Gift,
-  PhoneCall,
+  PhoneCall, TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BrandLogo } from "@/components/brand-logo";
@@ -57,6 +57,7 @@ const NAV: { section: string; items: NavItem[] }[] = [
       { href: "/admin/payments", label: "Payments", icon: CreditCard },
       { href: "/admin/expenses", label: "Expenses", icon: Wallet },
       { href: "/admin/promo-codes", label: "Promo Codes", icon: Tag },
+      { href: "/admin/pricing", label: "Dynamic Pricing", icon: TrendingUp },
       { href: "/admin/reports", label: "Reports", icon: BarChart3 },
     ],
   },
