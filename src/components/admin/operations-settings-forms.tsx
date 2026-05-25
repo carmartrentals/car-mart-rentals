@@ -715,28 +715,93 @@ export function VerificationGatesForm({
           </span>
         </CardTitle>
       </CardHeader>
-      <CardBody className="space-y-4">
+      <CardBody className="space-y-5">
         <ResultAlert result={result} />
         <p className="text-xs text-slate-500">
           How strict the system is about verifying a renter before allowing
-          check-out.
+          check-out. Pick any combination of license checks — all ticked
+          checks must pass.
         </p>
+
+        {/* License checks — multi-select. AI + Stripe is a common combo for
+            luxury rentals: AI catches forgery on the upload, Stripe Identity
+            adds a selfie + government DB cross-check. */}
+        <div>
+          <p className="mb-2 text-sm font-medium text-slate-700">
+            Required driver license checks
+          </p>
+          <ul className="space-y-2 rounded-lg border border-slate-200 p-3">
+            <li>
+              <label className="flex items-start gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={v.license_checks.ai}
+                  onChange={(e) =>
+                    setV({
+                      ...v,
+                      license_checks: { ...v.license_checks, ai: e.target.checked },
+                    })
+                  }
+                  className="mt-0.5 h-4 w-4 accent-gold-500"
+                />
+                <span>
+                  <span className="font-medium">AI photo check</span>
+                  <span className="block text-xs text-slate-500">
+                    GPT-4o-mini inspects the uploaded license for authenticity
+                    + cross-references the name on the customer record.
+                  </span>
+                </span>
+              </label>
+            </li>
+            <li>
+              <label className="flex items-start gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={v.license_checks.dmv}
+                  onChange={(e) =>
+                    setV({
+                      ...v,
+                      license_checks: { ...v.license_checks, dmv: e.target.checked },
+                    })
+                  }
+                  className="mt-0.5 h-4 w-4 accent-gold-500"
+                />
+                <span>
+                  <span className="font-medium">Manual DMV check</span>
+                  <span className="block text-xs text-slate-500">
+                    Staff has looked up the license on the state DMV portal
+                    and recorded the result (valid / suspended / etc).
+                  </span>
+                </span>
+              </label>
+            </li>
+            <li>
+              <label className="flex items-start gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={v.license_checks.stripe}
+                  onChange={(e) =>
+                    setV({
+                      ...v,
+                      license_checks: { ...v.license_checks, stripe: e.target.checked },
+                    })
+                  }
+                  className="mt-0.5 h-4 w-4 accent-gold-500"
+                />
+                <span>
+                  <span className="font-medium">Stripe Identity</span>
+                  <span className="block text-xs text-slate-500">
+                    Renter completes a Stripe-hosted ID + selfie verification.
+                    Costs ~$1.50 per check; strongest fraud protection.
+                  </span>
+                </span>
+              </label>
+            </li>
+          </ul>
+        </div>
+
+        {/* Insurance — single-select, since AI + required is just "required" */}
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Driver license verification">
-            <Select
-              value={v.license_level}
-              onChange={(e) =>
-                setV({
-                  ...v,
-                  license_level: e.target.value as VerificationGates["license_level"],
-                })
-              }
-            >
-              <option value="ai">AI photo check only</option>
-              <option value="ai_dmv">AI + manual DMV result required</option>
-              <option value="stripe">Stripe Identity required</option>
-            </Select>
-          </Field>
           <Field label="Insurance verification">
             <Select
               value={v.insurance_level}
@@ -769,6 +834,7 @@ export function VerificationGatesForm({
             </Field>
           )}
         </div>
+
         <label className="flex items-center gap-2 text-sm text-slate-700">
           <input
             type="checkbox"

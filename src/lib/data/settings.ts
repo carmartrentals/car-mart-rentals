@@ -307,23 +307,51 @@ export async function getOwnerNotifications(): Promise<OwnerNotifications> {
 // Verification gate level
 // ============================================================================
 export interface VerificationGates {
-  /** "ai" = AI photo check only / "ai_dmv" = require manual DMV recorded / "stripe" = require Stripe Identity */
-  license_level: "ai" | "ai_dmv" | "stripe";
+  /** Which license checks are REQUIRED for the renter to be approved.
+   *  All ticked checks must pass — combine freely (e.g. AI + Stripe). */
+  license_checks: {
+    /** AI inspects the uploaded license photo for authenticity + name match. */
+    ai: boolean;
+    /** Staff has manually verified the license via state DMV portal. */
+    dmv: boolean;
+    /** Renter completed a Stripe Identity verification session. */
+    stripe: boolean;
+  };
   /** "off" = don't require insurance / "required" = upload required / "ai_pass" = AI score must pass */
   insurance_level: "off" | "required" | "ai_pass";
   /** Minimum AI insurance score (0-100) when insurance_level = ai_pass. */
   insurance_min_score: number;
-  /** When true, the system blocks check-out if either gate isn't met. */
+  /** When true, the system blocks check-out if any gate isn't met. */
   block_checkout_on_fail: boolean;
 }
 
 export async function getVerificationGates(): Promise<VerificationGates> {
   const v = await getSetting<Record<string, unknown>>("verification_gates", {});
-  const lvl = String(v.license_level ?? "ai");
+
+  // Backward compat: the previous shape stored license_level as a single
+  // string ("ai" | "ai_dmv" | "stripe"). Translate any old saved value
+  // into the new multi-check shape so existing installations don't lose
+  // their setting on the first read after this deploy.
+  let license_checks = { ai: true, dmv: false, stripe: false };
+  if (v.license_checks && typeof v.license_checks === "object") {
+    const c = v.license_checks as Record<string, unknown>;
+    license_checks = {
+      ai: Boolean(c.ai),
+      dmv: Boolean(c.dmv),
+      stripe: Boolean(c.stripe),
+    };
+  } else if (typeof v.license_level === "string") {
+    const lvl = v.license_level;
+    license_checks = {
+      ai: lvl === "ai" || lvl === "ai_dmv",
+      dmv: lvl === "ai_dmv",
+      stripe: lvl === "stripe",
+    };
+  }
+
   const ins = String(v.insurance_level ?? "required");
   return {
-    license_level: (["ai", "ai_dmv", "stripe"].includes(lvl) ? lvl : "ai") as
-      | "ai" | "ai_dmv" | "stripe",
+    license_checks,
     insurance_level: (["off", "required", "ai_pass"].includes(ins) ? ins : "required") as
       | "off" | "required" | "ai_pass",
     insurance_min_score: Number(v.insurance_min_score ?? 70) || 0,

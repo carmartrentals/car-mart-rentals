@@ -239,7 +239,7 @@ export async function saveOwnerNotifications(value: {
 }
 
 export async function saveVerificationGates(value: {
-  license_level: "ai" | "ai_dmv" | "stripe";
+  license_checks: { ai: boolean; dmv: boolean; stripe: boolean };
   insurance_level: "off" | "required" | "ai_pass";
   insurance_min_score: number;
   block_checkout_on_fail: boolean;
@@ -247,17 +247,35 @@ export async function saveVerificationGates(value: {
   const user = await requireSettingsAccess();
   if (!user)
     return { ok: false, error: "Only a Super Admin can change settings." };
+  const checks = {
+    ai: !!value.license_checks?.ai,
+    dmv: !!value.license_checks?.dmv,
+    stripe: !!value.license_checks?.stripe,
+  };
+  if (!checks.ai && !checks.dmv && !checks.stripe) {
+    return {
+      ok: false,
+      error: "Pick at least one driver license verification check.",
+    };
+  }
+  const ticked = [
+    checks.ai && "AI",
+    checks.dmv && "DMV",
+    checks.stripe && "Stripe",
+  ]
+    .filter(Boolean)
+    .join("+");
   return upsertSetting({
     user,
     key: "verification_gates",
     value: {
-      license_level: value.license_level,
+      license_checks: checks,
       insurance_level: value.insurance_level,
       insurance_min_score: Math.max(0, Math.min(100, Math.round(value.insurance_min_score || 0))),
       block_checkout_on_fail: !!value.block_checkout_on_fail,
     },
     category: "operations",
-    activityDescription: `Gates: license=${value.license_level} · insurance=${value.insurance_level}`,
+    activityDescription: `Gates: license=${ticked} · insurance=${value.insurance_level}`,
   });
 }
 
