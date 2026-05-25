@@ -2,12 +2,17 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Mail, Lock, User, CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 export function AccountAuth({ mode }: { mode: "login" | "register" }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // Honor ?redirect=/somewhere so the user lands where they were trying to go.
+  // Only allow same-origin internal paths — never an open redirect.
+  const rawRedirect = searchParams?.get("redirect") ?? "";
+  const redirectTo = rawRedirect.startsWith("/") ? rawRedirect : "/account";
   const isRegister = mode === "register";
 
   const [fullName, setFullName] = useState("");
@@ -38,7 +43,7 @@ export function AccountAuth({ mode }: { mode: "login" | "register" }) {
           return;
         }
         if (data.session) {
-          router.push("/account");
+          router.push(redirectTo);
           router.refresh();
         } else {
           setConfirm(true);
@@ -151,14 +156,20 @@ export function AccountAuth({ mode }: { mode: "login" | "register" }) {
         {isRegister ? (
           <>
             Already have an account?{" "}
-            <Link href="/account/login" className="font-medium text-gold-300 hover:underline">
+            <Link
+              href={`/account/login${rawRedirect ? `?redirect=${encodeURIComponent(rawRedirect)}` : ""}`}
+              className="font-medium text-gold-300 hover:underline"
+            >
               Sign in
             </Link>
           </>
         ) : (
           <>
             New customer?{" "}
-            <Link href="/account/register" className="font-medium text-gold-300 hover:underline">
+            <Link
+              href={`/account/register${rawRedirect ? `?redirect=${encodeURIComponent(rawRedirect)}` : ""}`}
+              className="font-medium text-gold-300 hover:underline"
+            >
               Create an account
             </Link>
           </>

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { CalendarRange, ArrowRight, CarFront } from "lucide-react";
+import { CalendarRange, ArrowRight, CarFront, ShieldAlert } from "lucide-react";
 import { getCurrentCustomer } from "@/lib/account";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Badge } from "@/components/ui/badge";
@@ -44,6 +44,28 @@ export default async function AccountDashboard() {
           View your reservations, pay balances and download documents.
         </p>
       </div>
+
+      {/* Nudge customers without a license on file — booking is gated on it. */}
+      {customer && !customer.dl_front_url && (
+        <Link
+          href="/account/onboarding"
+          className="mb-6 flex items-start gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-5 py-4 transition-colors hover:border-amber-400/50 hover:bg-amber-500/15"
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-amber-300">
+            <ShieldAlert className="h-5 w-5" />
+          </span>
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-amber-100">
+              Complete your profile to book
+            </p>
+            <p className="mt-0.5 text-sm text-amber-200/80">
+              Upload your driver license so we can verify you before pickup.
+              Takes about 60 seconds.
+            </p>
+          </div>
+          <ArrowRight className="mt-1 h-4 w-4 text-amber-200" />
+        </Link>
+      )}
 
       {reservations.length === 0 ? (
         <div className="glass flex flex-col items-center rounded-2xl px-6 py-16 text-center">

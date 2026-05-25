@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import Link from "next/link";
 import { AccountAuth } from "@/components/account/account-auth";
 import { BrandLogo } from "@/components/brand-logo";
@@ -18,7 +19,9 @@ export default function AccountRegisterPage() {
           <h1 className="mb-5 text-lg font-semibold text-white">
             Create Your Account
           </h1>
-          <AccountAuth mode="register" />
+          <Suspense fallback={null}>
+            <AccountAuth mode="register" />
+          </Suspense>
         </div>
       </div>
     </div>

@@ -33,6 +33,23 @@ export default async function BookingPage({
   const vehicle = await getVehicleBySlug(slug);
   if (!vehicle) redirect("/vehicles");
 
+  // Build the canonical "return to this exact booking" URL so we can route
+  // visitors through login + onboarding and bring them back here.
+  const refParam = str(sp.ref);
+  const bookingPath = `/booking?vehicle=${encodeURIComponent(slug)}&pickup=${encodeURIComponent(pickup)}&return=${encodeURIComponent(ret)}${
+    refParam ? `&ref=${encodeURIComponent(refParam)}` : ""
+  }`;
+  const redirectQs = `?redirect=${encodeURIComponent(bookingPath)}`;
+
+  // GATE 1 — require sign-in. Anonymous bookings are no longer allowed so the
+  // renter has a verified email + we can reach them after pickup.
+  const customer = await getCurrentCustomer();
+  if (!customer) redirect(`/account/login${redirectQs}`);
+
+  // GATE 2 — require a driver license photo on file. Reduces verification
+  // time at pickup and gives the AI license inspector something to analyze.
+  if (!customer.dl_front_url) redirect(`/account/onboarding${redirectQs}`);
+
   const supabase = await createClient();
   const { data } = await supabase
     .from("add_ons")
@@ -41,18 +58,15 @@ export default async function BookingPage({
     .order("sort_order");
   const addOns = (data as AddOn[]) ?? [];
 
-  // Pre-fill driver details for a signed-in customer.
-  const customer = await getCurrentCustomer();
-  const prefill = customer
-    ? {
-        first_name: customer.first_name ?? "",
-        last_name: customer.last_name ?? "",
-        email: customer.email ?? "",
-        phone: customer.phone ?? "",
-        dl_number: customer.dl_number ?? "",
-        dl_state: customer.dl_state ?? "",
-      }
-    : null;
+  // Customer's profile prefills the form (they're guaranteed signed in here).
+  const prefill = {
+    first_name: customer.first_name ?? "",
+    last_name: customer.last_name ?? "",
+    email: customer.email ?? "",
+    phone: customer.phone ?? "",
+    dl_number: customer.dl_number ?? "",
+    dl_state: customer.dl_state ?? "",
+  };
 
   return (
     <div className="bg-brand-950">
