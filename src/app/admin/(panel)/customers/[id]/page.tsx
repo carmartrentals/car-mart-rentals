@@ -161,11 +161,7 @@ export default async function CustomerDetailPage({
         <div className="space-y-6 lg:col-span-2">
           <LicenseVerificationCard
             customer={c}
-            dmvLookupUrl={
-              c.dl_state === "CA"
-                ? "https://dmvportal.dmv.ca.gov/wps/portal/dmvevsec/"
-                : undefined
-            }
+            dmvLookupUrl={dmvPortalForState(c.dl_state)}
           />
           <InsuranceVerificationCard customer={c} />
           <CustomerDocuments customer={c} identity={identity} />
@@ -263,6 +259,39 @@ function DataRow({ label, value }: { label: string; value: string }) {
       <span className="text-right font-medium text-slate-800">{value}</span>
     </div>
   );
+}
+
+/**
+ * Per-state DMV lookup links. Public-facing DMV pages where staff can
+ * cross-check a license, request driver records, or hit the state's
+ * official license-status tool. Most states don't expose a free
+ * real-time "is this license valid?" API — these links are shortcuts
+ * to the right portal page.
+ */
+function dmvPortalForState(state: string | null): string | undefined {
+  if (!state) return undefined;
+  const map: Record<string, string> = {
+    CA: "https://www.dmv.ca.gov/portal/customer-service/request-vehicle-or-driver-records/",
+    NV: "https://dmv.nv.gov/dlrecord.htm",
+    AZ: "https://azdot.gov/motor-vehicles/driver-services/driver-license-information",
+    TX: "https://www.txdps.state.tx.us/DriverLicense/personalRecord.htm",
+    NY: "https://dmv.ny.gov/more-info/get-my-driving-record-abstract",
+    FL: "https://services.flhsmv.gov/DLCheck/",
+    WA: "https://fortress.wa.gov/dol/dsdlookup/",
+    OR: "https://www.oregon.gov/odot/dmv/Pages/driverid/recordsrequest.aspx",
+    CO: "https://mydmv.colorado.gov/",
+    UT: "https://secure.utah.gov/grs/grs",
+    NJ: "https://www.nj.gov/mvc/license/license.htm",
+    IL: "https://www.ilsos.gov/departments/drivers/driverservices.html",
+    GA: "https://online.dds.ga.gov/onlineservices/",
+    OH: "https://bmv.ohio.gov/online-services.aspx",
+    MI: "https://www.michigan.gov/sos/online-services",
+    PA: "https://www.dmv.pa.gov/Driver-Services/Pages/default.aspx",
+    NC: "https://www.ncdot.gov/dmv/license-id/Pages/default.aspx",
+    VA: "https://www.dmv.virginia.gov/drivers/",
+    MA: "https://www.mass.gov/orgs/massachusetts-registry-of-motor-vehicles",
+  };
+  return map[state.toUpperCase()] ?? "https://www.usa.gov/state-motor-vehicle-services";
 }
 
 function MiniStat({
