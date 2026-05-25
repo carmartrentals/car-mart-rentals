@@ -162,12 +162,18 @@ export async function POST(request: Request) {
   }
 
   // --- Find or create customer ---------------------------------------------
+  // Use limit(1) + order rather than maybeSingle() — the latter errors out
+  // when 2+ rows match, which used to silently drop us into the insert path
+  // and pile up more duplicates. Prefer the oldest row (more rental history,
+  // verified docs, etc) when multiple legacy duplicates still exist.
   const email = input.customer.email.toLowerCase();
-  const { data: existing } = await admin
+  const { data: existingRows } = await admin
     .from("customers")
     .select("id")
     .ilike("email", email)
-    .maybeSingle();
+    .order("created_at", { ascending: true })
+    .limit(1);
+  const existing = existingRows?.[0];
 
   let customerId = existing?.id as string | undefined;
   if (!customerId) {

@@ -21,44 +21,58 @@ export async function getCurrentCustomer(): Promise<Customer | null> {
 
   try {
     const admin = createAdminClient();
-    const { data } = await admin
+
+    // Tolerate any pre-existing duplicate rows in production — use limit(1)
+    // + order rather than maybeSingle() (which errors on 2+ matches). After
+    // migration 0027 there should be at most one row per user_id, but the
+    // defensive read costs nothing.
+    const { data: byUser } = await admin
       .from("customers")
       .select("*")
       .eq("user_id", user.id)
-      .maybeSingle();
-    if (data) return data as Customer;
+      .order("created_at", { ascending: true })
+      .limit(1);
+    if (byUser && byUser.length > 0) return byUser[0] as Customer;
 
-    // No customer row — only auto-create one if this account is explicitly a
-    // customer (or has no account_type at all, e.g. a legacy signup). Staff
-    // users will have account_type === "staff" and are skipped.
+    // No row keyed to this auth user — only auto-create one if this account
+    // is explicitly a customer (or has no account_type at all, e.g. a
+    // legacy signup). Staff / super-admin accounts are skipped so signing
+    // into the admin panel doesn't pollute the customer list.
     const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
     const accountType = String(meta.account_type ?? "customer");
     if (accountType !== "customer") return null;
 
-    // First, link an existing customer record by email if one exists.
-    const email = user.email ?? "";
+    const email = (user.email ?? "").trim();
+
+    // Adopt an existing customer record that matches by email but has no
+    // user_id yet (admin pre-created the customer, then they self-signed-up).
     if (email) {
-      const { data: existing } = await admin
+      const { data: orphans } = await admin
         .from("customers")
         .select("*")
         .ilike("email", email)
         .is("user_id", null)
-        .maybeSingle();
-      if (existing) {
+        .order("created_at", { ascending: true })
+        .limit(1);
+      const orphan = orphans?.[0] as Customer | undefined;
+      if (orphan) {
         const { data: linked } = await admin
           .from("customers")
           .update({ user_id: user.id })
-          .eq("id", (existing as Customer).id)
+          .eq("id", orphan.id)
           .select("*")
-          .maybeSingle();
-        return (linked as Customer) ?? (existing as Customer);
+          .limit(1);
+        return (linked?.[0] as Customer) ?? orphan;
       }
     }
 
-    // Otherwise create a fresh customer profile from auth metadata.
+    // Otherwise create a fresh customer profile from auth metadata. The
+    // partial unique index on user_id (migration 0027) makes this race-safe:
+    // if a parallel request raced ahead and already inserted, the second
+    // insert errors and we re-read the winning row instead of double-writing.
     const fullName = String(meta.full_name ?? email.split("@")[0] ?? "Customer");
     const [first, ...rest] = fullName.trim().split(/\s+/);
-    const { data: created } = await admin
+    const { data: created, error: insertErr } = await admin
       .from("customers")
       .insert({
         user_id: user.id,
@@ -67,8 +81,20 @@ export async function getCurrentCustomer(): Promise<Customer | null> {
         last_name: rest.join(" ") || "",
       })
       .select("*")
-      .maybeSingle();
-    return (created as Customer) ?? null;
+      .limit(1);
+    if (created && created.length > 0) return created[0] as Customer;
+
+    // Lost the race — re-read the row the winning request wrote.
+    if (insertErr) {
+      const { data: winner } = await admin
+        .from("customers")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: true })
+        .limit(1);
+      if (winner && winner.length > 0) return winner[0] as Customer;
+    }
+    return null;
   } catch {
     return null;
   }
