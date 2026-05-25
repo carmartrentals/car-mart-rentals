@@ -351,6 +351,45 @@ export async function saveTollPassthrough(value: {
   });
 }
 
+// --- Birthday campaign ------------------------------------------------------
+export async function saveBirthdayCampaign(value: {
+  enabled: boolean;
+  lead_unit: "days" | "weeks" | "months";
+  lead_amount: number;
+  discount_percent: number;
+  promo_code: string;
+  subject_template: string;
+  intro_template: string;
+}): Promise<ActionState> {
+  const user = await requireSettingsAccess();
+  if (!user)
+    return { ok: false, error: "Only a Super Admin can change settings." };
+  const lead = ["days", "weeks", "months"].includes(value.lead_unit)
+    ? value.lead_unit
+    : "days";
+  return upsertSetting({
+    user,
+    key: "birthday_campaign",
+    value: {
+      enabled: !!value.enabled,
+      lead_unit: lead,
+      lead_amount: Math.max(0, Math.round(Number(value.lead_amount) || 1)),
+      discount_percent: Math.max(
+        0,
+        Math.min(100, Math.round(Number(value.discount_percent) || 15)),
+      ),
+      promo_code: String(value.promo_code || "BIRTHDAY15")
+        .replace(/[^A-Z0-9]/gi, "")
+        .toUpperCase()
+        .slice(0, 24),
+      subject_template: String(value.subject_template || "").slice(0, 200),
+      intro_template: String(value.intro_template || "").slice(0, 1500),
+    },
+    category: "marketing",
+    activityDescription: `Birthday campaign: ${value.enabled ? "on" : "off"} · ${value.lead_amount} ${lead} before · ${value.discount_percent}%`,
+  });
+}
+
 // --- Cancellation policy ----------------------------------------------------
 export async function saveCancellationPolicy(input: {
   window_hours: number;

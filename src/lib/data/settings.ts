@@ -440,6 +440,58 @@ export async function getTollPassthrough(): Promise<TollPassthrough> {
   };
 }
 
+// ============================================================================
+// Birthday campaign
+// ============================================================================
+export interface BirthdayCampaignSettings {
+  /** Master on/off. When false the cron skips birthdays entirely. */
+  enabled: boolean;
+  /** How far before the birthday to send. days|weeks|months. */
+  lead_unit: "days" | "weeks" | "months";
+  /** Number of <lead_unit> before the birthday. e.g. 1 day, 2 weeks, 1 month. */
+  lead_amount: number;
+  /** Discount % shown in the email and recommended promo code. */
+  discount_percent: number;
+  /** Promo code featured in the email. Operator should create the matching
+   *  PromoCode row in /admin/promo-codes for the discount to actually apply. */
+  promo_code: string;
+  /** Subject line. {{first_name}} token supported. */
+  subject_template: string;
+  /** Body intro. {{first_name}} and {{discount_percent}} tokens supported. */
+  intro_template: string;
+}
+
+export async function getBirthdayCampaignSettings(): Promise<BirthdayCampaignSettings> {
+  const v = await getSetting<Record<string, unknown>>("birthday_campaign", {});
+  const lead = String(v.lead_unit ?? "days");
+  return {
+    enabled: v.enabled !== false, // default ON unless explicitly disabled
+    lead_unit: (["days", "weeks", "months"].includes(lead) ? lead : "days") as
+      | "days" | "weeks" | "months",
+    lead_amount: Math.max(0, Math.round(Number(v.lead_amount ?? 1) || 1)),
+    discount_percent: Math.max(0, Math.min(100, Number(v.discount_percent ?? 15) || 15)),
+    promo_code: String(v.promo_code ?? "BIRTHDAY15").toUpperCase().slice(0, 24),
+    subject_template: String(
+      v.subject_template ??
+        "Happy birthday, {{first_name}} 🎂",
+    ).slice(0, 200),
+    intro_template: String(
+      v.intro_template ??
+        "Wishing you the happiest birthday from all of us! As a small thank-you for being a customer, here's a token of appreciation — {{discount_percent}}% off your next rental, valid through the rest of this month.",
+    ).slice(0, 1500),
+  };
+}
+
+/**
+ * Compute how many days BEFORE the customer's actual birthday we should
+ * send the email, derived from lead_unit + lead_amount.
+ */
+export function birthdayLeadDays(s: BirthdayCampaignSettings): number {
+  if (s.lead_unit === "weeks") return s.lead_amount * 7;
+  if (s.lead_unit === "months") return s.lead_amount * 30; // approximate
+  return s.lead_amount;
+}
+
 export interface AiVoiceSettings {
   /** "polly" = legacy Twilio TTS + Gather + chat. "realtime" = OpenAI Realtime via bridge. */
   mode: "polly" | "realtime";

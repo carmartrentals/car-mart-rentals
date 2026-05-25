@@ -15,11 +15,13 @@ import {
   getSocialLinks,
   getDisplayTimezone,
   getTollPassthrough,
+  getBirthdayCampaignSettings,
 } from "@/lib/data/settings";
 import { COMPANY } from "@/lib/constants";
 import { SettingsForm } from "@/components/admin/settings-form";
 import { AiVoiceSettingsForm } from "@/components/admin/ai-voice-settings-form";
 import { CancellationPolicyForm } from "@/components/admin/cancellation-policy-form";
+import { BirthdayCampaignForm } from "@/components/admin/birthday-campaign-form";
 import {
   BusinessHoursForm,
   DriverRequirementsForm,
@@ -69,6 +71,7 @@ export default async function SettingsPage() {
     getDisplayTimezone(),
     getTollPassthrough(),
   ]);
+  const birthdayCampaign = await getBirthdayCampaignSettings();
 
   const companyValue = {
     name: String(company.name ?? COMPANY.name),
@@ -150,6 +153,7 @@ export default async function SettingsPage() {
         {/* --- Notifications --- */}
         <AutoEmailPreferencesForm initial={autoEmails} />
         <OwnerNotificationsForm initial={ownerNotifs} />
+        <BirthdayCampaignForm initial={birthdayCampaign} />
 
         {/* --- Display & branding --- */}
         <SocialLinksForm initial={social} />
