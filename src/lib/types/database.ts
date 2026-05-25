@@ -553,6 +553,11 @@ export interface TollViolation {
   charged_to_customer: boolean;
   reference_number: string | null;
   notes: string | null;
+  // Toll passthrough fields (migration 0023)
+  handling_fee: number;
+  customer_charge_total: number | null;
+  customer_charge_id: string | null;
+  customer_charged_at: string | null;
   created_at: string;
   updated_at: string;
 }
