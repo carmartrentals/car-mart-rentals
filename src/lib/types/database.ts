@@ -137,6 +137,9 @@ export interface Customer {
   insurance_ai_check_summary: string | null;
   insurance_risk_level: string | null;
   stripe_verification_session_id: string | null;
+  /** Marketing opt-out (migration 0028). Set by the unsubscribe link. */
+  marketing_opted_out: boolean;
+  marketing_opted_out_at: string | null;
   referral_code: string | null;
   notes: string | null;
   created_at: string;
@@ -700,4 +703,38 @@ export interface ReservationRequest {
   created_at: string;
   resolved_at: string | null;
   resolved_by: string | null;
+}
+
+// --- Marketing campaigns (migration 0028) ----------------------------------
+export type MarketingCampaignStatus = "draft" | "sending" | "sent" | "failed";
+
+export interface MarketingCampaign {
+  id: string;
+  name: string;
+  subject: string;
+  preheader: string | null;
+  body: string;
+  cta_label: string | null;
+  cta_url: string | null;
+  promo_code_id: string | null;
+  status: MarketingCampaignStatus;
+  sent_at: string | null;
+  sent_count: number;
+  opened_count: number;
+  failed_count: number;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface MarketingRecipient {
+  id: string;
+  campaign_id: string;
+  customer_id: string | null;
+  email: string;
+  sent_at: string | null;
+  opened_at: string | null;
+  open_count: number;
+  bounced: boolean;
+  send_error: string | null;
+  created_at: string;
 }
