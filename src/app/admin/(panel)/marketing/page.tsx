@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Alert } from "@/components/ui/misc";
 import { formatDateTime } from "@/lib/utils";
+import { upcomingHolidays } from "@/lib/holidays";
+import { HolidaySuggestions } from "@/components/admin/holiday-suggestions";
 import type { MarketingCampaign } from "@/lib/types/database";
 
 const STATUS_TONE: Record<string, "green" | "amber" | "red" | "gray"> = {
@@ -48,6 +50,17 @@ export default async function MarketingPage() {
   const openRate =
     totalSent > 0 ? Math.round((totalOpens / totalSent) * 100) : 0;
 
+  // Holidays in the next 45 days — passed to the AI-suggestion card.
+  // Map to a serializable shape (Dates aren't serializable across the
+  // client/server boundary).
+  const holidays = upcomingHolidays(45).map((h) => ({
+    slug: h.slug,
+    name: h.name,
+    date: h.date.toISOString(),
+    daysUntil: h.daysUntil,
+    vibe: h.vibe,
+  }));
+
   return (
     <>
       <PageHeader
@@ -67,6 +80,14 @@ export default async function MarketingPage() {
           <Alert tone="warning">
             Could not load campaigns. Run migration 0028 in Supabase.
           </Alert>
+        </div>
+      )}
+
+      {/* AI holiday-campaign suggestions — top of page so the operator
+          sees opportunities the moment they land here. */}
+      {holidays.length > 0 && (
+        <div className="mb-6">
+          <HolidaySuggestions holidays={holidays} />
         </div>
       )}
 

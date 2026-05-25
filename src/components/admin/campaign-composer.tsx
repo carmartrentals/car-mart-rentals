@@ -22,18 +22,26 @@ import type { PromoCode } from "@/lib/types/database";
 export function CampaignComposer({
   promos,
   eligibleCount,
+  initial,
 }: {
   promos: PromoCode[];
   eligibleCount: number;
+  initial?: {
+    name?: string;
+    subject?: string;
+    preheader?: string;
+    body?: string;
+    promo_code_id?: string;
+  };
 }) {
   const router = useRouter();
-  const [name, setName] = useState("");
-  const [subject, setSubject] = useState("");
-  const [preheader, setPreheader] = useState("");
-  const [body, setBody] = useState("");
+  const [name, setName] = useState(initial?.name ?? "");
+  const [subject, setSubject] = useState(initial?.subject ?? "");
+  const [preheader, setPreheader] = useState(initial?.preheader ?? "");
+  const [body, setBody] = useState(initial?.body ?? "");
   const [ctaLabel, setCtaLabel] = useState("Browse the Fleet");
   const [ctaUrl, setCtaUrl] = useState("https://www.carmartrentals.com/vehicles");
-  const [promoId, setPromoId] = useState<string>("");
+  const [promoId, setPromoId] = useState<string>(initial?.promo_code_id ?? "");
   const [confirming, setConfirming] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
