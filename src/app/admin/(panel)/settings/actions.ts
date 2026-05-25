@@ -196,21 +196,34 @@ export async function saveDeliveryOptions(value: {
 
 export async function saveAutoEmailPreferences(value: {
   precheckin_hours_before: number;
+  pickup_reminder_hours_before: number;
+  missing_docs_reminder_hours_after_booking: number;
+  return_reminder_hours_before: number;
   thanks_hours_after_return: number;
   unpaid_reminder_days: number;
+  license_expiry_nudge_days: number;
   insurance_expiry_nudge_days: number;
+  winback_months: number;
 }): Promise<ActionState> {
   const user = await requireSettingsAccess();
   if (!user)
     return { ok: false, error: "Only a Super Admin can change settings." };
+  const clamp = (n: unknown) => Math.max(0, Math.round(Number(n) || 0));
   return upsertSetting({
     user,
     key: "auto_email_prefs",
     value: {
-      precheckin_hours_before: Math.max(0, Math.round(value.precheckin_hours_before || 0)),
-      thanks_hours_after_return: Math.max(0, Math.round(value.thanks_hours_after_return || 0)),
-      unpaid_reminder_days: Math.max(0, Math.round(value.unpaid_reminder_days || 0)),
-      insurance_expiry_nudge_days: Math.max(0, Math.round(value.insurance_expiry_nudge_days || 0)),
+      precheckin_hours_before: clamp(value.precheckin_hours_before),
+      pickup_reminder_hours_before: clamp(value.pickup_reminder_hours_before),
+      missing_docs_reminder_hours_after_booking: clamp(
+        value.missing_docs_reminder_hours_after_booking,
+      ),
+      return_reminder_hours_before: clamp(value.return_reminder_hours_before),
+      thanks_hours_after_return: clamp(value.thanks_hours_after_return),
+      unpaid_reminder_days: clamp(value.unpaid_reminder_days),
+      license_expiry_nudge_days: clamp(value.license_expiry_nudge_days),
+      insurance_expiry_nudge_days: clamp(value.insurance_expiry_nudge_days),
+      winback_months: clamp(value.winback_months),
     },
     category: "notifications",
     activityDescription: `Auto-email preferences updated`,

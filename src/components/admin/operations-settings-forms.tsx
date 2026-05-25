@@ -15,6 +15,14 @@ import {
   ShieldCheck,
   Globe,
   Receipt,
+  CalendarClock,
+  FileWarning,
+  CarFront,
+  ThumbsUp,
+  Wallet,
+  CalendarX,
+  Heart,
+  Hourglass,
 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardBody } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -541,6 +549,86 @@ export function DeliveryOptionsForm({
 // ============================================================================
 // Auto-email preferences
 // ============================================================================
+// Subcomponent for a single email row inside a lifecycle section. Shows
+// the icon + name + plain-English description, the numeric input on the
+// right, and an "Off" badge when the value is 0 so the operator can see
+// at a glance which automations are disabled.
+function EmailRow({
+  icon: Icon,
+  title,
+  description,
+  unit,
+  value,
+  onChange,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  description: string;
+  unit: string;
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  const off = !value;
+  return (
+    <div className="flex items-start gap-3 rounded-lg border border-slate-200 p-3 sm:items-center">
+      <span
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+          off ? "bg-slate-100 text-slate-400" : "bg-gold-100 text-gold-600"
+        }`}
+      >
+        <Icon className="h-4 w-4" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <p
+            className={`truncate text-sm font-medium ${
+              off ? "text-slate-500" : "text-slate-800"
+            }`}
+          >
+            {title}
+          </p>
+          {off && (
+            <span className="rounded-full bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+              Off
+            </span>
+          )}
+        </div>
+        <p className="mt-0.5 text-xs text-slate-500">{description}</p>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        <Input
+          type="number"
+          min="0"
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="w-20 text-center"
+        />
+        <span className="w-12 text-xs text-slate-500">{unit}</span>
+      </div>
+    </div>
+  );
+}
+
+function SectionHeader({
+  icon: Icon,
+  title,
+  hint,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  hint?: string;
+}) {
+  return (
+    <div className="mt-2 first:mt-0">
+      <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gold-700">
+        <Icon className="h-3.5 w-3.5" />
+        {title}
+      </p>
+      {hint && <p className="mt-0.5 text-xs text-slate-400">{hint}</p>}
+    </div>
+  );
+}
+
 export function AutoEmailPreferencesForm({
   initial,
 }: {
@@ -548,6 +636,17 @@ export function AutoEmailPreferencesForm({
 }) {
   const [v, setV] = useState(initial);
   const { pending, result, run } = useSaveHandler();
+
+  // Quick helper so onChange isn't 9 lines of boilerplate.
+  const set =
+    (key: keyof AutoEmailPreferences) =>
+    (n: number) =>
+      setV((cur) => ({ ...cur, [key]: n }));
+
+  // Count for the small "X enabled" summary in the header.
+  const enabledCount = Object.values(v).filter((n) => Number(n) > 0).length;
+  const totalCount = Object.values(v).length;
+
   return (
     <Card>
       <CardHeader>
@@ -557,68 +656,147 @@ export function AutoEmailPreferencesForm({
             Auto-Email Preferences
           </span>
         </CardTitle>
+        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+          {enabledCount}/{totalCount} enabled
+        </span>
       </CardHeader>
-      <CardBody className="space-y-4">
+      <CardBody className="space-y-5">
         <ResultAlert result={result} />
         <p className="text-xs text-slate-500">
-          Automated customer emails sent on a schedule. Set to <strong>0</strong>{" "}
-          to turn an email off entirely.
+          Automated customer emails sent on a schedule. Set any value to{" "}
+          <strong>0</strong> to turn that email off entirely. All emails use
+          your branded template and the company info from Settings above.
         </p>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field
-            label="Pre-check-in invite (hours before pickup)"
-            hint="0 = don't auto-send"
-          >
-            <Input
-              type="number"
-              min="0"
-              value={v.precheckin_hours_before}
-              onChange={(e) =>
-                setV({ ...v, precheckin_hours_before: Number(e.target.value) })
-              }
-            />
-          </Field>
-          <Field
-            label="Thanks + review (hours after return)"
-            hint="0 = don't auto-send"
-          >
-            <Input
-              type="number"
-              min="0"
-              value={v.thanks_hours_after_return}
-              onChange={(e) =>
-                setV({ ...v, thanks_hours_after_return: Number(e.target.value) })
-              }
-            />
-          </Field>
-          <Field
-            label="Unpaid balance reminder (every N days)"
-            hint="0 = don't auto-send"
-          >
-            <Input
-              type="number"
-              min="0"
-              value={v.unpaid_reminder_days}
-              onChange={(e) =>
-                setV({ ...v, unpaid_reminder_days: Number(e.target.value) })
-              }
-            />
-          </Field>
-          <Field
-            label="Insurance expiring nudge (within N days)"
-            hint="0 = don't auto-send"
-          >
-            <Input
-              type="number"
-              min="0"
-              value={v.insurance_expiry_nudge_days}
-              onChange={(e) =>
-                setV({ ...v, insurance_expiry_nudge_days: Number(e.target.value) })
-              }
-            />
-          </Field>
+
+        {/* -------- BEFORE PICKUP -------- */}
+        <SectionHeader
+          icon={CalendarClock}
+          title="Before Pickup"
+          hint="Get the customer ready so day-of is fast."
+        />
+        <div className="space-y-2">
+          <EmailRow
+            icon={ThumbsUp}
+            title="Pre-check-in invite"
+            description="Asks the customer to upload license + insurance and sign the agreement online."
+            unit="hours before"
+            value={v.precheckin_hours_before}
+            onChange={set("precheckin_hours_before")}
+          />
+          <EmailRow
+            icon={CarFront}
+            title="Pickup reminder"
+            description="Friendly heads-up that their rental starts soon, with the pickup address + your phone."
+            unit="hours before"
+            value={v.pickup_reminder_hours_before}
+            onChange={set("pickup_reminder_hours_before")}
+          />
+          <EmailRow
+            icon={FileWarning}
+            title="Missing docs reminder"
+            description="If pre-check-in is incomplete, nudge the customer to upload what's missing."
+            unit="hours after booking"
+            value={v.missing_docs_reminder_hours_after_booking}
+            onChange={set("missing_docs_reminder_hours_after_booking")}
+          />
         </div>
-        <div className="flex justify-end">
+
+        {/* -------- DURING RENTAL -------- */}
+        <SectionHeader
+          icon={Hourglass}
+          title="During Rental"
+          hint="Stay top-of-mind without being annoying."
+        />
+        <div className="space-y-2">
+          <EmailRow
+            icon={AlarmClock}
+            title="Return reminder"
+            description="Heads-up that their rental ends soon. Reduces late returns + missed-key incidents."
+            unit="hours before return"
+            value={v.return_reminder_hours_before}
+            onChange={set("return_reminder_hours_before")}
+          />
+        </div>
+
+        {/* -------- AFTER RETURN -------- */}
+        <SectionHeader
+          icon={ThumbsUp}
+          title="After Return"
+          hint="Capture the goodwill moment."
+        />
+        <div className="space-y-2">
+          <EmailRow
+            icon={ThumbsUp}
+            title="Thanks + review request"
+            description="Thanks the customer and asks for a Google/site review. Most reviews come from this email."
+            unit="hours after return"
+            value={v.thanks_hours_after_return}
+            onChange={set("thanks_hours_after_return")}
+          />
+        </div>
+
+        {/* -------- PAYMENT REMINDERS -------- */}
+        <SectionHeader
+          icon={Wallet}
+          title="Payment Reminders"
+          hint="Recover unpaid balances without manual chasing."
+        />
+        <div className="space-y-2">
+          <EmailRow
+            icon={Wallet}
+            title="Unpaid balance reminder"
+            description="Polite recurring nudge with a Pay Now button until the balance hits zero."
+            unit="days between"
+            value={v.unpaid_reminder_days}
+            onChange={set("unpaid_reminder_days")}
+          />
+        </div>
+
+        {/* -------- DOCUMENT EXPIRY -------- */}
+        <SectionHeader
+          icon={CalendarX}
+          title="Document Expiry Nudges"
+          hint="Keep the customer's docs current so the next rental isn't blocked."
+        />
+        <div className="space-y-2">
+          <EmailRow
+            icon={CalendarX}
+            title="Driver license expiring"
+            description="Alerts the customer when their DL on file is approaching expiration."
+            unit="days before"
+            value={v.license_expiry_nudge_days}
+            onChange={set("license_expiry_nudge_days")}
+          />
+          <EmailRow
+            icon={CalendarX}
+            title="Insurance expiring"
+            description="Alerts the customer when their proof-of-insurance is approaching expiration."
+            unit="days before"
+            value={v.insurance_expiry_nudge_days}
+            onChange={set("insurance_expiry_nudge_days")}
+          />
+        </div>
+
+        {/* -------- RE-ENGAGEMENT -------- */}
+        <SectionHeader
+          icon={Heart}
+          title="Re-engagement"
+          hint="Win back lapsed customers — often the highest-ROI email."
+        />
+        <div className="space-y-2">
+          <EmailRow
+            icon={Heart}
+            title="Win-back email"
+            description={
+              `"We miss you" with a small incentive, after this many months of no rentals.`
+            }
+            unit="months silent"
+            value={v.winback_months}
+            onChange={set("winback_months")}
+          />
+        </div>
+
+        <div className="flex justify-end border-t border-slate-100 pt-4">
           <Button
             onClick={() => run(() => saveAutoEmailPreferences(v))}
             loading={pending}

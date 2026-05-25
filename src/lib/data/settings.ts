@@ -257,23 +257,50 @@ export async function getDeliveryOptions(): Promise<DeliveryOptions> {
 // Auto-email preferences (customer-facing automated sends)
 // ============================================================================
 export interface AutoEmailPreferences {
-  /** Send pre-check-in invite this many hours before pickup. 0 = off. */
+  // --- Before pickup ---
+  /** Pre-check-in invite this many hours before pickup. 0 = off. */
   precheckin_hours_before: number;
-  /** Send thank-you + review request this many hours after return. 0 = off. */
+  /** "Your rental starts soon" reminder this many hours before pickup. 0 = off. */
+  pickup_reminder_hours_before: number;
+  /** Nudge if pre-check-in docs (DL/insurance) aren't uploaded N hours after booking. 0 = off. */
+  missing_docs_reminder_hours_after_booking: number;
+
+  // --- During rental ---
+  /** "Your rental ends soon" reminder this many hours before return. 0 = off. */
+  return_reminder_hours_before: number;
+
+  // --- After return ---
+  /** Thank-you + review request this many hours after return. 0 = off. */
   thanks_hours_after_return: number;
-  /** Send unpaid-balance reminder every N days. 0 = off. */
+
+  // --- Payment reminders ---
+  /** Unpaid-balance reminder every N days. 0 = off. */
   unpaid_reminder_days: number;
-  /** Send insurance-doc-expiring nudge to customers when their doc is within N days. 0 = off. */
+
+  // --- Document expiry nudges ---
+  /** Nudge customers when their driver license is within N days of expiring. 0 = off. */
+  license_expiry_nudge_days: number;
+  /** Nudge customers when their insurance is within N days of expiring. 0 = off. */
   insurance_expiry_nudge_days: number;
+
+  // --- Re-engagement ---
+  /** "We miss you" email after N months of no rentals. 0 = off. */
+  winback_months: number;
 }
 
 export async function getAutoEmailPreferences(): Promise<AutoEmailPreferences> {
   const v = await getSetting<Record<string, unknown>>("auto_email_prefs", {});
   return {
     precheckin_hours_before: Number(v.precheckin_hours_before ?? 24) || 0,
+    pickup_reminder_hours_before: Number(v.pickup_reminder_hours_before ?? 24) || 0,
+    missing_docs_reminder_hours_after_booking:
+      Number(v.missing_docs_reminder_hours_after_booking ?? 12) || 0,
+    return_reminder_hours_before: Number(v.return_reminder_hours_before ?? 24) || 0,
     thanks_hours_after_return: Number(v.thanks_hours_after_return ?? 4) || 0,
     unpaid_reminder_days: Number(v.unpaid_reminder_days ?? 3) || 0,
+    license_expiry_nudge_days: Number(v.license_expiry_nudge_days ?? 30) || 0,
     insurance_expiry_nudge_days: Number(v.insurance_expiry_nudge_days ?? 14) || 0,
+    winback_months: Number(v.winback_months ?? 6) || 0,
   };
 }
 
