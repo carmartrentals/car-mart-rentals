@@ -170,7 +170,11 @@ export class RealtimeSession {
           instructions: this.sessionConfig.systemPrompt,
           audio: {
             input: {
-              format: { type: "audio/pcmu", rate: 8000 },
+              // pcmu is implicitly 8 kHz μ-law (G.711) — no `rate` field
+              // accepted; including it errors with unknown_parameter and
+              // OpenAI silently falls back to 24 kHz PCM16, which Twilio
+              // then plays back as garbled high-pitched noise.
+              format: { type: "audio/pcmu" },
               transcription: { model: "whisper-1" },
               turn_detection: {
                 type: "server_vad",
