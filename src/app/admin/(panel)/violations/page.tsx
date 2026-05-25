@@ -6,6 +6,7 @@ import { FilterBar } from "@/components/admin/filter-bar";
 import { ViolationForm } from "@/components/admin/violation-form";
 import { StatusSelect } from "@/components/admin/status-select";
 import { ChargeTollButton } from "@/components/admin/charge-toll-button";
+import { DeleteViolationButton } from "@/components/admin/delete-violation-button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
@@ -207,26 +208,32 @@ export default async function ViolationsPage({
                       />
                     </TD>
                     <TD className="text-right">
-                      {!r.charged_to_customer &&
-                        (linkedRes || matched) &&
-                        Number(r.amount) > 0 && (
-                          <ChargeTollButton
-                            violationId={r.id}
-                            tollAmount={Number(r.amount)}
-                            defaultHandlingFee={defaultFee}
-                            reservationNumber={
-                              linkedRes?.reservation_number ??
-                              matched?.reservation_number ??
-                              ""
-                            }
-                            customerName={customerName}
-                          />
+                      <div className="inline-flex items-center gap-1.5">
+                        {!r.charged_to_customer &&
+                          (linkedRes || matched) &&
+                          Number(r.amount) > 0 && (
+                            <ChargeTollButton
+                              violationId={r.id}
+                              tollAmount={Number(r.amount)}
+                              defaultHandlingFee={defaultFee}
+                              reservationNumber={
+                                linkedRes?.reservation_number ??
+                                matched?.reservation_number ??
+                                ""
+                              }
+                              customerName={customerName}
+                            />
+                          )}
+                        {r.charged_to_customer && (
+                          <span className="text-xs font-medium text-emerald-700">
+                            Charged ✓
+                          </span>
                         )}
-                      {r.charged_to_customer && (
-                        <span className="text-xs font-medium text-emerald-700">
-                          Charged ✓
-                        </span>
-                      )}
+                        <DeleteViolationButton
+                          violationId={r.id}
+                          wasCharged={r.charged_to_customer}
+                        />
+                      </div>
                     </TD>
                   </TR>
                 );

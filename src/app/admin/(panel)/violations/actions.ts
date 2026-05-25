@@ -283,6 +283,72 @@ export async function chargeViolationToCustomer(
   return { ok: true };
 }
 
+/**
+ * Delete a toll/violation row. If it was already charged to a customer
+ * (creating a reservation_charges line item), this also reverses that
+ * charge and recomputes the reservation balance — so the operator can
+ * undo a mis-billed toll cleanly in one click.
+ */
+export async function deleteViolation(id: string): Promise<ActionState> {
+  const user = await getCurrentUser();
+  if (!user || !canWrite(user.role, "vehicles")) {
+    return { ok: false, error: "You do not have permission to delete violations." };
+  }
+
+  const admin = createAdminClient();
+  const { data: vRow } = await admin
+    .from("toll_violations")
+    .select("id, customer_charge_id, customer_charge_total, reservation_id")
+    .eq("id", id)
+    .maybeSingle();
+  const violation = vRow as {
+    id: string;
+    customer_charge_id: string | null;
+    customer_charge_total: number | null;
+    reservation_id: string | null;
+  } | null;
+  if (!violation) return { ok: false, error: "Toll record not found." };
+
+  // If we previously billed the customer, reverse that charge and recompute
+  // the reservation balance so deleting the toll doesn't leave a phantom
+  // line item behind.
+  if (violation.customer_charge_id && violation.reservation_id) {
+    await admin
+      .from("reservation_charges")
+      .delete()
+      .eq("id", violation.customer_charge_id);
+
+    const { data: resRow } = await admin
+      .from("reservations")
+      .select("total, amount_paid")
+      .eq("id", violation.reservation_id)
+      .maybeSingle();
+    if (resRow) {
+      const reversed = Number(violation.customer_charge_total ?? 0);
+      const newTotal = Math.max(0, Number(resRow.total) - reversed);
+      const newBalance = Math.max(0, newTotal - Number(resRow.amount_paid));
+      await admin
+        .from("reservations")
+        .update({ total: newTotal, balance_due: newBalance })
+        .eq("id", violation.reservation_id);
+    }
+  }
+
+  const { error } = await admin
+    .from("toll_violations")
+    .delete()
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+
+  await logActivity({
+    userId: user.id,
+    action: "violation.deleted",
+    entityType: "vehicle",
+  });
+  revalidatePath("/admin/violations");
+  return { ok: true };
+}
+
 /** Save the default handling-fee setting from the admin UI. */
 export async function saveTollHandlingFee(fee: number): Promise<ActionState> {
   const user = await getCurrentUser();
