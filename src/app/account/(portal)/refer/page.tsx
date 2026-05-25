@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, Gift, Share2, Users } from "lucide-react";
 import { getCurrentCustomer } from "@/lib/account";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -9,7 +9,7 @@ import { CopyButton } from "@/components/account/copy-button";
 
 export default async function ReferPage() {
   const customer = await getCurrentCustomer();
-  if (!customer) notFound();
+  if (!customer) redirect("/account/login?redirect=/account/refer");
 
   const admin = createAdminClient();
   const program = await getReferralProgram();

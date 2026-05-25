@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { getCurrentCustomer } from "@/lib/account";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -15,7 +15,17 @@ export default async function PrecheckinPage({
 }) {
   const { id } = await params;
   const customer = await getCurrentCustomer();
-  if (!customer) notFound();
+  // Customer clicked the emailed pre-check-in link without being signed in.
+  // Send them to the login page with a redirect back here so they land on
+  // the right reservation after authenticating — never show a 404 for the
+  // happy-path "I clicked my email link" case.
+  if (!customer) {
+    redirect(
+      `/account/login?redirect=${encodeURIComponent(
+        `/account/reservations/${id}/check-in`,
+      )}`,
+    );
+  }
 
   const admin = createAdminClient();
   const { data: resRow } = await admin

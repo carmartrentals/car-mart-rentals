@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import {
   ArrowLeft, FileText, ReceiptText, Car, CalendarRange, Repeat,
   ClipboardCheck, CheckCircle2,
@@ -28,7 +28,15 @@ export default async function AccountReservationPage({
   const { id } = await params;
   const sp = await searchParams;
   const customer = await getCurrentCustomer();
-  if (!customer) notFound();
+  // Customer clicked an emailed link without being signed in — bounce to
+  // login and bring them back here, rather than showing 404.
+  if (!customer) {
+    redirect(
+      `/account/login?redirect=${encodeURIComponent(
+        `/account/reservations/${id}`,
+      )}`,
+    );
+  }
 
   const admin = createAdminClient();
   const { data: resRow } = await admin
