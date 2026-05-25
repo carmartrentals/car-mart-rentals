@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { getCurrentCustomer } from "@/lib/account";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getTaxRate } from "@/lib/data/settings";
+import { getTaxRate, getCancellationPolicy } from "@/lib/data/settings";
 import { Badge } from "@/components/ui/badge";
 import { ReservationActions } from "@/components/account/reservation-actions";
 import { LeaveReview } from "@/components/account/leave-review";
@@ -94,6 +94,7 @@ export default async function AccountReservationPage({
   }
 
   const taxRate = await getTaxRate();
+  const cancellation = await getCancellationPolicy();
 
   const r = reservation;
   const v = r.vehicle;
@@ -264,6 +265,8 @@ export default async function AccountReservationPage({
                 returnAt={r.return_at}
                 rateAmount={r.rate_amount}
                 taxRate={taxRate}
+                cancellationHours={cancellation.window_hours}
+                cancellationFeePercent={cancellation.late_fee_percent}
                 requests={requests}
               />
               {v?.slug && (

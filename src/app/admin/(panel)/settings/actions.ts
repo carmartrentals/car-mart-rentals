@@ -51,6 +51,53 @@ export async function saveGeneralSettings(input: {
   return { ok: true };
 }
 
+// --- Cancellation policy ----------------------------------------------------
+export async function saveCancellationPolicy(input: {
+  window_hours: number;
+  late_fee_percent: number;
+}): Promise<ActionState> {
+  const user = await requireSettingsAccess();
+  if (!user)
+    return {
+      ok: false,
+      error: "Only a Super Admin can change the cancellation policy.",
+    };
+
+  const windowHours = Math.max(0, Math.round(Number(input.window_hours) || 0));
+  const lateFeePercent = Math.max(
+    0,
+    Math.min(100, Number(input.late_fee_percent) || 0),
+  );
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("settings")
+    .upsert(
+      {
+        key: "cancellation_policy",
+        value: {
+          window_hours: windowHours,
+          late_fee_percent: lateFeePercent,
+        },
+        category: "booking",
+      } as never,
+      { onConflict: "key" },
+    );
+  if (error) return { ok: false, error: error.message };
+
+  await logActivity({
+    userId: user.id,
+    action: "settings.cancellation_policy_updated",
+    entityType: "settings",
+    description: `Free window ${windowHours}h, late fee ${lateFeePercent}%`,
+  });
+  revalidatePath("/admin/settings");
+  // Re-render any page that surfaces the cancellation copy so it picks up
+  // the new numbers without a redeploy.
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
 // --- AI receptionist voice --------------------------------------------------
 export async function saveAiVoiceSettings(input: {
   mode: "polly" | "realtime";

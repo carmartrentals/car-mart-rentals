@@ -24,6 +24,7 @@ export function BookingWidget({
   vehicle,
   bookedRanges = [],
   taxRate,
+  cancellationHours,
 }: {
   vehicle: Vehicle;
   bookedRanges?: BookedRange[];
@@ -31,6 +32,8 @@ export function BookingWidget({
    *  Settings on the server and passed in so this preview matches the
    *  final checkout total. */
   taxRate: number;
+  /** Free-cancellation window in hours, from admin Settings. */
+  cancellationHours: number;
 }) {
   const router = useRouter();
   const init = defaults();
@@ -173,7 +176,7 @@ export function BookingWidget({
           No charge until your booking is confirmed
         </TrustItem>
         <TrustItem icon={CalendarCheck}>
-          Free cancellation up to 48 hours before pickup
+          Free cancellation up to {cancellationHours} hours before pickup
         </TrustItem>
         <TrustItem icon={Lock}>
           Secure checkout — payments handled by Stripe

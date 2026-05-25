@@ -43,6 +43,8 @@ export function ReservationActions({
   returnAt,
   rateAmount,
   taxRate,
+  cancellationHours,
+  cancellationFeePercent,
   requests = [],
 }: {
   reservationId: string;
@@ -54,6 +56,10 @@ export function ReservationActions({
   returnAt: string;
   rateAmount: number;
   taxRate: number;
+  /** Free-cancellation window in hours, from admin Settings. */
+  cancellationHours: number;
+  /** Late-cancel fee as % of rental total, from admin Settings. */
+  cancellationFeePercent: number;
   requests?: RequestSummary[];
 }) {
   const router = useRouter();
@@ -65,8 +71,11 @@ export function ReservationActions({
   const [cancelError, setCancelError] = useState<string | null>(null);
 
   const canCancel = ["pending", "confirmed", "quote"].includes(status);
+  // Use the policy from admin Settings (default 48h) so the customer sees
+  // the same number we promised them on the booking page.
   const freeCancel =
-    (new Date(pickupAt).getTime() - Date.now()) / 3_600_000 >= 48;
+    (new Date(pickupAt).getTime() - Date.now()) / 3_600_000 >=
+    cancellationHours;
 
   function confirmCancel() {
     setCancelError(null);
@@ -294,8 +303,8 @@ export function ReservationActions({
             }`}
           >
             {freeCancel
-              ? "Your pickup is more than 48 hours away — this cancellation is free."
-              : "Your pickup is within 48 hours — a cancellation fee may apply per our policy. Our team will follow up with you."}
+              ? `Your pickup is more than ${cancellationHours} hours away — this cancellation is free.`
+              : `Your pickup is within ${cancellationHours} hours — a cancellation fee of up to ${cancellationFeePercent}% of the rental total may apply per our policy. Our team will follow up with you.`}
           </div>
         </div>
       </Modal>

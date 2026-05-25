@@ -9,7 +9,7 @@ import {
   getVehicleBySlug, getSimilarVehicles, getVehicleBookedRanges,
 } from "@/lib/data/vehicles";
 import { createClient } from "@/lib/supabase/server";
-import { getTaxRate } from "@/lib/data/settings";
+import { getTaxRate, getCancellationPolicy } from "@/lib/data/settings";
 import { VehicleGallery } from "@/components/site/vehicle-gallery";
 import { BookingWidget } from "@/components/site/booking-widget";
 import { AvailabilityCalendar } from "@/components/site/availability-calendar";
@@ -70,6 +70,7 @@ export default async function VehicleDetailPage({
   // matches the checkout. Read on every render via getTaxRate() so Settings
   // changes propagate site-wide.
   const taxRate = await getTaxRate();
+  const cancellation = await getCancellationPolicy();
 
   const name = `${vehicle.year} ${vehicle.make} ${vehicle.model}`;
   const specs = [
@@ -387,6 +388,7 @@ export default async function VehicleDetailPage({
               vehicle={vehicle}
               bookedRanges={bookedRanges}
               taxRate={taxRate}
+              cancellationHours={cancellation.window_hours}
             />
           </div>
         </div>

@@ -53,6 +53,7 @@ export function BookingForm({
   prefill,
   refCode,
   taxRate,
+  cancellationHours,
 }: {
   vehicle: Vehicle;
   addOns: AddOn[];
@@ -65,6 +66,8 @@ export function BookingForm({
    *  Settings change propagates to the customer-facing checkout without
    *  a code release. */
   taxRate: number;
+  /** Free-cancellation window in hours, from admin Settings. */
+  cancellationHours: number;
 }) {
   const [selectedAddOns, setSelectedAddOns] = useState<string[]>([]);
   const [form, setForm] = useState({
@@ -541,7 +544,7 @@ export function BookingForm({
             </li>
             <li className="flex items-center gap-1.5">
               <Clock className="h-3.5 w-3.5 shrink-0 text-gold-300" />
-              Free cancellation up to 48 hours before pickup
+              Free cancellation up to {cancellationHours} hours before pickup
             </li>
           </ul>
         </div>

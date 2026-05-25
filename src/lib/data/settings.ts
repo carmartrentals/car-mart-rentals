@@ -74,6 +74,31 @@ export async function getBookingRules() {
   });
 }
 
+export interface CancellationPolicy {
+  /** Free-cancellation window — hours before pickup. */
+  window_hours: number;
+  /** Late-cancel fee as a percentage of the rental total (informational). */
+  late_fee_percent: number;
+}
+
+/**
+ * Cancellation policy — controls the "free cancellation up to X hours"
+ * messaging on the booking form, vehicle widgets, and the late-cancel
+ * warning in the customer portal. The fee isn't auto-charged yet — staff
+ * decide case-by-case from the admin panel — but the number shown to the
+ * customer comes from here so the whole site stays in sync.
+ */
+export async function getCancellationPolicy(): Promise<CancellationPolicy> {
+  const v = await getSetting<Record<string, unknown>>(
+    "cancellation_policy",
+    {},
+  );
+  return {
+    window_hours: Number(v.window_hours ?? 48) || 48,
+    late_fee_percent: Number(v.late_fee_percent ?? 25) || 25,
+  };
+}
+
 export interface AiVoiceSettings {
   /** "polly" = legacy Twilio TTS + Gather + chat. "realtime" = OpenAI Realtime via bridge. */
   mode: "polly" | "realtime";
