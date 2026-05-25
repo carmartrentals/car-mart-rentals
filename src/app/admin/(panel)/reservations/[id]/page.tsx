@@ -17,6 +17,7 @@ import { ReservationStatusActions } from "@/components/admin/reservation-status-
 import { PaymentManager } from "@/components/admin/payment-manager";
 import { RequestPanel } from "@/components/admin/request-panel";
 import { InsuranceRequiredToggle } from "@/components/admin/insurance-required-toggle";
+import { SendPrecheckinButton } from "@/components/admin/send-precheckin-button";
 import { RiskPanel } from "@/components/admin/risk-panel";
 import {
   DOCUMENT_STATUS_LABEL, DOCUMENT_STATUS_TONE, isExpired,
@@ -476,10 +477,13 @@ export default async function ReservationDetailPage({
                         )}
                       </div>
                     ) : (
-                      <p className="text-sm text-slate-500">
-                        Not completed yet — the customer can pre-check-in from
-                        their account.
-                      </p>
+                      <>
+                        <p className="text-sm text-slate-500">
+                          Not completed yet — the customer can pre-check-in from
+                          their account, or you can email them a direct link.
+                        </p>
+                        <SendPrecheckinButton reservationId={r.id} />
+                      </>
                     )}
                   </div>
                 </>

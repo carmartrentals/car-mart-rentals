@@ -363,6 +363,97 @@ export async function setReservationStatus(
 }
 
 /**
+ * Email the customer a direct link to the online pre-check-in for this
+ * reservation, so they can complete it on their own time before pickup.
+ */
+export async function sendPrecheckinInvite(
+  reservationId: string,
+): Promise<ActionState> {
+  const user = await getCurrentUser();
+  if (!user || !canWrite(user.role, "reservations")) {
+    return {
+      ok: false,
+      error: "You do not have permission to send pre-check-in invites.",
+    };
+  }
+
+  const admin = createAdminClient();
+  const { data: resRow } = await admin
+    .from("reservations")
+    .select(
+      "id, reservation_number, pickup_at, return_at, precheckin_completed_at, customer:customers(first_name, email), vehicle:vehicles(year, make, model, main_image_url)",
+    )
+    .eq("id", reservationId)
+    .maybeSingle();
+  const r = resRow as unknown as {
+    id: string;
+    reservation_number: string;
+    pickup_at: string;
+    return_at: string;
+    precheckin_completed_at: string | null;
+    customer: { first_name: string; email: string } | null;
+    vehicle: {
+      year: number;
+      make: string;
+      model: string;
+      main_image_url: string | null;
+    } | null;
+  } | null;
+
+  if (!r) return { ok: false, error: "Reservation not found." };
+  if (!r.customer?.email) {
+    return {
+      ok: false,
+      error: "No email on file for this customer — add one and try again.",
+    };
+  }
+  if (r.precheckin_completed_at) {
+    return {
+      ok: false,
+      error: "This customer has already completed pre-check-in.",
+    };
+  }
+
+  await notifyCustomer({
+    type: "precheckin_invite",
+    to: r.customer.email,
+    subject: `Pre-check in for your rental — ${r.reservation_number}`,
+    heading: "Save time at pickup — pre-check-in online",
+    intro: `Hi ${r.customer.first_name}, you can complete your pre-check-in online whenever it's convenient for you. It takes about 2 minutes and means we just hand you the keys at pickup. You can do it any time before ${formatDateTime(r.pickup_at)}.`,
+    rows: [
+      { label: "Reservation", value: r.reservation_number },
+      ...(r.vehicle
+        ? [
+            {
+              label: "Vehicle",
+              value: `${r.vehicle.year} ${r.vehicle.make} ${r.vehicle.model}`,
+            },
+          ]
+        : []),
+      { label: "Pickup", value: formatDateTime(r.pickup_at) },
+      { label: "Return", value: formatDateTime(r.return_at) },
+    ],
+    cta: {
+      label: "Start Pre-Check-In",
+      path: `/account/reservations/${reservationId}/check-in`,
+    },
+    imageUrl: r.vehicle?.main_image_url,
+    reservationId,
+  });
+
+  await logActivity({
+    userId: user.id,
+    action: "reservation.precheckin_invite_sent",
+    entityType: "reservation",
+    entityId: reservationId,
+    description: `Sent pre-check-in link to ${r.customer.email}`,
+  });
+
+  revalidatePath(`/admin/reservations/${reservationId}`);
+  return { ok: true };
+}
+
+/**
  * Toggle whether proof of insurance is required for a specific reservation.
  * When required, check-out is blocked until the customer's insurance is verified.
  */
