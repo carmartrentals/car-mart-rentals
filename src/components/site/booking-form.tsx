@@ -1,12 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
+import { CheckCircle2, Loader2, ShieldCheck, Tag, X } from "lucide-react";
 import type { Vehicle, AddOn } from "@/lib/types/database";
 import { formatCurrency, formatDateTime, rentalDays, bestRate } from "@/lib/utils";
-import { saveBookingDraft } from "@/app/(site)/booking/actions";
+import { saveBookingDraft, validatePromoCode } from "@/app/(site)/booking/actions";
 import { trackEvent } from "@/lib/analytics";
 
 const TAX_RATE = 0.095;
@@ -56,6 +56,20 @@ export function BookingForm({
   const [error, setError] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<string | null>(null);
 
+  // Promo code state — text in the input, plus the applied result once
+  // validated by the server. discountAmount is in dollars, applied to the
+  // pre-tax subtotal.
+  const [promoInput, setPromoInput] = useState("");
+  const [promo, setPromo] = useState<{
+    code: string;
+    discountAmount: number;
+    description: string | null;
+    discountType: "percentage" | "fixed";
+    discountValue: number;
+  } | null>(null);
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [promoPending, startPromo] = useTransition();
+
   const days = rentalDays(pickup, ret);
 
   const quote = useMemo(() => {
@@ -66,17 +80,55 @@ export function BookingForm({
         (sum, a) => sum + (a.price_type === "per_day" ? a.price * days : a.price),
         0,
       );
-    const subtotal = rate.total + addonsTotal;
+    const preDiscountSubtotal = rate.total + addonsTotal;
+    const discount = promo ? Math.min(preDiscountSubtotal, promo.discountAmount) : 0;
+    const subtotal = Math.max(0, preDiscountSubtotal - discount);
     const tax = subtotal * TAX_RATE;
     return {
       rate,
       addonsTotal,
+      preDiscountSubtotal,
+      discount,
       subtotal,
       tax,
       total: subtotal + tax,
       deposit: vehicle.security_deposit,
     };
-  }, [vehicle, addOns, selectedAddOns, days]);
+  }, [vehicle, addOns, selectedAddOns, days, promo]);
+
+  function applyPromo() {
+    setPromoError(null);
+    const code = promoInput.trim();
+    if (!code) {
+      setPromoError("Enter a promo code first.");
+      return;
+    }
+    startPromo(async () => {
+      const res = await validatePromoCode({
+        code,
+        rentalDays: days,
+        subtotalBeforeDiscount: quote.preDiscountSubtotal,
+      });
+      if (res.ok && res.code) {
+        setPromo({
+          code: res.code,
+          discountAmount: res.discountAmount ?? 0,
+          description: res.description ?? null,
+          discountType: (res.discountType ?? "fixed") as "percentage" | "fixed",
+          discountValue: res.discountValue ?? 0,
+        });
+        setPromoInput("");
+      } else {
+        setPromoError(res.error ?? "Could not validate that code.");
+        setPromo(null);
+      }
+    });
+  }
+
+  function clearPromo() {
+    setPromo(null);
+    setPromoError(null);
+  }
 
   function toggleAddOn(id: string) {
     setSelectedAddOns((prev) =>
@@ -120,6 +172,7 @@ export function BookingForm({
           add_on_ids: selectedAddOns,
           customer: form,
           referral_code: form.referral_code,
+          promo_code: promo?.code ?? null,
         }),
       });
       const data = await res.json();
@@ -209,17 +262,79 @@ export function BookingForm({
               placeholder="Delivery address, flight number, etc."
             />
           </div>
-          <div className="mt-4">
-            <label className="mb-1.5 block text-sm font-medium text-slate-300">
-              Referral Code{" "}
-              <span className="text-slate-500">(optional)</span>
-            </label>
-            <input
-              value={form.referral_code}
-              onChange={(e) => setField("referral_code", e.target.value)}
-              placeholder="Got a code from a friend? Enter it here"
-              className={INPUT_CLASS}
-            />
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-300">
+                Promo Code{" "}
+                <span className="text-slate-500">(optional)</span>
+              </label>
+              {promo ? (
+                <div className="flex items-center justify-between gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2.5">
+                  <span className="flex items-center gap-2 text-sm font-medium text-emerald-200">
+                    <Tag className="h-4 w-4" />
+                    <span className="font-bold tracking-wider">{promo.code}</span>
+                    <span className="text-xs font-normal text-emerald-300/80">
+                      {promo.discountType === "percentage"
+                        ? `−${promo.discountValue}%`
+                        : `−${formatCurrency(promo.discountValue)}`}{" "}
+                      applied
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={clearPromo}
+                    className="rounded-md p-1 text-emerald-300 hover:bg-emerald-500/20"
+                    aria-label="Remove promo code"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="flex gap-2">
+                    <input
+                      value={promoInput}
+                      onChange={(e) => setPromoInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          applyPromo();
+                        }
+                      }}
+                      placeholder="Enter promo code"
+                      className={INPUT_CLASS + " flex-1"}
+                    />
+                    <button
+                      type="button"
+                      onClick={applyPromo}
+                      disabled={promoPending || !promoInput.trim()}
+                      className="shrink-0 rounded-lg bg-white/10 px-4 text-sm font-semibold text-white transition-colors hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {promoPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        "Apply"
+                      )}
+                    </button>
+                  </div>
+                  {promoError && (
+                    <p className="mt-1.5 text-xs text-rose-400">{promoError}</p>
+                  )}
+                </>
+              )}
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-slate-300">
+                Referral Code{" "}
+                <span className="text-slate-500">(optional)</span>
+              </label>
+              <input
+                value={form.referral_code}
+                onChange={(e) => setField("referral_code", e.target.value)}
+                placeholder="Friend's referral code"
+                className={INPUT_CLASS}
+              />
+            </div>
           </div>
         </section>
 
@@ -345,6 +460,16 @@ export function BookingForm({
               value={formatCurrency(quote.rate.total)} />
             {quote.addonsTotal > 0 && (
               <Row label="Add-ons" value={formatCurrency(quote.addonsTotal)} />
+            )}
+            {promo && quote.discount > 0 && (
+              <div className="flex justify-between text-emerald-300">
+                <span className="inline-flex items-center gap-1">
+                  <Tag className="h-3.5 w-3.5" /> Promo ({promo.code})
+                </span>
+                <span className="font-medium">
+                  −{formatCurrency(quote.discount)}
+                </span>
+              </div>
             )}
             <Row label="Tax (9.5%)" value={formatCurrency(quote.tax)} />
             <div className="flex justify-between border-t border-white/10 pt-2 text-base font-bold text-white">

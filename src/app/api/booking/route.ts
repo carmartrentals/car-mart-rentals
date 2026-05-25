@@ -6,7 +6,7 @@ import { getTaxRate } from "@/lib/data/settings";
 import { notifyCustomer, notifyCompany } from "@/lib/notifications";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
-import type { AddOn, Vehicle } from "@/lib/types/database";
+import type { AddOn, Vehicle, PromoCode } from "@/lib/types/database";
 
 const bookingSchema = z.object({
   vehicle_id: z.string().uuid(),
@@ -23,6 +23,7 @@ const bookingSchema = z.object({
     notes: z.string().max(1000).optional().or(z.literal("")),
   }),
   referral_code: z.string().max(40).optional().or(z.literal("")),
+  promo_code: z.string().max(40).optional().nullable(),
 });
 
 /**
@@ -121,6 +122,45 @@ export async function POST(request: Request) {
     taxRatePercent: taxRate,
   });
 
+  // --- Promo code (re-validated server-side, never trust client) -----------
+  let appliedPromo: PromoCode | null = null;
+  let promoDiscount = 0;
+  let promoFinalTotal = pricing.total;
+  let promoFinalTax = pricing.taxAmount;
+  let promoFinalSubtotal = pricing.subtotal;
+  const promoInput = (input.promo_code ?? "").trim().toUpperCase();
+  if (promoInput) {
+    const { data: pRow } = await admin
+      .from("promo_codes")
+      .select("*")
+      .ilike("code", promoInput)
+      .maybeSingle();
+    const p = pRow as PromoCode | null;
+    const now = new Date();
+    const eligible =
+      p &&
+      p.is_active &&
+      (!p.valid_from || new Date(p.valid_from) <= now) &&
+      (!p.valid_until || new Date(p.valid_until) >= now) &&
+      (p.max_uses === null ||
+        p.max_uses === undefined ||
+        p.times_used < p.max_uses) &&
+      (!p.min_rental_days || pricing.rentalDays >= p.min_rental_days);
+    if (eligible && p) {
+      const preTaxSubtotal = pricing.subtotal;
+      const value = Number(p.discount_value);
+      promoDiscount =
+        p.discount_type === "percentage"
+          ? Math.round(((preTaxSubtotal * value) / 100) * 100) / 100
+          : Math.min(preTaxSubtotal, Math.round(value * 100) / 100);
+      promoFinalSubtotal = Math.max(0, preTaxSubtotal - promoDiscount);
+      promoFinalTax = Math.round(promoFinalSubtotal * (taxRate / 100) * 100) / 100;
+      promoFinalTotal =
+        Math.round((promoFinalSubtotal + promoFinalTax) * 100) / 100;
+      appliedPromo = p;
+    }
+  }
+
   // --- Find or create customer ---------------------------------------------
   const email = input.customer.email.toLowerCase();
   const { data: existing } = await admin
@@ -163,13 +203,15 @@ export async function POST(request: Request) {
       rate_type: pricing.rateType,
       rate_amount: pricing.rateAmount,
       rental_days: pricing.rentalDays,
-      subtotal: pricing.subtotal,
+      subtotal: promoFinalSubtotal,
       addons_total: pricing.addonsTotal,
       fees_total: pricing.feesTotal,
-      tax_amount: pricing.taxAmount,
-      total: pricing.total,
+      tax_amount: promoFinalTax,
+      total: promoFinalTotal,
       deposit_amount: pricing.depositAmount,
-      balance_due: pricing.total,
+      balance_due: promoFinalTotal,
+      discount_amount: promoDiscount > 0 ? promoDiscount : null,
+      discount_reason: appliedPromo ? `Promo code ${appliedPromo.code}` : null,
       payment_status: "unpaid",
       status: "pending",
       source: "website",
@@ -186,19 +228,29 @@ export async function POST(request: Request) {
   }
 
   // --- Line items -----------------------------------------------------------
-  const charges = [
+  type ChargeRow = {
+    reservation_id: string;
+    charge_type: "base_rate" | "add_on" | "discount";
+    description: string;
+    quantity: number;
+    unit_price: number;
+    amount: number;
+    is_taxable: boolean;
+    add_on_id?: string;
+  };
+  const charges: ChargeRow[] = [
     {
       reservation_id: reservation.id,
-      charge_type: "base_rate" as const,
+      charge_type: "base_rate",
       description: `${vehicle.year} ${vehicle.make} ${vehicle.model} — ${pricing.rateType} rate`,
       quantity: pricing.rentalDays,
       unit_price: pricing.rateAmount,
       amount: pricing.rentalSubtotal,
       is_taxable: true,
     },
-    ...addOns.map((a) => ({
+    ...addOns.map<ChargeRow>((a) => ({
       reservation_id: reservation.id,
-      charge_type: "add_on" as const,
+      charge_type: "add_on",
       description: a.name,
       quantity: a.price_type === "per_day" ? pricing.rentalDays : 1,
       unit_price: a.price,
@@ -210,7 +262,27 @@ export async function POST(request: Request) {
       add_on_id: a.id,
     })),
   ];
+  if (appliedPromo && promoDiscount > 0) {
+    charges.push({
+      reservation_id: reservation.id,
+      charge_type: "discount",
+      description: `Promo code ${appliedPromo.code}${
+        appliedPromo.description ? ` — ${appliedPromo.description}` : ""
+      }`,
+      quantity: 1,
+      unit_price: -promoDiscount,
+      amount: -promoDiscount,
+      is_taxable: false,
+    });
+  }
   await admin.from("reservation_charges").insert(charges);
+
+  if (appliedPromo) {
+    await admin
+      .from("promo_codes")
+      .update({ times_used: appliedPromo.times_used + 1 })
+      .eq("id", appliedPromo.id);
+  }
 
   await admin.from("activity_logs").insert({
     action: "reservation.created",
@@ -283,7 +355,15 @@ export async function POST(request: Request) {
       },
       { label: "Pickup", value: formatDateTime(input.pickup_at) },
       { label: "Return", value: formatDateTime(input.return_at) },
-      { label: "Estimated total", value: formatCurrency(pricing.total) },
+      ...(appliedPromo
+        ? [
+            {
+              label: "Promo code",
+              value: `${appliedPromo.code} (−${formatCurrency(promoDiscount)})`,
+            },
+          ]
+        : []),
+      { label: "Estimated total", value: formatCurrency(promoFinalTotal) },
     ],
     imageUrl: vehicle.main_image_url,
     reservationId: reservation.id,
@@ -308,7 +388,15 @@ export async function POST(request: Request) {
       { label: "Reservation", value: reservation.reservation_number },
       { label: "Pickup", value: formatDateTime(input.pickup_at) },
       { label: "Return", value: formatDateTime(input.return_at) },
-      { label: "Total", value: formatCurrency(pricing.total) },
+      ...(appliedPromo
+        ? [
+            {
+              label: "Promo code",
+              value: `${appliedPromo.code} (−${formatCurrency(promoDiscount)})`,
+            },
+          ]
+        : []),
+      { label: "Total", value: formatCurrency(promoFinalTotal) },
       { label: "Email", value: input.customer.email },
       { label: "Phone", value: input.customer.phone },
     ],
@@ -325,6 +413,7 @@ export async function POST(request: Request) {
     ok: true,
     reservation_id: reservation.id,
     reservation_number: reservation.reservation_number,
-    total: pricing.total,
+    total: promoFinalTotal,
+    discount: promoDiscount,
   });
 }
