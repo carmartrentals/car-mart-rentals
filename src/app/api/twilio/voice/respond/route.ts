@@ -9,6 +9,7 @@ import {
 import { generateReceptionistTurn, CALL_RATES } from "@/lib/ai-receptionist";
 import { notifyCustomer } from "@/lib/notifications";
 import { SITE_URL } from "@/lib/constants";
+import { getAiVoiceSettings } from "@/lib/data/settings";
 import type { CallTranscriptEntry } from "@/lib/types/database";
 
 export const runtime = "nodejs";
@@ -47,6 +48,17 @@ export async function POST(req: NextRequest) {
   const caller = params.From || "";
   const said = (params.SpeechResult || "").trim();
 
+  // Use the configured Polly voice (operator can A/B test from admin settings).
+  // Cast to the Twilio SayVoice union — the operator picks from a known-good
+  // list of Polly voice ids in admin settings.
+  const voiceSettings = await getAiVoiceSettings();
+  type SayVoice = NonNullable<
+    Parameters<twilio.twiml.VoiceResponse["say"]>[0]
+  > extends { voice?: infer V }
+    ? V
+    : string;
+  const pollyVoice = voiceSettings.voice as SayVoice;
+
   const admin = createAdminClient();
 
   // Load the existing call row so we can append to its transcript.
@@ -69,7 +81,7 @@ export async function POST(req: NextRequest) {
   if (!said) {
     const twiml = new VoiceResponse();
     twiml.say(
-      { voice: "Polly.Joanna-Neural" },
+      { voice: pollyVoice },
       "Sorry, I missed that — could you say it again?",
     );
     twiml.gather({
@@ -237,11 +249,11 @@ export async function POST(req: NextRequest) {
 
   // Build the TwiML response.
   const twiml = new VoiceResponse();
-  twiml.say({ voice: "Polly.Joanna-Neural" }, spoken);
+  twiml.say({ voice: pollyVoice }, spoken);
 
   if (action.transfer && ownerPhoneNumber()) {
     twiml.say(
-      { voice: "Polly.Joanna-Neural" },
+      { voice: pollyVoice },
       "Connecting you now — one moment.",
     );
     twiml.dial(
@@ -265,7 +277,7 @@ export async function POST(req: NextRequest) {
     });
     // Re-prompt loop if the caller doesn't speak after our reply.
     twiml.say(
-      { voice: "Polly.Joanna-Neural" },
+      { voice: pollyVoice },
       "Are you still there? I'm happy to help with anything else.",
     );
     twiml.redirect({ method: "POST" }, "/api/twilio/voice");

@@ -1,8 +1,9 @@
 import { PageHeader } from "@/components/admin/page-header";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getSetting } from "@/lib/data/settings";
+import { getSetting, getAiVoiceSettings } from "@/lib/data/settings";
 import { COMPANY } from "@/lib/constants";
 import { SettingsForm } from "@/components/admin/settings-form";
+import { AiVoiceSettingsForm } from "@/components/admin/ai-voice-settings-form";
 import { CatalogManager } from "@/components/admin/catalog-manager";
 import { AgreementEditor } from "@/components/admin/agreement-editor";
 import { Alert } from "@/components/ui/misc";
@@ -12,6 +13,7 @@ export default async function SettingsPage() {
   const company = await getSetting<Record<string, unknown>>("company_profile", {});
   const tax = await getSetting<Record<string, unknown>>("tax", {});
   const rules = await getSetting<Record<string, unknown>>("booking_rules", {});
+  const voice = await getAiVoiceSettings();
 
   const companyValue = {
     name: String(company.name ?? COMPANY.name),
@@ -78,6 +80,7 @@ export default async function SettingsPage() {
           tax={taxValue}
           bookingRules={bookingValue}
         />
+        <AiVoiceSettingsForm initial={voice} />
         <CatalogManager addOns={addOns} fees={fees} />
         <AgreementEditor
           templateId={template?.id ?? null}

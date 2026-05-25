@@ -73,3 +73,27 @@ export async function getBookingRules() {
     require_deposit: true,
   });
 }
+
+export interface AiVoiceSettings {
+  /** "polly" = legacy Twilio TTS + Gather + chat. "realtime" = OpenAI Realtime via bridge. */
+  mode: "polly" | "realtime";
+  /** Polly voice name when mode = polly. e.g. Polly.Joanna-Neural, Polly.Matthew-Neural */
+  voice: string;
+  /** OpenAI Realtime voice when mode = realtime. e.g. coral, ash, nova, shimmer, verse */
+  realtime_voice: string;
+}
+
+/**
+ * AI receptionist voice configuration. Lets the operator A/B-test voices
+ * and switch between the legacy Polly stack and the OpenAI Realtime stack
+ * without redeploying code.
+ */
+export async function getAiVoiceSettings(): Promise<AiVoiceSettings> {
+  const v = await getSetting<Record<string, unknown>>("ai_voice", {});
+  const mode = v.mode === "realtime" ? "realtime" : "polly";
+  return {
+    mode,
+    voice: String(v.voice || "Polly.Joanna-Neural"),
+    realtime_voice: String(v.realtime_voice || "coral"),
+  };
+}

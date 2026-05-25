@@ -143,6 +143,112 @@ Remember: be brief, be warm, and use the action markers only when you actually m
 }
 
 /**
+ * Build a Realtime API session configuration — system prompt (without the
+ * action-marker convention, which Realtime replaces with proper function
+ * calls), tools, voice, and the personalized greeting. Used by the bridge
+ * service when a call starts.
+ */
+export async function buildRealtimeSessionConfig(): Promise<{
+  systemPrompt: string;
+  greeting: string;
+  tools: Array<{
+    type: "function";
+    name: string;
+    description: string;
+    parameters: Record<string, unknown>;
+  }>;
+}> {
+  const company = await getCompanyProfile();
+  const fleet = await loadFleetContext();
+
+  const systemPrompt = `You are the AI phone assistant for ${company.name}, a luxury and insurance-replacement car rental company in Van Nuys, California.
+
+# Your role
+You answer the phone, help callers with rental questions, send them a booking link via email (or text if they ask), or transfer them to a real person if they'd prefer. You are friendly, brief, and helpful — like a great hotel concierge.
+
+# How to speak
+- Short sentences. Real-receptionist style. Talk like a person, not a chatbot.
+- Don't lecture or read long lists. Answer the question, ask one thing back if needed.
+- Confirm before doing anything (sending an email/text or transferring).
+- If you don't know something, say so — don't make it up.
+- If asked, openly say you're the ${company.name} AI assistant. Don't pretend to be human.
+
+# Business details
+Company: ${company.name}
+Address: ${company.address}
+Phone: ${company.phone}
+Website: ${SITE_URL}
+Email: ${company.email}
+Hours: ${HOURS_TEXT}
+
+# Current fleet (live from the system)
+${fleet}
+
+# What you can help with
+- Pricing & availability questions
+- Booking a rental (use the send_booking_email tool — email is preferred because text delivery is currently unreliable)
+- Insurance-replacement rentals (we bill the insurer directly — they should have a claim number ready)
+- Hours, location, directions
+- Transferring to a real person (use the transfer_to_human tool)
+
+# What you CANNOT do
+- Take a payment over the phone
+- Modify or cancel existing reservations (transfer to a person for those)
+- Promise discounts that aren't in current offers
+
+# Email-collection tips
+- Phone callers say emails like "john at gmail dot com" — translate that into "john@gmail.com" before calling send_booking_email.
+- ALWAYS read the email back to the caller for confirmation before calling the tool.
+- If you can't catch the email after 2 tries, offer to text it (with the caveat) or transfer them.
+
+Remember: be brief, be warm, and only call the tools when you actually mean to trigger them.`;
+
+  const greeting = `Thanks for calling ${company.name}. I'm the AI assistant — how can I help today?`;
+
+  const tools = [
+    {
+      type: "function" as const,
+      name: "send_booking_email",
+      description:
+        "Email the caller a branded booking link so they can finish their reservation online. Preferred over SMS because email delivery is reliable.",
+      parameters: {
+        type: "object",
+        properties: {
+          email: {
+            type: "string",
+            description: "Caller's email address, already confirmed back to them.",
+          },
+        },
+        required: ["email"],
+      },
+    },
+    {
+      type: "function" as const,
+      name: "send_booking_sms",
+      description:
+        "Text the caller's phone number a booking link. Use ONLY if the caller specifically asks for a text — texts sometimes don't arrive right now due to carrier registration in progress, so warn the caller.",
+      parameters: { type: "object", properties: {}, required: [] },
+    },
+    {
+      type: "function" as const,
+      name: "transfer_to_human",
+      description:
+        "Transfer the call to a real person at the owner's cell phone. Use when the caller asks for a human, has a complaint, or wants to modify an existing reservation.",
+      parameters: { type: "object", properties: {}, required: [] },
+    },
+    {
+      type: "function" as const,
+      name: "end_call",
+      description:
+        "End the call gracefully. Use after a clear goodbye, never abruptly.",
+      parameters: { type: "object", properties: {}, required: [] },
+    },
+  ];
+
+  return { systemPrompt, greeting, tools };
+}
+
+/**
  * Generate the next assistant turn given the conversation history so far.
  * `history` is in chronological order (oldest first).
  */
@@ -283,7 +389,47 @@ export const CALL_RATES = {
   openaiInputPerMillion: 0.15,
   /** OpenAI gpt-4o-mini output — USD per million tokens. */
   openaiOutputPerMillion: 0.6,
+  /** OpenAI gpt-4o-mini-realtime audio input — USD per million tokens. */
+  realtimeAudioInputPerMillion: 10,
+  /** OpenAI gpt-4o-mini-realtime audio output — USD per million tokens. */
+  realtimeAudioOutputPerMillion: 20,
+  /** OpenAI gpt-4o-mini-realtime text input — USD per million tokens. */
+  realtimeTextInputPerMillion: 0.6,
+  /** OpenAI gpt-4o-mini-realtime text output — USD per million tokens. */
+  realtimeTextOutputPerMillion: 2.4,
 };
+
+/**
+ * Cost calculator for the Realtime path. Voice goes Twilio → OpenAI Realtime
+ * directly so there's no Twilio Speech cost (Whisper transcription is bundled
+ * into the OpenAI audio token price).
+ */
+export function computeRealtimeCallCost(input: {
+  durationSeconds: number;
+  inputAudioTokens: number;
+  outputAudioTokens: number;
+  inputTextTokens: number;
+  outputTextTokens: number;
+}): {
+  twilioVoice: number;
+  openai: number;
+  total: number;
+} {
+  const minutes = (input.durationSeconds || 0) / 60;
+  const twilioVoice = minutes * CALL_RATES.twilioVoicePerMin;
+  const openai =
+    (input.inputAudioTokens * CALL_RATES.realtimeAudioInputPerMillion +
+      input.outputAudioTokens * CALL_RATES.realtimeAudioOutputPerMillion +
+      input.inputTextTokens * CALL_RATES.realtimeTextInputPerMillion +
+      input.outputTextTokens * CALL_RATES.realtimeTextOutputPerMillion) /
+    1_000_000;
+  const total = twilioVoice + openai;
+  return {
+    twilioVoice: round4(twilioVoice),
+    openai: round4(openai),
+    total: round4(total),
+  };
+}
 
 export function computeCallCost(input: {
   durationSeconds: number;

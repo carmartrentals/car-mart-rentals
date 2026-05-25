@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: cmr-twilio-bridge
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: services/twilio-bridge
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: APP_BASE_URL
+        value: https://www.carmartrentals.com
+      - key: BRIDGE_SECRET
+        generateValue: true
+      - key: OPENAI_REALTIME_MODEL
+        value: gpt-4o-mini-realtime-preview-2024-12-17

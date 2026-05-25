@@ -1,0 +1,25 @@
+{
+  "name": "cmr-twilio-bridge",
+  "version": "1.0.0",
+  "description": "WebSocket bridge that connects Twilio Media Streams to OpenAI Realtime API for the Car Mart Rentals AI phone receptionist.",
+  "private": true,
+  "main": "dist/server.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "tsx watch src/server.ts"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/ws": "^8.5.13",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

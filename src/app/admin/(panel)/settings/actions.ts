@@ -51,6 +51,44 @@ export async function saveGeneralSettings(input: {
   return { ok: true };
 }
 
+// --- AI receptionist voice --------------------------------------------------
+export async function saveAiVoiceSettings(input: {
+  mode: "polly" | "realtime";
+  voice: string;
+  realtime_voice: string;
+}): Promise<ActionState> {
+  const user = await requireSettingsAccess();
+  if (!user)
+    return { ok: false, error: "Only a Super Admin can change voice settings." };
+
+  const mode = input.mode === "realtime" ? "realtime" : "polly";
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("settings")
+    .upsert(
+      {
+        key: "ai_voice",
+        value: {
+          mode,
+          voice: input.voice || "Polly.Joanna-Neural",
+          realtime_voice: input.realtime_voice || "coral",
+        },
+        category: "ai",
+      } as never,
+      { onConflict: "key" },
+    );
+  if (error) return { ok: false, error: error.message };
+
+  await logActivity({
+    userId: user.id,
+    action: "settings.ai_voice_updated",
+    entityType: "settings",
+    description: `Voice mode: ${mode}, Polly: ${input.voice}, Realtime: ${input.realtime_voice}`,
+  });
+  revalidatePath("/admin/settings");
+  return { ok: true };
+}
+
 // --- Add-ons ----------------------------------------------------------------
 export async function saveAddOn(input: {
   id?: string;
