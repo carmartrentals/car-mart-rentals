@@ -130,6 +130,12 @@ export interface Customer {
   dl_dmv_check_notes: string | null;
   dl_dmv_check_data: Record<string, unknown> | null;
   license_risk_level: string | null;
+  // Enhanced insurance verification (migration 0025)
+  insurance_ai_check_at: string | null;
+  insurance_ai_check_score: number | null;
+  insurance_ai_check_flags: string[] | null;
+  insurance_ai_check_summary: string | null;
+  insurance_risk_level: string | null;
   stripe_verification_session_id: string | null;
   referral_code: string | null;
   notes: string | null;

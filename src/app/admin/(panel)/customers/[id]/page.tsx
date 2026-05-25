@@ -13,6 +13,7 @@ import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { DeleteButton } from "@/components/admin/delete-button";
 import { CustomerDocuments } from "@/components/admin/customer-documents";
 import { LicenseVerificationCard } from "@/components/admin/license-verification-card";
+import { InsuranceVerificationCard } from "@/components/admin/insurance-verification-card";
 import { getIdentitySummary, type IdentitySummary } from "@/lib/identity";
 import { RESERVATION_STATUS } from "@/lib/constants";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -166,6 +167,7 @@ export default async function CustomerDetailPage({
                 : undefined
             }
           />
+          <InsuranceVerificationCard customer={c} />
           <CustomerDocuments customer={c} identity={identity} />
 
           <div className="grid gap-4 sm:grid-cols-3">
