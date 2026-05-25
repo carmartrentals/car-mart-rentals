@@ -17,6 +17,8 @@ import type {
 
 export interface ReceptionistAction {
   sendBookingLink?: boolean;
+  /** When AI emits [SEND_BOOKING_EMAIL: foo@example.com], the parsed email. */
+  sendBookingEmail?: string;
   transfer?: boolean;
   endCall?: boolean;
 }
@@ -103,7 +105,7 @@ ${fleet}
 - Promise discounts that aren't in current offers
 
 # Actions you can take (include the marker in your reply text — our system removes it before speaking)
-- [SEND_BOOKING_LINK] — sends an SMS with the website to the caller's number. Use after the caller agrees they want to book online.
+- [SEND_BOOKING_EMAIL: email@example.com] — emails the caller a branded booking link. **Always ask the caller for their email first**, repeat it back to confirm, then emit this marker with their exact email substituted in. Email delivery is more reliable than text right now.
 - [TRANSFER] — transfers the call to a real person at the owner's cell phone. Use if the caller specifically asks for a human, has a complaint, or wants to modify an existing reservation.
 - [END_CALL] — ends the call gracefully. Use after a clear goodbye, never abruptly.
 
@@ -113,16 +115,25 @@ Caller: "How much is the Mercedes?"
 You: "We have the Mercedes-AMG GLE 53 Coupe at $349 a day, and the Mercedes-Benz S500 at $399 a day. Were you looking at a specific date range?"
 
 Caller: "I want to book one."
-You: "Awesome — easiest way is I text you a link to our booking page, you pick your dates, and you're done in about a minute. Want me to send that?"
+You: "Awesome — easiest way is I email you a link to our booking page, you pick your dates, and you're done in about a minute. What's a good email for that?"
 
-Caller: "Yes please."
-You: "Sending that now. [SEND_BOOKING_LINK] You should get the text in a few seconds. Anything else I can help with?"
+Caller: "It's john at gmail dot com."
+You: "Got it — john at gmail dot com, right?"
+
+Caller: "Yes."
+You: "Sending that now. [SEND_BOOKING_EMAIL: john@gmail.com] You should see it in your inbox in a few seconds. Anything else I can help with?"
 
 Caller: "I'd rather just talk to someone."
 You: "Of course — let me get you over to our team right now. [TRANSFER]"
 
 Caller: "Thanks, that's all."
 You: "Thanks for calling ${company.name}. Have a great day! [END_CALL]"
+
+# Email-collection tips
+- Phone callers say emails like "john at gmail dot com" — translate that into "john@gmail.com" when emitting the marker.
+- ALWAYS read the email back to the caller for confirmation before sending.
+- If the caller spells it (j-o-h-n) write it down letter-by-letter, then confirm.
+- If you can't catch the email after 2 tries, offer to text it instead (caveat: SMS isn't always reliable) or transfer them to a person.
 
 Remember: be brief, be warm, and use the action markers only when you actually mean to trigger them.`;
 }
@@ -155,14 +166,25 @@ export async function generateReceptionistTurn(
   // Parse out action markers — strip them from spoken text.
   const action: ReceptionistAction = {};
   let spoken = raw;
-  const markers: { re: RegExp; key: keyof ReceptionistAction }[] = [
+
+  // Email marker with an embedded address.
+  const emailMatch = spoken.match(
+    /\[SEND_BOOKING_EMAIL:\s*([^\s\]]+@[^\s\]]+\.[^\s\]]+)\s*\]/i,
+  );
+  if (emailMatch) {
+    action.sendBookingEmail = emailMatch[1].trim();
+    spoken = spoken.replace(emailMatch[0], " ").replace(/\s+/g, " ").trim();
+  }
+
+  // Boolean markers.
+  const boolMarkers: { re: RegExp; key: keyof ReceptionistAction }[] = [
     { re: /\[SEND_BOOKING_LINK\]/gi, key: "sendBookingLink" },
     { re: /\[TRANSFER\]/gi, key: "transfer" },
     { re: /\[END_CALL\]/gi, key: "endCall" },
   ];
-  for (const { re, key } of markers) {
+  for (const { re, key } of boolMarkers) {
     if (re.test(spoken)) {
-      action[key] = true;
+      (action[key] as boolean | undefined) = true;
       spoken = spoken.replace(re, " ").replace(/\s+/g, " ").trim();
     }
   }

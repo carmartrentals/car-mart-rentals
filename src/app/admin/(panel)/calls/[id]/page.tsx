@@ -5,6 +5,7 @@ import {
   Phone,
   Clock,
   MessageSquare,
+  Mail,
   PhoneForwarded,
   Sparkles,
   User,
@@ -211,9 +212,18 @@ export default async function CallDetailPage({
                   {call.status}
                 </Badge>
               </Row>
+              {call.email_sent && (
+                <Row label="Email booking link" icon={Mail}>
+                  <span className="text-emerald-700">
+                    Sent to {call.caller_email ?? "caller"} ✓
+                  </span>
+                </Row>
+              )}
               {call.sms_sent && (
                 <Row label="SMS booking link" icon={MessageSquare}>
-                  <span className="text-emerald-700">Sent during call ✓</span>
+                  <span className="text-amber-700">
+                    Attempted (may be blocked — A2P 10DLC)
+                  </span>
                 </Row>
               )}
               {call.transferred && (

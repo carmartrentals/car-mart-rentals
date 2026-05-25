@@ -7,6 +7,7 @@ import {
   sendSms,
 } from "@/lib/twilio";
 import { generateReceptionistTurn, CALL_RATES } from "@/lib/ai-receptionist";
+import { notifyCustomer } from "@/lib/notifications";
 import { SITE_URL } from "@/lib/constants";
 import type { CallTranscriptEntry } from "@/lib/types/database";
 
@@ -51,7 +52,9 @@ export async function POST(req: NextRequest) {
   // Load the existing call row so we can append to its transcript.
   const { data: existing } = await admin
     .from("call_logs")
-    .select("transcript, sms_sent, transferred, prompt_tokens, completion_tokens")
+    .select(
+      "transcript, sms_sent, email_sent, transferred, prompt_tokens, completion_tokens",
+    )
     .eq("call_sid", callSid)
     .maybeSingle();
   const transcript: CallTranscriptEntry[] = Array.isArray(existing?.transcript)
@@ -92,7 +95,17 @@ export async function POST(req: NextRequest) {
 
   // Ask the AI for the next reply.
   let spoken = "";
-  let action = { sendBookingLink: false, transfer: false, endCall: false };
+  let action: {
+    sendBookingLink: boolean;
+    sendBookingEmail: string | null;
+    transfer: boolean;
+    endCall: boolean;
+  } = {
+    sendBookingLink: false,
+    sendBookingEmail: null,
+    transfer: false,
+    endCall: false,
+  };
   let turnPromptTokens = 0;
   let turnCompletionTokens = 0;
   try {
@@ -100,6 +113,7 @@ export async function POST(req: NextRequest) {
     spoken = turn.spoken;
     action = {
       sendBookingLink: Boolean(turn.action.sendBookingLink),
+      sendBookingEmail: turn.action.sendBookingEmail ?? null,
       transfer: Boolean(turn.action.transfer),
       endCall: Boolean(turn.action.endCall),
     };
@@ -127,7 +141,55 @@ export async function POST(req: NextRequest) {
     cost: Math.round(turnCost * 10_000) / 10_000,
   });
 
-  // Execute the SMS-booking-link action if requested.
+  // Execute the EMAIL-booking-link action if requested. Email is the
+  // primary delivery channel because US SMS without A2P 10DLC registration
+  // is unreliable — carriers silently drop it (Twilio error 30034).
+  let emailSent = Boolean(existing?.email_sent);
+  let callerEmail: string | null = null;
+  if (action.sendBookingEmail) {
+    const email = action.sendBookingEmail.trim();
+    // Belt-and-suspenders email validation since the address came out of
+    // speech recognition (often gets "john at gmail dot com" wrong).
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      try {
+        await notifyCustomer({
+          type: "ai_receptionist_booking_link",
+          to: email,
+          subject: "Your Car Mart Rentals booking link",
+          heading: "Ready to book your rental",
+          intro:
+            "Thanks for calling Car Mart Rentals! Here's the link to browse our fleet and complete your reservation in about a minute.",
+          rows: [
+            { label: "Pickup location", value: "Van Nuys, CA" },
+            {
+              label: "Need help",
+              value: "Reply to this email or call us back any time.",
+            },
+          ],
+          cta: { label: "Browse the Fleet", path: "/vehicles" },
+        });
+        emailSent = true;
+        callerEmail = email;
+        console.log("ai-receptionist: booking-link email sent", {
+          callSid,
+          to: email,
+        });
+      } catch (e) {
+        console.error("ai-receptionist: booking-link email failed", {
+          callSid,
+          to: email,
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
+    } else {
+      console.error("ai-receptionist: invalid email from AI marker", {
+        callSid,
+        email,
+      });
+    }
+  }
+
+  // Execute the SMS-booking-link action if requested (legacy / A2P-ready).
   let smsSent = Boolean(existing?.sms_sent);
   if (action.sendBookingLink && caller) {
     try {
@@ -159,16 +221,16 @@ export async function POST(req: NextRequest) {
 
   // Persist the updated transcript + flags + accumulated token usage.
   try {
-    await admin
-      .from("call_logs")
-      .update({
-        transcript,
-        sms_sent: smsSent,
-        transferred,
-        prompt_tokens: priorPromptTokens + turnPromptTokens,
-        completion_tokens: priorCompletionTokens + turnCompletionTokens,
-      })
-      .eq("call_sid", callSid);
+    const update: Record<string, unknown> = {
+      transcript,
+      sms_sent: smsSent,
+      transferred,
+      prompt_tokens: priorPromptTokens + turnPromptTokens,
+      completion_tokens: priorCompletionTokens + turnCompletionTokens,
+    };
+    if (emailSent) update.email_sent = true;
+    if (callerEmail) update.caller_email = callerEmail;
+    await admin.from("call_logs").update(update).eq("call_sid", callSid);
   } catch {
     /* persistence is best-effort */
   }

@@ -473,6 +473,8 @@ export interface CallLog {
   caller_name: string | null;
   transferred: boolean;
   sms_sent: boolean;
+  email_sent: boolean;
+  caller_email: string | null;
   // Cost accounting (filled after the call ends).
   prompt_tokens: number;
   completion_tokens: number;

@@ -3,6 +3,7 @@ import {
   PhoneCall,
   ArrowRight,
   MessageSquare,
+  Mail,
   PhoneForwarded,
   DollarSign,
 } from "lucide-react";
@@ -196,9 +197,15 @@ export default async function CallsPage() {
                       {c.ai_summary || "(no summary)"}
                     </span>
                     <span className="mt-1 flex items-center gap-3 text-xs text-slate-400">
+                      {c.email_sent && (
+                        <span className="inline-flex items-center gap-1 text-emerald-700">
+                          <Mail className="h-3 w-3" /> Email sent
+                          {c.caller_email ? ` — ${c.caller_email}` : ""}
+                        </span>
+                      )}
                       {c.sms_sent && (
                         <span className="inline-flex items-center gap-1">
-                          <MessageSquare className="h-3 w-3" /> SMS sent
+                          <MessageSquare className="h-3 w-3" /> SMS attempted
                         </span>
                       )}
                       {c.transferred && (
