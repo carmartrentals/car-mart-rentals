@@ -62,16 +62,44 @@ export async function runAiLicenseCheck(
     isExpired,
   });
 
-  await admin
-    .from("customers")
-    .update({
-      dl_ai_check_at: new Date().toISOString(),
-      dl_ai_check_score: inspection.score,
-      dl_ai_check_flags: inspection.flags,
-      dl_ai_check_summary: inspection.summary,
-      license_risk_level: risk,
-    })
-    .eq("id", customerId);
+  // Auto-fill the printed license fields the AI extracted, but only when
+  // the customer record's field is currently empty — never overwrite
+  // operator-typed values.
+  const extracted = inspection.extracted ?? {};
+  const update: Record<string, string | number | string[] | null> = {
+    dl_ai_check_at: new Date().toISOString(),
+    dl_ai_check_score: inspection.score,
+    dl_ai_check_flags: inspection.flags,
+    dl_ai_check_summary: inspection.summary,
+    license_risk_level: risk,
+  };
+  const filled: string[] = [];
+  if (!customer.dl_number && extracted.licenseNumber) {
+    update.dl_number = String(extracted.licenseNumber).trim();
+    filled.push("license #");
+  }
+  if (!customer.dl_state && extracted.state) {
+    update.dl_state = String(extracted.state).toUpperCase().slice(0, 2);
+    filled.push("state");
+  }
+  if (
+    !customer.dl_expiration &&
+    extracted.expirationDate &&
+    /^\d{4}-\d{2}-\d{2}$/.test(extracted.expirationDate)
+  ) {
+    update.dl_expiration = extracted.expirationDate;
+    filled.push("expiration");
+  }
+  if (
+    !customer.date_of_birth &&
+    extracted.dateOfBirth &&
+    /^\d{4}-\d{2}-\d{2}$/.test(extracted.dateOfBirth)
+  ) {
+    update.date_of_birth = extracted.dateOfBirth;
+    filled.push("date of birth");
+  }
+
+  await admin.from("customers").update(update).eq("id", customerId);
 
   await logActivity({
     userId: user.id,
@@ -80,10 +108,13 @@ export async function runAiLicenseCheck(
     entityId: customerId,
     description: `Score ${inspection.score} · risk ${risk}${
       inspection.flags.length ? " · flags: " + inspection.flags.join(", ") : ""
-    }`,
+    }${filled.length ? " · auto-filled: " + filled.join(", ") : ""}`,
   });
 
   revalidatePath(`/admin/customers/${customerId}`);
+  // Any reservation showing this customer's license fields needs to re-render
+  // with the freshly extracted data.
+  revalidatePath("/admin/reservations", "layout");
   return { ok: true };
 }
 
