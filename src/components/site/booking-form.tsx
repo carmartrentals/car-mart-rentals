@@ -3,16 +3,38 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { CheckCircle2, Loader2, ShieldCheck, Tag, X } from "lucide-react";
+import {
+  CheckCircle2,
+  Loader2,
+  ShieldCheck,
+  Tag,
+  X,
+  User,
+  Plus,
+  FileCheck,
+  Lock,
+  Clock,
+} from "lucide-react";
 import type { Vehicle, AddOn } from "@/lib/types/database";
 import { formatCurrency, formatDateTime, rentalDays, bestRate } from "@/lib/utils";
 import { saveBookingDraft, validatePromoCode } from "@/app/(site)/booking/actions";
 import { trackEvent } from "@/lib/analytics";
 
 const INPUT_CLASS =
-  "h-10 w-full rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-white " +
+  "h-10 w-full rounded-lg border border-white/10 bg-white/5 px-3 pr-9 text-sm text-white " +
   "placeholder:text-slate-500 focus:border-gold-400 focus:outline-none " +
   "focus:ring-2 focus:ring-gold-400/25";
+
+// Lightweight client-side validators — used to decide when to show the
+// green "looks good" checkmark in the Input field. The server still
+// validates definitively on submit.
+function isValid(value: string, type: string): boolean {
+  const v = value.trim();
+  if (!v) return false;
+  if (type === "email") return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+  if (type === "tel") return v.replace(/\D/g, "").length >= 10;
+  return v.length >= 1;
+}
 
 interface Prefill {
   first_name: string;
@@ -227,19 +249,25 @@ export function BookingForm({
   }
 
   return (
-    <form onSubmit={submit} className="grid gap-8 lg:grid-cols-[1.5fr_1fr]">
+    <form
+      onSubmit={submit}
+      // Extra bottom padding on mobile so the sticky checkout bar doesn't
+      // overlap the last content. Cleared at lg+ where the bar is hidden.
+      className="grid gap-8 pb-28 lg:grid-cols-[1.5fr_1fr] lg:pb-0"
+    >
       {/* ------------------------------------------------------------- LEFT */}
       <div className="space-y-6">
         <section className="glass rounded-2xl p-6">
-          <h2 className="text-base font-semibold text-white">
-            Driver Information
-          </h2>
-          {prefill && (
-            <p className="mt-1 text-xs text-gold-300">
-              Pre-filled from your account — just check everything is still
-              correct.
-            </p>
-          )}
+          <SectionHeader
+            icon={User}
+            step={1}
+            title="Driver Information"
+            description={
+              prefill
+                ? "Pre-filled from your account — just check everything is still correct."
+                : "Tell us who'll be driving so we can prepare the rental agreement."
+            }
+          />
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <Input label="First Name" required value={form.first_name}
               onChange={(v) => setField("first_name", v)} />
@@ -344,9 +372,12 @@ export function BookingForm({
 
         {addOns.length > 0 && (
           <section className="glass rounded-2xl p-6">
-            <h2 className="text-base font-semibold text-white">
-              Enhance Your Rental
-            </h2>
+            <SectionHeader
+              icon={Plus}
+              step={2}
+              title="Enhance Your Rental"
+              description="Optional extras to make your trip better. Add or skip as you like."
+            />
             <div className="mt-4 space-y-2.5">
               {addOns.map((a) => (
                 <label
@@ -382,10 +413,13 @@ export function BookingForm({
         )}
 
         <section className="glass rounded-2xl p-6">
-          <h2 className="text-base font-semibold text-white">
-            Documents & Payment
-          </h2>
-          <p className="mt-2 text-sm text-slate-400">
+          <SectionHeader
+            icon={FileCheck}
+            step={addOns.length > 0 ? 3 : 2}
+            title="Documents & Payment"
+            description="How we'll wrap things up after you confirm."
+          />
+          <p className="mt-3 text-sm text-slate-400">
             After you submit this request, our team will securely collect your
             driver license, proof of insurance, and process your payment and
             refundable deposit. You will e-sign the rental agreement at pickup.
@@ -492,13 +526,84 @@ export function BookingForm({
             {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
             {submitting ? "Submitting..." : "Confirm Reservation"}
           </button>
-          <p className="mt-3 flex items-center justify-center gap-1.5 text-xs text-slate-400">
-            <ShieldCheck className="h-3.5 w-3.5 text-gold-300" />
-            Secure request — no charge until confirmed
-          </p>
+
+          {/* Trust strip — three reassurance points stacked on a narrow
+              summary card. Reduces last-second hesitation when the visitor
+              is about to commit to a luxury rental. */}
+          <ul className="mt-3 space-y-1.5 text-xs text-slate-400">
+            <li className="flex items-center gap-1.5">
+              <Lock className="h-3.5 w-3.5 shrink-0 text-gold-300" />
+              Secure request — your info is encrypted in transit
+            </li>
+            <li className="flex items-center gap-1.5">
+              <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-gold-300" />
+              No charge until our team confirms availability
+            </li>
+            <li className="flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5 shrink-0 text-gold-300" />
+              Free cancellation up to 24 hours before pickup
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      {/* ------------------------------------------- MOBILE STICKY CHECKOUT */}
+      {/* On phones the price summary is way below the form, so the visitor
+          can't see the total while filling fields and has to scroll to
+          submit. This bar pins the total + a second submit button to the
+          bottom of the viewport on mobile only (lg:hidden). The button is
+          inside the same <form>, so it submits naturally. */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-brand-950/95 px-4 py-3 backdrop-blur-md lg:hidden">
+        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[10px] uppercase tracking-wide text-slate-400">
+              Total · {days} day{days === 1 ? "" : "s"}
+            </p>
+            <p className="truncate text-lg font-bold text-white">
+              {formatCurrency(quote.total)}
+            </p>
+          </div>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-gold-500 px-4 py-2.5 text-sm font-semibold text-brand-950 transition-colors hover:bg-white disabled:opacity-50"
+          >
+            {submitting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              "Confirm"
+            )}
+          </button>
         </div>
       </div>
     </form>
+  );
+}
+
+function SectionHeader({
+  icon: Icon,
+  step,
+  title,
+  description,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  step: number;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gold-400/30 bg-gold-500/10 text-gold-300">
+        <Icon className="h-4 w-4" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-gold-300">
+          Step {step}
+        </p>
+        <h2 className="text-base font-semibold text-white">{title}</h2>
+        <p className="mt-0.5 text-xs text-slate-400">{description}</p>
+      </div>
+    </div>
   );
 }
 
@@ -512,20 +617,32 @@ function Input({
   type?: string;
   required?: boolean;
 }) {
+  // Show the green "looks good" check only after the visitor has typed
+  // SOMETHING and the value validates. Empty fields stay neutral so the
+  // form doesn't feel scolding before they've started.
+  const valid = isValid(value, type);
   return (
     <div>
       <label className="mb-1.5 block text-sm font-medium text-slate-300">
         {label}
         {required && <span className="ml-0.5 text-rose-400">*</span>}
       </label>
-      <input
-        type={type}
-        value={value}
-        required={required}
-        onChange={(e) => onChange(e.target.value)}
-        onBlur={onBlur}
-        className={INPUT_CLASS}
-      />
+      <div className="relative">
+        <input
+          type={type}
+          value={value}
+          required={required}
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={onBlur}
+          className={INPUT_CLASS}
+        />
+        {valid && (
+          <CheckCircle2
+            className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-emerald-400"
+            aria-label="Looks good"
+          />
+        )}
+      </div>
     </div>
   );
 }
